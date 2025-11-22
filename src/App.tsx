@@ -6,10 +6,14 @@ import DashboardPanel from './components/DashboardPanel';
 import MarketGrid from './components/MarketGrid';
 import LoadingSpinner from './components/LoadingSpinner';
 import PanelErrorBoundary from './components/PanelErrorBoundary';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, Newspaper, Calendar } from 'lucide-react';
 import ThemeProvider from './components/ThemeProvider';
 import ErrorBoundary from './components/ErrorBoundary';
 import AlphaPanel from './components/AlphaPanel.tsx';
+import NewsTicker from './components/NewsTicker.tsx';
+import NewsFeed from './components/NewsFeed.tsx';
+import EconomicCalendar from './components/EconomicCalendar';
+import TabPanel from './components/TabPanel';
 
 const ChartContainer = React.lazy(() => import('./components/ChartContainer'));
 
@@ -62,6 +66,9 @@ const App: React.FC = () => {
                         </div>
                     </header>
 
+                    {/* News Ticker */}
+                    <NewsTicker />
+
                     {/* Main Content Grid - 3 Column Layout */}
                     <div className="main-content">
                         <PanelGroup direction="horizontal">
@@ -77,14 +84,16 @@ const App: React.FC = () => {
 
                             <PanelResizeHandle className="resize-handle" />
 
-                            {/* COLUMN 2: Chart & Options (60%) */}
-                            <Panel defaultSize={60} minSize={40}>
+                            {/* COLUMN 2: Chart & Quant Signals (55%) */}
+                            <Panel defaultSize={55} minSize={40}>
                                 <PanelGroup direction="vertical">
                                     {/* Top: Main Chart (70%) */}
                                     <Panel defaultSize={70}>
                                         <DashboardPanel title={`Chart - ${selectedSymbol}`}>
                                             <PanelErrorBoundary>
-                                                <ChartContainer symbol={selectedSymbol} />
+                                                <Suspense fallback={<LoadingSpinner />}>
+                                                    <ChartContainer symbol={selectedSymbol} />
+                                                </Suspense>
                                             </PanelErrorBoundary>
                                         </DashboardPanel>
                                     </Panel>
@@ -106,11 +115,45 @@ const App: React.FC = () => {
 
                             <PanelResizeHandle className="resize-handle" />
 
-                            {/* COLUMN 3: Alpha Factors (25%) */}
-                            <Panel defaultSize={25} minSize={20} maxSize={30}>
-                                <DashboardPanel title="Alpha Factors">
-                                    <AlphaPanel symbol={selectedSymbol} interval="15m" />
-                                </DashboardPanel>
+                            {/* COLUMN 3: Alpha Factors & News (30%) */}
+                            <Panel defaultSize={30} minSize={20} maxSize={35}>
+                                <PanelGroup direction="vertical">
+                                    {/* Top: Alpha Factors (50%) */}
+                                    <Panel defaultSize={50}>
+                                        <DashboardPanel title="Alpha Factors">
+                                            <PanelErrorBoundary>
+                                                <AlphaPanel symbol={selectedSymbol} interval="15m" />
+                                            </PanelErrorBoundary>
+                                        </DashboardPanel>
+                                    </Panel>
+
+                                    <PanelResizeHandle className="resize-handle" />
+
+                                    {/* Bottom: News & Calendar (50%) */}
+                                    <Panel defaultSize={50}>
+                                        <DashboardPanel title="Market Intelligence">
+                                            <PanelErrorBoundary>
+                                                <TabPanel
+                                                    tabs={[
+                                                        {
+                                                            id: 'news',
+                                                            label: 'News',
+                                                            icon: <Newspaper size={12} />,
+                                                            content: <NewsFeed symbol={selectedSymbol} maxItems={15} />
+                                                        },
+                                                        {
+                                                            id: 'calendar',
+                                                            label: 'Calendar',
+                                                            icon: <Calendar size={12} />,
+                                                            content: <EconomicCalendar />
+                                                        }
+                                                    ]}
+                                                    defaultTab="news"
+                                                />
+                                            </PanelErrorBoundary>
+                                        </DashboardPanel>
+                                    </Panel>
+                                </PanelGroup>
                             </Panel>
 
                         </PanelGroup>
