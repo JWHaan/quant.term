@@ -55,11 +55,23 @@ const VaRChart = ({ returns = [] }) => {
 
         results.sort((a, b) => a - b);
 
-        // Calculate VaR
+        // Calculate VaR and update state in a separate function
+        const updateVaRValues = () => {
+            const idx95 = Math.floor(simulations * 0.05);
+            const idx99 = Math.floor(simulations * 0.01);
+            const var95Value = results[idx95] * 100;
+            const var99Value = results[idx99] * 100;
+            
+            setVar95(var95Value);
+            setVar99(var99Value);
+        };
+
+        // Use setTimeout to defer state updates
+        setTimeout(updateVaRValues, 0);
+
+        // Calculate VaR indices for histogram coloring
         const idx95 = Math.floor(simulations * 0.05);
         const idx99 = Math.floor(simulations * 0.01);
-        setVar95(results[idx95] * 100);
-        setVar99(results[idx99] * 100);
 
         // Histogram Data
         const bins = 50;

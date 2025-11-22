@@ -5,7 +5,7 @@ import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
  * Statistical Arbitrage Panel
  * Mean reversion, z-score analysis, and pair trading signals
  */
-export const StatisticalArbitrage = ({ returns = [], price = 0 }) => {
+export const StatisticalArbitrage = ({ returns = [] }) => {
     const analysis = useMemo(() => {
         if (!returns || returns.length < 20) {
             return {

@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Activity } from 'lucide-react';
 
+// Column positions for the time & sales tape
+const COLUMNS = {
+    TIME: 10,
+    PRICE: 70,
+    SIZE: 150,
+    TOTAL: 220,
+    SIDE: 290,
+};
+
 /**
  * Canvas Time & Sales (High Performance)
  * Uses HTML5 Canvas to render trade tape at 60 FPS
@@ -14,7 +23,6 @@ const CanvasTimeAndSales = ({ symbol = 'BTCUSDT' }) => {
     // Data buffer (Mutable, no re-renders)
     const tradesRef = useRef([]);
     const statsRef = useRef({ tps: 0, vwap: 0, buyPressure: 50, volume: 0 });
-    const lastDrawTimeRef = useRef(0);
     const animationFrameRef = useRef(null);
 
     // React state only for low-frequency stats updates (1Hz)
@@ -24,13 +32,6 @@ const CanvasTimeAndSales = ({ symbol = 'BTCUSDT' }) => {
     const MAX_TRADES = 50; // Visible trades
     const ROW_HEIGHT = 20;
     const FONT_SIZE = 11;
-    const COLUMNS = {
-        TIME: 10,
-        PRICE: 70,
-        SIZE: 150,
-        TOTAL: 220,
-        SIDE: 290
-    };
 
     useEffect(() => {
         if (!symbol) return;
@@ -72,7 +73,7 @@ const CanvasTimeAndSales = ({ symbol = 'BTCUSDT' }) => {
         wsRef.current = ws;
 
         // Animation Loop
-        const render = (timestamp) => {
+        const render = () => {
             const canvas = canvasRef.current;
             const ctx = canvas?.getContext('2d');
 

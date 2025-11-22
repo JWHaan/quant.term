@@ -2,6 +2,37 @@ import React from 'react';
 import { useFundamentals } from '../hooks/useFundamentals';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
+const MetricRow = ({ label, value, change }) => (
+    <div className="smooth-transition" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '8px 12px',
+        borderBottom: '1px solid var(--border-color)',
+        fontSize: '12px',
+        cursor: 'default'
+    }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+    >
+        <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', color: '#fff' }}>{value}</span>
+            {change !== undefined && change !== null && (
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: change >= 0 ? 'var(--accent-primary)' : 'var(--accent-danger)',
+                    fontSize: '11px'
+                }}>
+                    {change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    {Math.abs(change).toFixed(2)}%
+                </span>
+            )}
+        </div>
+    </div>
+);
+
 const FundamentalsPanel = React.memo(({ symbol }) => {
     const fundamentals = useFundamentals(symbol);
 
@@ -38,37 +69,6 @@ const FundamentalsPanel = React.memo(({ symbol }) => {
             </div>
         );
     }
-
-    const MetricRow = ({ label, value, change, isPercentage = false }) => (
-        <div className="smooth-transition" style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '8px 12px',
-            borderBottom: '1px solid var(--border-color)',
-            fontSize: '12px',
-            cursor: 'default'
-        }}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-        >
-            <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', color: '#fff' }}>{value}</span>
-                {change !== undefined && change !== null && (
-                    <span style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        color: change >= 0 ? 'var(--accent-primary)' : 'var(--accent-danger)',
-                        fontSize: '11px'
-                    }}>
-                        {change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                        {Math.abs(change).toFixed(2)}%
-                    </span>
-                )}
-            </div>
-        </div>
-    );
 
     return (
         <div style={{ height: '100%', overflow: 'auto', fontFamily: 'var(--font-ui)' }}>

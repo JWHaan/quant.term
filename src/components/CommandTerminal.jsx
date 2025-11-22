@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Terminal } from 'lucide-react';
 import { useMarketStore } from '@/stores/marketStore';
 
@@ -18,7 +18,7 @@ const CommandTerminal = ({ onExecute }) => {
     const { setSymbol } = useMarketStore();
 
     // Command definitions
-    const COMMANDS = [
+    const COMMANDS = useMemo(() => [
         { cmd: 'WL', desc: 'Watchlist Monitor', action: () => console.log('Open Watchlist') },
         { cmd: 'NEWS', desc: 'News Ticker', action: () => console.log('Open News') },
         { cmd: 'HEAT', desc: 'Market Heatmap', action: () => console.log('Open Heatmap') },
@@ -28,13 +28,13 @@ const CommandTerminal = ({ onExecute }) => {
         { cmd: 'RISK', desc: 'Risk Analytics', action: () => console.log('Open Risk') },
         { cmd: 'ALERTS', desc: 'Alert Manager', action: () => console.log('Open Alerts') },
         { cmd: 'HELP', desc: 'Show Help', action: () => console.log('Show Help') },
-    ];
+    ], []);
 
     // Crypto assets for autocomplete
-    const ASSETS = [
+    const ASSETS = useMemo(() => [
         'BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'AVAX', 'DOGE', 'DOT', 'MATIC', 'LINK',
         'LTC', 'UNI', 'ATOM', 'ETC', 'XLM', 'FIL', 'BCH', 'APT', 'NEAR', 'QNT'
-    ];
+    ], []);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -57,8 +57,8 @@ const CommandTerminal = ({ onExecute }) => {
 
     useEffect(() => {
         if (!input) {
-            setSuggestions([]);
-            return;
+            const timeoutId = setTimeout(() => setSuggestions([]), 0);
+            return () => clearTimeout(timeoutId);
         }
 
         const upperInput = input.toUpperCase();
@@ -69,19 +69,23 @@ const CommandTerminal = ({ onExecute }) => {
         // Find matching assets
         const assetMatches = ASSETS.filter(a => a.startsWith(upperInput)).map(a => ({
             cmd: a,
-            desc: `${a} Crypto Asset`,
-            isAsset: true
+            desc: `${a}USDT`,
+            action: () => setSymbol(`${a}USDT`)
         }));
 
-        setSuggestions([...cmdMatches, ...assetMatches].slice(0, 5));
-    }, [input]);
+        const timeoutId = setTimeout(() => {
+            setSuggestions([...cmdMatches, ...assetMatches].slice(0, 5));
+        }, 0);
+        
+        return () => clearTimeout(timeoutId);
+    }, [input, ASSETS, COMMANDS, setSymbol]);
 
     const executeCommand = (cmdItem) => {
         const command = cmdItem.cmd;
 
         if (cmdItem.isAsset) {
             // It's an asset, load it
-            const symbol = `${command} USDT`;
+            const symbol = `${command}USDT`;
             setSymbol(symbol);
             // Also trigger any parent callback
             if (onExecute) onExecute({ type: 'ASSET', payload: symbol });

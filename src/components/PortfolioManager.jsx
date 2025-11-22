@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { usePortfolioStore } from '@/stores/portfolioStore';
-import { useMarketStore } from '@/stores/marketStore';
 import { TrendingUp, TrendingDown, X, Plus, Edit2, Wallet } from 'lucide-react';
 
 /**
@@ -10,7 +9,6 @@ import { TrendingUp, TrendingDown, X, Plus, Edit2, Wallet } from 'lucide-react';
 export const PortfolioManager = ({ currentPrice, symbol }) => {
     const { positions, addPosition, closePosition, deletePosition, getStats } = usePortfolioStore();
     const [showForm, setShowForm] = useState(false);
-    const [editingPosition, setEditingPosition] = useState(null);
 
     const stats = getStats();
     const openPositions = positions.filter(p => p.status === 'open' && p.symbol === symbol);
@@ -90,7 +88,6 @@ export const PortfolioManager = ({ currentPrice, symbol }) => {
                         currentPrice={currentPrice}
                         onClose={(exitPrice) => {
                             closePosition(position.id, exitPrice);
-                            setEditingPosition(null);
                         }}
                         onDelete={() => deletePosition(position.id)}
                     />

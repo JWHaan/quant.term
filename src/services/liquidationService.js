@@ -58,7 +58,7 @@ export const subscribeLiquidations = (onLiquidation) => {
  * Note: Binance does not provide historical aggregates via free API
  * This returns a placeholder - consider using Coinglass API with authentication
  */
-export const fetchLiquidationStats = async (symbol) => {
+export const fetchLiquidationStats = async () => {
     console.warn('[LiquidationService] Aggregated stats not available without paid API');
     return {
         totalLiquidations: 0,

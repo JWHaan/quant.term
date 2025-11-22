@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Calculator, TrendingUp, TrendingDown } from 'lucide-react';
 
 const OptionCalculator = () => {
@@ -13,7 +13,7 @@ const OptionCalculator = () => {
     const [results, setResults] = useState({ call: 0, put: 0, d1: 0, d2: 0 });
 
     // Black-Scholes Formula
-    const calculateBS = () => {
+    const calculateBS = useCallback(() => {
         const S = parseFloat(params.spot);
         const K = parseFloat(params.strike);
         const T = parseFloat(params.time) / 365;
@@ -41,11 +41,12 @@ const OptionCalculator = () => {
             d1: isNaN(d1) ? 0 : d1,
             d2: isNaN(d2) ? 0 : d2
         });
-    };
+    }, [params]);
 
     useEffect(() => {
-        calculateBS();
-    }, [params]);
+        const timeoutId = setTimeout(() => calculateBS(), 0);
+        return () => clearTimeout(timeoutId);
+    }, [calculateBS]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;

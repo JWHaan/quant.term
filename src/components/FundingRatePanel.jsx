@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { futuresWS } from '@/services/binanceFutures';
-import { useMarketStore } from '@/stores/marketStore';
 import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
 
 /**

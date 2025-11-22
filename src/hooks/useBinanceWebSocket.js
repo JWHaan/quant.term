@@ -1,92 +1,75 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws';
+// HTTP endpoint for market data (works even when WebSockets are blocked)
+const BINANCE_REST_URL = 'https://api.binance.com';
 
 export const useBinanceWebSocket = (symbol = 'btcusdt', interval = '1m') => {
     const [trades, setTrades] = useState([]);
     const [candle, setCandle] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
-    const wsRef = useRef(null);
 
-    const currentCandleRef = useRef(null);
+    const pollRef = useRef(null);
 
     useEffect(() => {
-        const wsSymbol = symbol.toLowerCase();
-        const ws = new WebSocket(`${BINANCE_WS_URL}/stream?streams=${wsSymbol}@trade/${wsSymbol}@kline_${interval}`);
-        wsRef.current = ws;
+        const sym = symbol.toUpperCase();
 
-        ws.onopen = () => {
-            console.log(`Connected to Binance WebSocket (${interval})`);
-            setIsConnected(true);
-        };
+        const fetchLatest = async () => {
+            try {
+                // Latest kline for the selected interval
+                const res = await fetch(
+                    `${BINANCE_REST_URL}/api/v3/klines?symbol=${sym}&interval=${interval}&limit=2`,
+                );
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) return;
 
-        ws.onmessage = (event) => {
-            const wrapper = JSON.parse(event.data);
-            const message = wrapper.data;
-
-            // Handle Kline (Candle) Data - Source of Truth
-            if (message && message.e === 'kline') {
-                const k = message.k;
+                const k = data[data.length - 1];
                 const newCandle = {
-                    time: k.t / 1000,
-                    open: parseFloat(k.o),
-                    high: parseFloat(k.h),
-                    low: parseFloat(k.l),
-                    close: parseFloat(k.c),
-                    volume: parseFloat(k.v)
+                    time: k[0] / 1000,
+                    open: parseFloat(k[1]),
+                    high: parseFloat(k[2]),
+                    low: parseFloat(k[3]),
+                    close: parseFloat(k[4]),
+                    volume: parseFloat(k[5]),
                 };
-                currentCandleRef.current = newCandle;
                 setCandle(newCandle);
-            }
+                setIsConnected(true);
 
-            // Handle Trade Data - Real-time Updates
-            if (message && message.e === 'trade') {
-                const price = parseFloat(message.p);
-                const qty = parseFloat(message.q);
-
-                const trade = {
-                    id: message.t,
-                    time: new Date(message.T).toLocaleTimeString(),
-                    price: price,
-                    size: qty,
-                    side: message.m ? 'SELL' : 'BUY',
-                    symbol: message.s
-                };
-                setTrades(prev => [trade, ...prev].slice(0, 50));
-
-                // Optimistic Candle Update
-                if (currentCandleRef.current) {
-                    const c = currentCandleRef.current;
-                    // Only update if trade is within or after the current candle time
-                    // (Simple check: ensure we don't update a closed candle if kline stream lags)
-                    // Actually, for live charting, we just want to update the "latest" candle we have.
-
-                    const updatedCandle = {
-                        ...c,
-                        close: price,
-                        high: Math.max(c.high, price),
-                        low: Math.min(c.low, price),
-                        volume: c.volume + qty
-                    };
-
-                    currentCandleRef.current = updatedCandle;
-                    setCandle(updatedCandle);
+                // Optional: fetch last trades snapshot for tape-style panels
+                try {
+                    const tradesRes = await fetch(
+                        `${BINANCE_REST_URL}/api/v3/trades?symbol=${sym}&limit=50`,
+                    );
+                    const tradesJson = await tradesRes.json();
+                    if (Array.isArray(tradesJson)) {
+                        const mappedTrades = tradesJson.map((t) => ({
+                            id: t.id,
+                            time: new Date(t.time).toLocaleTimeString(),
+                            price: parseFloat(t.price),
+                            size: parseFloat(t.qty),
+                            side: t.isBuyerMaker ? 'SELL' : 'BUY',
+                            symbol: sym,
+                        }));
+                        setTrades(mappedTrades);
+                    }
+                } catch {
+                    // Ignore trade fetch errors; candle data is primary
                 }
+            } catch (e) {
+                console.error('Failed to fetch REST market data:', e);
+                setIsConnected(false);
             }
         };
 
-        ws.onclose = () => {
-            console.log('Disconnected from Binance WebSocket');
-            setIsConnected(false);
-        };
+        // Initial fetch
+        fetchLatest();
 
-        ws.onerror = (error) => {
-            console.error('WebSocket Error:', error);
-        };
+        // Poll every 3 seconds for near-real-time updates
+        pollRef.current = setInterval(fetchLatest, 3000);
 
         return () => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.close();
+            if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
             }
         };
     }, [symbol, interval]);

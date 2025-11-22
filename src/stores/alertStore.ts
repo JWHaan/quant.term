@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AlertState, Alert, AlertCondition } from '@/types/stores';
 
 /**
@@ -160,6 +160,19 @@ class AlertEngine {
 
 const alertEngine = new AlertEngine();
 
+// Storage adapter that works both in the browser and in test/non-DOM environments
+const alertStorage = createJSONStorage(() => {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage;
+    }
+    // Vitest / Node or environments without localStorage: use a no-op storage
+    return {
+        getItem: () => null,
+        setItem: () => { },
+        removeItem: () => { },
+    } as any;
+});
+
 export const useAlertStore = create<AlertState>()(
     persist(
         (set, get) => ({
@@ -247,6 +260,7 @@ export const useAlertStore = create<AlertState>()(
         }),
         {
             name: 'alert-store',
+            storage: alertStorage,
             partialize: (state) => ({
                 alerts: state.alerts.map(a => ({
                     ...a,

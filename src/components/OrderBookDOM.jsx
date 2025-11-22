@@ -184,7 +184,7 @@ const OrderBookDOM = ({ symbol = 'BTCUSDT' }) => {
 
             {/* Ladder */}
             <div style={{ flex: 1, overflowY: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                {rows.map((row, i) => (
+                {rows.map((row) => (
                     <Row key={`${row.type}-${row.price}`} {...row} />
                 ))}
             </div>

@@ -1,4 +1,3 @@
-import { alternativeClient } from './apiClient';
 import toast from 'react-hot-toast';
 
 /**

@@ -229,7 +229,7 @@ class MultiAssetWebSocket {
      * Disconnect all
      */
     disconnectAll() {
-        this.connections.forEach((connection, groupKey) => {
+        this.connections.forEach((connection) => {
             connection.ws.close();
             if (connection.heartbeat) clearInterval(connection.heartbeat);
         });

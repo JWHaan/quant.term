@@ -13,7 +13,6 @@ const QuantSignalEngine = () => {
     // Fetch Data & Calculate Signals
     useEffect(() => {
         const analyzeMarket = async () => {
-            setLoading(true);
             try {
                 // Fetch 500 candles for 15m timeframe (good for intraday trend)
                 const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${selectedSymbol}&interval=15m&limit=200`);
@@ -66,13 +65,37 @@ const QuantSignalEngine = () => {
                 if (macdSignal === 'BULLISH') score += 20;
                 else score -= 20;
 
-                setSignals({
+                const nextSignals = {
                     rsi,
                     bbPosition,
                     macdSignal,
                     atrPercent,
                     score,
                     price: lastClose
+                };
+
+                // Only update state when values meaningfully change to avoid noisy re-renders
+                setSignals(prev => {
+                    if (!prev) {
+                        return nextSignals;
+                    }
+
+                    const diff = {
+                        rsi: Math.abs(prev.rsi - nextSignals.rsi),
+                        bb: Math.abs(prev.bbPosition - nextSignals.bbPosition),
+                        atr: Math.abs(prev.atrPercent - nextSignals.atrPercent),
+                        score: Math.abs(prev.score - nextSignals.score),
+                    };
+
+                    const macdChanged = prev.macdSignal !== nextSignals.macdSignal;
+                    const meaningfulChange =
+                        diff.rsi > 0.5 ||
+                        diff.bb > 0.02 ||
+                        diff.atr > 0.1 ||
+                        diff.score >= 1 ||
+                        macdChanged;
+
+                    return meaningfulChange ? nextSignals : prev;
                 });
 
                 // Check alert conditions
@@ -88,14 +111,16 @@ const QuantSignalEngine = () => {
             } catch (error) {
                 console.error("Quant Engine Error:", error);
             } finally {
+                // Once we've run at least once, stop showing the initializing state
                 setLoading(false);
             }
         };
 
+        setLoading(true);
         analyzeMarket();
         const interval = setInterval(analyzeMarket, 5000); // Update every 5s
         return () => clearInterval(interval);
-    }, [selectedSymbol]);
+    }, [selectedSymbol, checkMarketConditions]);
 
     if (loading || !signals) {
         return (

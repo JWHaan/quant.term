@@ -55,7 +55,7 @@ export interface AlertState {
     history: Array<Alert & { triggeredAt: number }>;
 
     // Actions
-    addAlert: (alert: Omit<Alert, 'id' | 'createdAt' | 'triggered'>) => void;
+    addAlert: (alert: Omit<Alert, 'id' | 'createdAt' | 'triggered'>) => string;
     removeAlert: (id: string) => void;
     toggleAlert: (id: string) => void;
     updateAlert: (id: string, updates: Partial<Alert>) => void;

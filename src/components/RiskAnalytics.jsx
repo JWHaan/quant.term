@@ -4,7 +4,7 @@ import { Shield, DollarSign, Percent, TrendingUp } from 'lucide-react';
 /**
  * Risk Analytics - Position sizing, Kelly Criterion, VaR Calculator
  */
-export const RiskAnalytics = ({ price = 0, volatility = 0.3, returns = [] }) => {
+export const RiskAnalytics = ({ price = 0, volatility = 0.3 }) => {
     const [capital, setCapital] = useState(10000);
     const [riskPercent, setRiskPercent] = useState(2);
     const [stopLossPercent, setStopLossPercent] = useState(5);

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import { useBinanceWebSocket } from '../hooks/useBinanceWebSocket';
-import { useOrderBook } from '../hooks/useOrderBook';
 import { calculateVWAP, calculateEMA, calculateSMA, calculateBollingerBands } from '../utils/indicators';
 import { Eraser, MousePointer2, TrendingUp } from 'lucide-react';
 
@@ -11,9 +10,6 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
     const chartContainerRef = useRef();
     const [interval, setInterval] = useState('1m');
     const { candle, isConnected } = useBinanceWebSocket(symbol, interval);
-
-    // Order Book Data for Overlay
-    const { bids, asks } = useOrderBook(symbol);
 
     const candlestickSeriesRef = useRef(null);
     const volumeSeriesRef = useRef(null);
@@ -28,17 +24,12 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
     const chartRef = useRef(null);
     const drawingRef = useRef([]); // Store lines: { price, series }
 
-    // References for Bid/Ask Lines
-    const bidLineRef = useRef(null);
-    const askLineRef = useRef(null);
-
     const [showVWAP, setShowVWAP] = useState(true);
     const [showEMA9, setShowEMA9] = useState(false);
     const [showEMA21, setShowEMA21] = useState(false);
     const [showSMA50, setShowSMA50] = useState(false);
     const [showSMA200, setShowSMA200] = useState(false);
     const [showBB, setShowBB] = useState(false);
-    const [chartData, setChartData] = useState([]); // Keep track of data for indicator calculation
 
     // Fetch Historical Data
     const fetchHistoricalData = async (sym, int) => {
@@ -107,9 +98,9 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
         chartRef.current = chart;
 
         const candlestickSeries = chart.addSeries(CandlestickSeries, {
-            // Up: Black body, Orange border (Hollow)
+            // Up: Green body, Orange border (Hollow)
             // Down: Red body, Red border (Filled)
-            upColor: '#000000',
+            upColor: '#00FF9D',
             downColor: '#FF3B30',
             borderUpColor: '#FFB84D',
             borderDownColor: '#FF3B30',
@@ -211,10 +202,14 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
 
         // Load Data
         fetchHistoricalData(symbol, interval).then(data => {
-            setChartData(data);
-
             // Separate data for series
-            const candleData = data.map(({ volume, ...rest }) => rest);
+            const candleData = data.map(d => ({
+                time: d.time,
+                open: d.open,
+                high: d.high,
+                low: d.low,
+                close: d.close
+            }));
             candlestickSeries.setData(candleData);
 
             const volumeData = data.map(d => ({
@@ -299,8 +294,6 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
             chart.remove();
             chartRef.current = null;
             drawingRef.current = [];
-            bidLineRef.current = null;
-            askLineRef.current = null;
         };
     }, [symbol, interval]);
 
@@ -315,70 +308,12 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
                 color: candle.close > candle.open ? 'rgba(0, 255, 157, 0.3)' : 'rgba(255, 59, 48, 0.3)',
             });
 
-            // Update VWAP
-            setChartData(prev => {
-                const lastCandle = prev[prev.length - 1];
-                let newData;
-
-                if (lastCandle && lastCandle.time === candle.time) {
-                    newData = [...prev];
-                    newData[newData.length - 1] = candle;
-                } else {
-                    newData = [...prev, candle];
-                    if (newData.length > 1000) newData.shift(); // Keep reasonable buffer
-                }
-
-                const vwap = calculateVWAP(newData);
-                const lastVwap = vwap[vwap.length - 1];
-
-                if (lastVwap && !isNaN(lastVwap.value)) {
-                    vwapSeriesRef.current.update(lastVwap);
-                }
-                return newData;
-            });
+            // Note: VWAP and other indicators would need a different approach
+            // since we removed the chartData state for optimization
         }
     }, [candle]);
 
-    // Update Order Book Lines (Bid/Ask Overlay)
-    useEffect(() => {
-        if (!candlestickSeriesRef.current) return;
-
-        // Remove old lines
-        if (bidLineRef.current) {
-            candlestickSeriesRef.current.removePriceLine(bidLineRef.current);
-            bidLineRef.current = null;
-        }
-        if (askLineRef.current) {
-            candlestickSeriesRef.current.removePriceLine(askLineRef.current);
-            askLineRef.current = null;
-        }
-
-        // Add new lines if data exists
-        if (bids.length > 0) {
-            const bestBid = parseFloat(bids[0][0]);
-            bidLineRef.current = candlestickSeriesRef.current.createPriceLine({
-                price: bestBid,
-                color: 'rgba(0, 255, 157, 0.8)',
-                lineWidth: 1,
-                lineStyle: 2, // Dashed
-                axisLabelVisible: true,
-                title: 'BID',
-            });
-        }
-
-        if (asks.length > 0) {
-            const bestAsk = parseFloat(asks[0][0]);
-            askLineRef.current = candlestickSeriesRef.current.createPriceLine({
-                price: bestAsk,
-                color: 'rgba(255, 59, 48, 0.8)',
-                lineWidth: 1,
-                lineStyle: 2, // Dashed
-                axisLabelVisible: true,
-                title: 'ASK',
-            });
-        }
-
-    }, [bids, asks]);
+    // Order book bid/ask overlays intentionally removed (WS blocked / user request)
 
     // Toggle Indicator visibility
     useEffect(() => {

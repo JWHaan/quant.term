@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { multiAssetWS } from '../services/multiAssetWebSocket';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TOP_CRYPTOS } from '../data/cryptoAssets';
 import { TrendingUp, TrendingDown, Search } from 'lucide-react';
+
+const BINANCE_REST_URL = 'https://api.binance.com';
 
 /**
  * Market Grid - Bloomberg-style live watchlist
@@ -14,31 +15,53 @@ const MarketGrid = ({ onSelectSymbol }) => {
     const [sortDir, setSortDir] = useState('desc');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Subscribe to all symbols on mount
+    // Poll Binance REST API for 24h ticker data (works even when WebSockets are blocked)
     useEffect(() => {
+        let cancelled = false;
+
         const symbols = TOP_CRYPTOS.map(c => c.symbol);
 
-        const handleUpdate = ({ symbol, data }) => {
-            setMarketData(prev => {
-                const next = new Map(prev);
-                const existing = next.get(symbol) || {};
+        const fetchTickers = async () => {
+            try {
+                const next = new Map();
 
-                // Merge with existing data
-                next.set(symbol, {
-                    ...existing,
-                    ...data,
-                    name: TOP_CRYPTOS.find(c => c.symbol === symbol)?.name || symbol,
-                    category: TOP_CRYPTOS.find(c => c.symbol === symbol)?.category || 'Other'
-                });
+                // Binance supports batch-like fetch via repeated requests; keep it simple and sequential
+                for (const symbol of symbols) {
+                    try {
+                        const res = await fetch(`${BINANCE_REST_URL}/api/v3/ticker/24hr?symbol=${symbol}`);
+                        const data = await res.json();
+                        if (!cancelled && data && !data.code) {
+                            const meta = TOP_CRYPTOS.find(c => c.symbol === symbol);
+                            next.set(symbol, {
+                                symbol,
+                                name: meta?.name || symbol,
+                                category: meta?.category || 'Other',
+                                price: parseFloat(data.lastPrice),
+                                priceChangePercent: parseFloat(data.priceChangePercent),
+                                quoteVolume: parseFloat(data.quoteVolume),
+                            });
+                        }
+                    } catch {
+                        // Ignore individual symbol errors
+                    }
+                }
 
-                return next;
-            });
+                if (!cancelled) {
+                    setMarketData(next);
+                }
+            } catch {
+                if (!cancelled) {
+                    // Keep previous data on error
+                }
+            }
         };
 
-        multiAssetWS.subscribe(symbols, handleUpdate);
+        fetchTickers();
+        const id = setInterval(fetchTickers, 15000);
 
         return () => {
-            multiAssetWS.unsubscribe(symbols, handleUpdate);
+            cancelled = true;
+            clearInterval(id);
         };
     }, []);
 
