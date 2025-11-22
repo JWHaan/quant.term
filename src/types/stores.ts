@@ -61,6 +61,7 @@ export interface AlertState {
     updateAlert: (id: string, updates: Partial<Alert>) => void;
     triggerAlert: (id: string) => void;
     clearTriggeredAlerts: () => void;
+    clearAlerts: () => void;
     checkAlerts: (symbol: string, price: number, indicators?: Record<string, number>) => void;
 
     // Getters

@@ -4,10 +4,11 @@ import { describe, test, beforeEach, expect } from 'vitest';
 describe('alertStore', () => {
     beforeEach(() => {
         // Reset store state before each test
-        const { clearTriggeredAlerts, clearHistory } = useAlertStore.getState();
+        const { clearTriggeredAlerts, clearHistory, clearAlerts } = useAlertStore.getState();
         act(() => {
             clearTriggeredAlerts();
             clearHistory();
+            clearAlerts();
         });
     });
 

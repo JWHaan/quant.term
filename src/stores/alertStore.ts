@@ -156,16 +156,28 @@ class AlertEngine {
     setAlerts(alerts: Alert[]): void {
         this.alerts = alerts;
     }
+    clearAlerts(): void {
+        this.alerts = [];
+    }
 }
 
 const alertEngine = new AlertEngine();
 
 // Storage adapter that works both in the browser and in test/non-DOM environments
 const alertStorage = createJSONStorage(() => {
+    // Disable persistence in test environment to avoid issues
+    if (process.env.NODE_ENV === 'test') {
+        return {
+            getItem: () => null,
+            setItem: () => { },
+            removeItem: () => { },
+        } as any;
+    }
+
     if (typeof window !== 'undefined' && window.localStorage) {
         return window.localStorage;
     }
-    // Vitest / Node or environments without localStorage: use a no-op storage
+
     return {
         getItem: () => null,
         setItem: () => { },
@@ -209,12 +221,18 @@ export const useAlertStore = create<AlertState>()(
                 alertEngine.triggerAlert(id);
                 set(state => ({
                     alerts: alertEngine.getAlerts(),
-                    triggeredAlerts: [...state.triggeredAlerts, id]
+                    triggeredAlerts: [...state.triggeredAlerts, id],
+                    history: alertEngine.getHistory()
                 }));
             },
 
             clearTriggeredAlerts: () => {
                 set({ triggeredAlerts: [] });
+            },
+
+            clearAlerts: () => {
+                alertEngine.clearAlerts();
+                set({ alerts: [], triggeredAlerts: [] });
             },
 
             checkAlerts: (symbol: string, price: number, indicators?: Record<string, number>) => {
