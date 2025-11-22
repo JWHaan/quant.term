@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { useAlertStore } from '@/stores/alertStore';
-import { ALERT_TYPES } from '../utils/AlertEngine';
 import { Bell, BellOff, Plus, Trash2, Clock } from 'lucide-react';
+
+// Alert types (previously from AlertEngine)
+const ALERT_TYPES = {
+    PRICE_ABOVE: 'price_above',
+    PRICE_BELOW: 'price_below',
+    RSI_OVERBOUGHT: 'rsi_overbought',
+    RSI_OVERSOLD: 'rsi_oversold',
+    VOLUME_SPIKE: 'volume_spike',
+    OFI_FLIP: 'ofi_flip',
+    SIGNAL_CHANGE: 'signal_change',
+    LIQUIDATION_LARGE: 'liquidation_large'
+};
 
 const AlertPanel = () => {
     const { alerts, history, addAlert, removeAlert, toggleAlert, clearHistory } = useAlertStore();
