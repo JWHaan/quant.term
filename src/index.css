@@ -1,0 +1,350 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+  /* Bloomberg Terminal Color Palette */
+  --bg-app: #000000;
+  --bg-panel: #000000;
+  --border-color: #FF8000;
+  --border-subtle: #4D4D4D;
+
+  /* Text Colors */
+  --text-primary: #FF8000;
+  /* Bloomberg Orange */
+  --text-secondary: #FFB84D;
+  /* Light Amber */
+  --text-muted: #808080;
+  /* Gray */
+
+  /* Accent Colors */
+  --accent-primary: #FF8000;
+  /* Bloomberg Orange */
+  --accent-secondary: #FFB84D;
+  /* Light Amber */
+  --accent-success: #00D084;
+  /* Green */
+  --accent-warning: #FFD700;
+  /* Gold */
+  --accent-danger: #FF3B30;
+  /* Red */
+
+  /* Font */
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: none;
+  /* Crisp pixel look */
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-app);
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+}
+
+.app-header {
+  height: 40px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-app);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  text-transform: uppercase;
+}
+
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-text h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--accent-primary);
+}
+
+.logo-text .version {
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-profile .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+}
+
+.app-footer {
+  height: 24px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-app);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 20px;
+}
+
+.status-item .label {
+  color: var(--text-secondary);
+  font-size: 9px;
+}
+
+.status-item .value {
+  color: var(--text-primary);
+  font-size: 9px;
+}
+
+.status-item .value.good {
+  color: var(--accent-primary);
+}
+
+.status-item.right {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+/* TUI Utilities */
+.glass-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+  border-radius: 0;
+  /* Sharp corners */
+}
+
+/* Ensure full height */
+#root,
+.app-container,
+.main-content {
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Global Box Sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Scanline Effect (Optional, subtle) */
+.app-container::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  z-index: 9999;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+}
+
+/* Custom Scrollbar - Blocky */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+  border-left: 1px solid #333;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent-primary);
+  border: 1px solid #000;
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00cc00;
+}
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations - Removed smooth fades for snappy feel */
+.fade-in {
+  opacity: 1;
+}
+
+.slide-in-up {
+  transform: none;
+  opacity: 1;
+}
+
+.slide-in-right {
+  transform: none;
+  opacity: 1;
+}
+
+/* CRT Flicker Animation */
+@keyframes flicker {
+  0% {
+    opacity: 0.97;
+  }
+
+  5% {
+    opacity: 0.95;
+  }
+
+  10% {
+    opacity: 0.9;
+  }
+
+  15% {
+    opacity: 0.95;
+  }
+
+  20% {
+    opacity: 0.99;
+  }
+
+  25% {
+    opacity: 0.95;
+  }
+
+  30% {
+    opacity: 0.9;
+  }
+
+  35% {
+    opacity: 0.96;
+  }
+
+  40% {
+    opacity: 0.98;
+  }
+
+  45% {
+    opacity: 0.95;
+  }
+
+  50% {
+    opacity: 0.99;
+  }
+
+  55% {
+    opacity: 0.93;
+  }
+
+  60% {
+    opacity: 0.9;
+  }
+
+  65% {
+    opacity: 0.96;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  75% {
+    opacity: 0.97;
+  }
+
+  80% {
+    opacity: 0.95;
+  }
+
+  85% {
+    opacity: 0.92;
+  }
+
+  90% {
+    opacity: 0.98;
+  }
+
+  95% {
+    opacity: 0.99;
+  }
+
+  100% {
+    opacity: 0.96;
+  }
+}
+
+/* Text Glow */
+.text-glow {
+  text-shadow: 0 0 4px var(--accent-primary);
+}
+
+/* Utility Classes */
+.border-glow {
+  border-color: var(--accent-primary);
+}
+
+button {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  border-radius: 0 !important;
+  /* Force sharp corners */
+}
