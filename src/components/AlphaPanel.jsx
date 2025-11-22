@@ -122,7 +122,8 @@ const AlphaPanel = ({ symbol = 'BTCUSDT', interval = '15m' }) => {
                     });
                     setSeries({ closes, ema20: ema20Points, vol: volSeries, drawdown: ddSeries });
                 }
-            } catch (e) {
+            } catch (error) {
+                console.error('[AlphaPanel] Failed to fetch data:', error);
                 if (!cancelled) {
                     setAlpha((prev) => ({ ...prev, loaded: false }));
                 }
