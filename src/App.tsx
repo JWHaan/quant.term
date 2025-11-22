@@ -3,7 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useMarketStore } from './stores/marketStore';
 import { useConnectionStore } from './stores/connectionStore';
 import DashboardPanel from './components/DashboardPanel';
-import MarketGrid from './components/MarketGrid';
+import MarketGrid from './components/MarketGrid.jsx';
 import LoadingSpinner from './components/LoadingSpinner';
 import PanelErrorBoundary from './components/PanelErrorBoundary';
 import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame } from 'lucide-react';
@@ -17,7 +17,7 @@ import TabPanel from './components/TabPanel';
 import OrderBookDOM from './components/OrderBookDOM.tsx';
 import LiquidationFeed from './components/LiquidationFeed.tsx';
 
-const ChartContainer = React.lazy(() => import('./components/ChartContainer'));
+const ChartContainer = React.lazy(() => import('./components/ChartContainer.jsx'));
 
 import PerformancePanel from './components/PerformancePanel';
 // Lazy Load Secondary/Heavy Analytics
