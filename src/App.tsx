@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useRef } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useMarketStore } from './stores/marketStore';
 import { useConnectionStore } from './stores/connectionStore';
@@ -16,6 +16,8 @@ import EconomicCalendar from './components/EconomicCalendar';
 import TabPanel from './components/TabPanel';
 import OrderBookDOM from './components/OrderBookDOM.tsx';
 import LiquidationFeed from './components/LiquidationFeed.tsx';
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 const ChartContainer = React.lazy(() => import('./components/ChartContainer.jsx'));
 
@@ -27,8 +29,48 @@ const App: React.FC = () => {
     const { selectedSymbol, setSymbol } = useMarketStore();
     const connections = useConnectionStore(state => state.connections);
 
+    // Panel refs for keyboard focus
+    const marketWatchRef = useRef<HTMLDivElement>(null);
+    const chartRef = useRef<HTMLDivElement>(null);
+    const alphaRef = useRef<HTMLDivElement>(null);
+    const newsRef = useRef<HTMLDivElement>(null);
+
     // Calculate overall status
     const isGlobalConnected = Object.values(connections).every(status => status === 'connected');
+
+    // Keyboard shortcuts
+    const { showHelp, setShowHelp, shortcuts } = useKeyboardShortcuts({
+        shortcuts: [
+            {
+                key: '1',
+                ctrl: true,
+                description: 'Focus Market Watch',
+                action: () => marketWatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                category: 'panels'
+            },
+            {
+                key: '2',
+                ctrl: true,
+                description: 'Focus Chart',
+                action: () => chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                category: 'panels'
+            },
+            {
+                key: '3',
+                ctrl: true,
+                description: 'Focus Alpha Panel',
+                action: () => alphaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                category: 'panels'
+            },
+            {
+                key: '4',
+                ctrl: true,
+                description: 'Focus News',
+                action: () => newsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+                category: 'panels'
+            }
+        ]
+    });
 
     return (
         <ThemeProvider>
@@ -211,6 +253,13 @@ const App: React.FC = () => {
                         </div>
                         <PerformancePanel />
                     </footer>
+
+                    {/* Keyboard Shortcuts Modal */}
+                    <KeyboardShortcutsModal
+                        shortcuts={shortcuts}
+                        isOpen={showHelp}
+                        onClose={() => setShowHelp(false)}
+                    />
                 </div>
             </ErrorBoundary>
         </ThemeProvider>
