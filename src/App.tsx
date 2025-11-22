@@ -6,7 +6,7 @@ import DashboardPanel from './components/DashboardPanel';
 import MarketGrid from './components/MarketGrid';
 import LoadingSpinner from './components/LoadingSpinner';
 import PanelErrorBoundary from './components/PanelErrorBoundary';
-import { Wifi, WifiOff, Newspaper, Calendar } from 'lucide-react';
+import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame } from 'lucide-react';
 import ThemeProvider from './components/ThemeProvider';
 import ErrorBoundary from './components/ErrorBoundary';
 import AlphaPanel from './components/AlphaPanel.tsx';
@@ -14,6 +14,8 @@ import NewsTicker from './components/NewsTicker.tsx';
 import NewsFeed from './components/NewsFeed.tsx';
 import EconomicCalendar from './components/EconomicCalendar';
 import TabPanel from './components/TabPanel';
+import OrderBookDOM from './components/OrderBookDOM.tsx';
+import LiquidationFeed from './components/LiquidationFeed.tsx';
 
 const ChartContainer = React.lazy(() => import('./components/ChartContainer'));
 
@@ -84,11 +86,11 @@ const App: React.FC = () => {
 
                             <PanelResizeHandle className="resize-handle" />
 
-                            {/* COLUMN 2: Chart & Quant Signals (55%) */}
+                            {/* COLUMN 2: Chart, Quant Signals & OrderBook (55%) */}
                             <Panel defaultSize={55} minSize={40}>
                                 <PanelGroup direction="vertical">
-                                    {/* Top: Main Chart (70%) */}
-                                    <Panel defaultSize={70}>
+                                    {/* Top: Main Chart (50%) */}
+                                    <Panel defaultSize={50}>
                                         <DashboardPanel title={`Chart - ${selectedSymbol}`}>
                                             <PanelErrorBoundary>
                                                 <Suspense fallback={<LoadingSpinner />}>
@@ -100,13 +102,40 @@ const App: React.FC = () => {
 
                                     <PanelResizeHandle className="resize-handle" />
 
-                                    {/* Bottom: Quant Signals (30%) */}
-                                    <Panel defaultSize={30}>
+                                    {/* Middle: Quant Signals (25%) */}
+                                    <Panel defaultSize={25}>
                                         <DashboardPanel title="Quant Signal Engine">
                                             <PanelErrorBoundary>
                                                 <Suspense fallback={<LoadingSpinner />}>
                                                     <QuantSignalEngine />
                                                 </Suspense>
+                                            </PanelErrorBoundary>
+                                        </DashboardPanel>
+                                    </Panel>
+
+                                    <PanelResizeHandle className="resize-handle" />
+
+                                    {/* Bottom: Order Book & Liquidations (25%) */}
+                                    <Panel defaultSize={25}>
+                                        <DashboardPanel title="Market Depth">
+                                            <PanelErrorBoundary>
+                                                <TabPanel
+                                                    tabs={[
+                                                        {
+                                                            id: 'orderbook',
+                                                            label: 'Order Book',
+                                                            icon: <BarChart2 size={12} />,
+                                                            content: <OrderBookDOM symbol={selectedSymbol} />
+                                                        },
+                                                        {
+                                                            id: 'liquidations',
+                                                            label: 'Liquidations',
+                                                            icon: <Flame size={12} />,
+                                                            content: <LiquidationFeed symbol={selectedSymbol} />
+                                                        }
+                                                    ]}
+                                                    defaultTab="orderbook"
+                                                />
                                             </PanelErrorBoundary>
                                         </DashboardPanel>
                                     </Panel>
