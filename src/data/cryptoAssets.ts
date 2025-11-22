@@ -1,7 +1,13 @@
 // Top 40 cryptocurrencies by market cap
 // Updated for 2025 market landscape
 
-export const TOP_CRYPTOS = [
+export interface CryptoAsset {
+    symbol: string;
+    name: string;
+    category: string;
+}
+
+export const TOP_CRYPTOS: CryptoAsset[] = [
     { symbol: 'BTCUSDT', name: 'Bitcoin', category: 'Layer 1' },
     { symbol: 'ETHUSDT', name: 'Ethereum', category: 'Layer 1' },
     { symbol: 'BNBUSDT', name: 'BNB', category: 'Exchange' },
@@ -44,7 +50,7 @@ export const TOP_CRYPTOS = [
     { symbol: 'THETAUSDT', name: 'Theta Network', category: 'Media' }
 ];
 
-export const CRYPTO_CATEGORIES = {
+export const CRYPTO_CATEGORIES: Record<string, string[]> = {
     'Layer 1': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'TRXUSDT', 'LTCUSDT', 'ETCUSDT', 'APTUSDT', 'NEARUSDT', 'SUIUSDT', 'ICPUSDT', 'ALGOUSDT', 'FTMUSDT', 'EGLDUSDT', 'FLOWUSDT', 'XTZUSDT'],
     'Layer 2': ['MATICUSDT', 'ARBUSDT', 'OPUSDT'],
     'Layer 0': ['DOTUSDT', 'ATOMUSDT'],

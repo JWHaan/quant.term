@@ -440,3 +440,203 @@ export function calculateOFI(trades: Array<{ quantity: number | string; isBuyerM
         imbalanceRatio // -1 (all sell) to 1 (all buy)
     };
 }
+
+/**
+ * Calculate OBV (On-Balance Volume)
+ * Formula:
+ * If Close > Prev Close: OBV = Prev OBV + Volume
+ * If Close < Prev Close: OBV = Prev OBV - Volume
+ * If Close = Prev Close: OBV = Prev OBV
+ * 
+ * Reference: https://school.stockcharts.com/doku.php?id=technical_indicators:on_balance_volume_obv
+ */
+export function calculateOBV(data: OHLCV[]): IndicatorValue[] {
+    validateOHLCVData(data);
+
+    const obvData: IndicatorValue[] = [];
+    let obv = 0;
+
+    // Initialize first point
+    obvData.push({ time: data[0]!.time, value: obv });
+
+    for (let i = 1; i < data.length; i++) {
+        const close = data[i]!.close;
+        const prevClose = data[i - 1]!.close;
+        const volume = data[i]!.volume;
+
+        if (close > prevClose) {
+            obv += volume;
+        } else if (close < prevClose) {
+            obv -= volume;
+        }
+        // If equal, OBV remains same
+
+        obvData.push({
+            time: data[i]!.time,
+            value: obv
+        });
+    }
+
+    return obvData;
+}
+
+/**
+ * Calculate ADX (Average Directional Index)
+ * Measures trend strength (0-100), regardless of direction.
+ * - 0-25: Absent or Weak Trend
+ * - 25-50: Strong Trend
+ * - 50-75: Very Strong Trend
+ * - 75-100: Extremely Strong Trend
+ * 
+ * Reference: https://school.stockcharts.com/doku.php?id=technical_indicators:average_directional_index_adx
+ */
+export function calculateADX(data: OHLCV[], period: number = 14): IndicatorValue[] {
+    validateOHLCVData(data, period * 2);
+
+    const trValues: number[] = [];
+    const dmPlusValues: number[] = [];
+    const dmMinusValues: number[] = [];
+
+    // 1. Calculate TR, +DM, -DM
+    for (let i = 1; i < data.length; i++) {
+        const high = data[i]!.high;
+        const low = data[i]!.low;
+        const prevClose = data[i - 1]!.close;
+        const prevHigh = data[i - 1]!.high;
+        const prevLow = data[i - 1]!.low;
+
+        const tr = Math.max(
+            high - low,
+            Math.abs(high - prevClose),
+            Math.abs(low - prevClose)
+        );
+
+        const upMove = high - prevHigh;
+        const downMove = prevLow - low;
+
+        let dmPlus = 0;
+        let dmMinus = 0;
+
+        if (upMove > downMove && upMove > 0) {
+            dmPlus = upMove;
+        }
+
+        if (downMove > upMove && downMove > 0) {
+            dmMinus = downMove;
+        }
+
+        trValues.push(tr);
+        dmPlusValues.push(dmPlus);
+        dmMinusValues.push(dmMinus);
+    }
+
+    // 2. Smooth TR, +DM, -DM (Wilder's Smoothing)
+    // First value is sum
+    let smoothTR = trValues.slice(0, period).reduce((a, b) => a + b, 0);
+    let smoothDMPlus = dmPlusValues.slice(0, period).reduce((a, b) => a + b, 0);
+    let smoothDMMinus = dmMinusValues.slice(0, period).reduce((a, b) => a + b, 0);
+
+    const adxData: IndicatorValue[] = [];
+    const dxValues: number[] = [];
+
+    // Calculate DX for the rest
+    for (let i = period; i < trValues.length; i++) {
+        smoothTR = smoothTR - (smoothTR / period) + trValues[i]!;
+        smoothDMPlus = smoothDMPlus - (smoothDMPlus / period) + dmPlusValues[i]!;
+        smoothDMMinus = smoothDMMinus - (smoothDMMinus / period) + dmMinusValues[i]!;
+
+        const diPlus = (smoothDMPlus / smoothTR) * 100;
+        const diMinus = (smoothDMMinus / smoothTR) * 100;
+
+        const dx = (Math.abs(diPlus - diMinus) / (diPlus + diMinus)) * 100;
+        dxValues.push(dx);
+    }
+
+    // 3. Calculate ADX (Smoothed DX)
+    if (dxValues.length >= period) {
+        // First ADX is average of DX
+        let adx = dxValues.slice(0, period).reduce((a, b) => a + b, 0) / period;
+
+        // Push first ADX value (aligned with time)
+        // Time index: 1 (initial calc) + period (smoothing setup) + period (dx setup) - 1
+        // Actually, let's align carefully.
+        // i starts at period. trValues[period] corresponds to data[period+1].
+        // dxValues[0] corresponds to data[period+1].
+        // We need period count of DX values to get first ADX.
+        // So first ADX corresponds to data[period + 1 + period - 1] = data[2*period].
+
+        adxData.push({
+            time: data[2 * period]!.time,
+            value: adx
+        });
+
+        // Subsequent ADX
+        for (let i = period; i < dxValues.length; i++) {
+            adx = ((adx * (period - 1)) + dxValues[i]!) / period;
+            adxData.push({
+                time: data[period + 1 + i]!.time,
+                value: adx
+            });
+        }
+    }
+
+    return adxData;
+}
+
+/**
+ * Calculate Hurst Exponent
+ * Estimates long-term memory of time series.
+ * - H < 0.5: Mean Reverting
+ * - H = 0.5: Random Walk (Geometric Brownian Motion)
+ * - H > 0.5: Trending
+ * 
+ * Simplified Rescaled Range (R/S) analysis for performance.
+ */
+export function calculateHurst(data: OHLCV[]): number {
+    if (data.length < 100) return 0.5; // Insufficient data
+
+    const closes = data.map(d => d.close);
+    const n = closes.length;
+
+    // Calculate log returns
+    const returns: number[] = [];
+    for (let i = 1; i < n; i++) {
+        returns.push(Math.log(closes[i]! / closes[i - 1]!));
+    }
+
+    // Calculate mean return
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+
+    // Calculate deviations from mean
+    const deviations = returns.map(r => r - mean);
+
+    // Calculate cumulative deviations
+    const cumulativeDeviations: number[] = [];
+    let sum = 0;
+    for (const dev of deviations) {
+        sum += dev;
+        cumulativeDeviations.push(sum);
+    }
+
+    // Calculate Range (R)
+    const maxDev = Math.max(...cumulativeDeviations);
+    const minDev = Math.min(...cumulativeDeviations);
+    const R = maxDev - minDev;
+
+    // Calculate Standard Deviation (S)
+    const variance = deviations.reduce((a, b) => a + b * b, 0) / deviations.length;
+    const S = Math.sqrt(variance);
+
+    if (S === 0) return 0.5;
+
+    // Calculate Hurst: (R/S) = c * n^H
+    // log(R/S) = log(c) + H * log(n)
+    // H ~ log(R/S) / log(n) (Simplified, assuming c=1 for quick estimation)
+    // For more accuracy, we would do linear regression over multiple sub-periods, 
+    // but this provides a decent real-time proxy.
+
+    const rs = R / S;
+    const hurst = Math.log(rs) / Math.log(n);
+
+    return hurst;
+}

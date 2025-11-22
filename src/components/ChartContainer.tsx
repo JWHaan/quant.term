@@ -1,28 +1,41 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, IChartApi, ISeriesApi, Time, CandlestickData, HistogramData, LineData, IPriceLine } from 'lightweight-charts';
 import { useBinanceWebSocket } from '../hooks/useBinanceWebSocket';
 import { calculateVWAP, calculateEMA, calculateSMA, calculateBollingerBands } from '../utils/indicators';
-import { Eraser, MousePointer2, TrendingUp } from 'lucide-react';
+import { Eraser, MousePointer2 } from 'lucide-react';
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
-const ChartContainer = ({ symbol = 'btcusdt' }) => {
-    const chartContainerRef = useRef();
-    const [interval, setInterval] = useState('1m');
+interface ChartContainerProps {
+    symbol?: string;
+}
+
+interface FormattedData {
+    time: Time;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
+const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) => {
+    const chartContainerRef = useRef<HTMLDivElement>(null);
+    const [interval, setInterval] = useState<string>('1m');
     const { candle, isConnected } = useBinanceWebSocket(symbol, interval);
 
-    const candlestickSeriesRef = useRef(null);
-    const volumeSeriesRef = useRef(null);
-    const vwapSeriesRef = useRef(null);
-    const ema9SeriesRef = useRef(null);
-    const ema21SeriesRef = useRef(null);
-    const sma50SeriesRef = useRef(null);
-    const sma200SeriesRef = useRef(null);
-    const bbUpperRef = useRef(null);
-    const bbMiddleRef = useRef(null);
-    const bbLowerRef = useRef(null);
-    const chartRef = useRef(null);
-    const drawingRef = useRef([]); // Store lines: { price, series }
+    const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+    const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+    const vwapSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const ema9SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const ema21SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const sma50SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const sma200SeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const bbUpperRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const bbMiddleRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const bbLowerRef = useRef<ISeriesApi<"Line"> | null>(null);
+    const chartRef = useRef<IChartApi | null>(null);
+    const drawingRef = useRef<IPriceLine[]>([]); // Store lines
 
     const [showVWAP, setShowVWAP] = useState(true);
     const [showEMA9, setShowEMA9] = useState(false);
@@ -32,13 +45,13 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
     const [showBB, setShowBB] = useState(false);
 
     // Fetch Historical Data
-    const fetchHistoricalData = async (sym, int) => {
+    const fetchHistoricalData = async (sym: string, int: string): Promise<FormattedData[]> => {
         try {
             const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym.toUpperCase()}&interval=${int}&limit=500`);
             const rawData = await response.json();
 
-            const formattedData = rawData.map(d => ({
-                time: d[0] / 1000,
+            const formattedData: FormattedData[] = rawData.map((d: any) => ({
+                time: d[0] / 1000 as Time,
                 open: parseFloat(d[1]),
                 high: parseFloat(d[2]),
                 low: parseFloat(d[3]),
@@ -203,7 +216,7 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
         // Load Data
         fetchHistoricalData(symbol, interval).then(data => {
             // Separate data for series
-            const candleData = data.map(d => ({
+            const candleData: CandlestickData[] = data.map(d => ({
                 time: d.time,
                 open: d.open,
                 high: d.high,
@@ -212,58 +225,47 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
             }));
             candlestickSeries.setData(candleData);
 
-            const volumeData = data.map(d => ({
+            const volumeData: HistogramData[] = data.map(d => ({
                 time: d.time,
                 value: d.volume,
                 color: d.close > d.open ? 'rgba(0, 255, 157, 0.3)' : 'rgba(255, 59, 48, 0.3)',
             }));
             volumeSeries.setData(volumeData);
 
-            const vwapData = calculateVWAP(data);
-            vwapSeries.setData(vwapData);
+            const ohlcvData = data.map(d => ({
+                ...d,
+                time: d.time as unknown as number
+            }));
+
+            const vwapData = calculateVWAP(ohlcvData);
+            vwapSeries.setData(vwapData as LineData[]);
 
             // Calculate and set MA data
-            const ema9Data = calculateEMA(data, 9);
-            ema9Series.setData(ema9Data);
+            const ema9Data = calculateEMA(ohlcvData, 9);
+            ema9Series.setData(ema9Data as LineData[]);
 
-            const ema21Data = calculateEMA(data, 21);
-            ema21Series.setData(ema21Data);
+            const ema21Data = calculateEMA(ohlcvData, 21);
+            ema21Series.setData(ema21Data as LineData[]);
 
-            const sma50Data = calculateSMA(data, 50);
-            sma50Series.setData(sma50Data);
+            const sma50Data = calculateSMA(ohlcvData, 50);
+            sma50Series.setData(sma50Data as LineData[]);
 
-            const sma200Data = calculateSMA(data, 200);
-            sma200Series.setData(sma200Data);
+            const sma200Data = calculateSMA(ohlcvData, 200);
+            sma200Series.setData(sma200Data as LineData[]);
 
             // Calculate and set BB data
-            const bbData = calculateBollingerBands(data, 20, 2);
-            bbUpper.setData(bbData.map(d => ({ time: d.time, value: d.upper })));
-            bbMiddle.setData(bbData.map(d => ({ time: d.time, value: d.middle })));
-            bbLower.setData(bbData.map(d => ({ time: d.time, value: d.lower })));
+            const bbData = calculateBollingerBands(ohlcvData, 20, 2);
+            bbUpper.setData(bbData.map(d => ({ time: d.time as Time, value: d.upper })));
+            bbMiddle.setData(bbData.map(d => ({ time: d.time as Time, value: d.middle })));
+            bbLower.setData(bbData.map(d => ({ time: d.time as Time, value: d.lower })));
         });
 
         // Drawing Tool: Shift+Click to add Horizontal Line
         chart.subscribeClick((param) => {
-            if (!param.point || !param.time || !window.event?.shiftKey) return;
+            if (!param.point || !param.time || !window.event || !(window.event as MouseEvent).shiftKey) return;
 
             const price = candlestickSeries.coordinateToPrice(param.point.y);
             if (!price) return;
-
-            const lineSeries = chart.addSeries(LineSeries, {
-                color: '#ffffff',
-                lineStyle: 2, // Dashed
-                lineWidth: 1,
-                crosshairMarkerVisible: false,
-                lastValueVisible: true,
-                priceLineVisible: false,
-            });
-
-            // Create a horizontal line across the visible range (approx)
-            // For simplicity in Lightweight Charts, we use a PriceLine on the main series or a separate series with constant data
-            // A better way for "drawing" is using createPriceLine on the main series
-
-            // Remove the series approach and use createPriceLine
-            chart.removeSeries(lineSeries);
 
             const priceLine = candlestickSeries.createPriceLine({
                 price: price,
@@ -300,10 +302,17 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
     // Update Chart with Real-Time Data
     useEffect(() => {
         if (candle && candlestickSeriesRef.current && volumeSeriesRef.current && vwapSeriesRef.current) {
-            candlestickSeriesRef.current.update(candle);
+            const time = candle.time as Time;
+            candlestickSeriesRef.current.update({
+                time: time,
+                open: candle.open,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close
+            });
 
             volumeSeriesRef.current.update({
-                time: candle.time,
+                time: time,
                 value: candle.volume,
                 color: candle.close > candle.open ? 'rgba(0, 255, 157, 0.3)' : 'rgba(255, 59, 48, 0.3)',
             });
@@ -312,8 +321,6 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
             // since we removed the chartData state for optimization
         }
     }, [candle]);
-
-    // Order book bid/ask overlays intentionally removed (WS blocked / user request)
 
     // Toggle Indicator visibility
     useEffect(() => {
@@ -358,7 +365,7 @@ const ChartContainer = ({ symbol = 'btcusdt' }) => {
     const clearDrawings = () => {
         if (candlestickSeriesRef.current) {
             drawingRef.current.forEach(line => {
-                candlestickSeriesRef.current.removePriceLine(line);
+                candlestickSeriesRef.current?.removePriceLine(line);
             });
             drawingRef.current = [];
         }

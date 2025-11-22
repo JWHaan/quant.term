@@ -3,12 +3,36 @@ import { useState, useEffect, useRef } from 'react';
 // HTTP endpoint for market data (works even when WebSockets are blocked)
 const BINANCE_REST_URL = 'https://api.binance.com';
 
-export const useBinanceWebSocket = (symbol = 'btcusdt', interval = '1m') => {
-    const [trades, setTrades] = useState([]);
-    const [candle, setCandle] = useState(null);
-    const [isConnected, setIsConnected] = useState(false);
+export interface Candle {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
 
-    const pollRef = useRef(null);
+export interface Trade {
+    id: number;
+    time: string;
+    price: number;
+    size: number;
+    side: 'BUY' | 'SELL';
+    symbol: string;
+}
+
+interface UseBinanceWebSocketReturn {
+    trades: Trade[];
+    candle: Candle | null;
+    isConnected: boolean;
+}
+
+export const useBinanceWebSocket = (symbol: string = 'btcusdt', interval: string = '1m'): UseBinanceWebSocketReturn => {
+    const [trades, setTrades] = useState<Trade[]>([]);
+    const [candle, setCandle] = useState<Candle | null>(null);
+    const [isConnected, setIsConnected] = useState<boolean>(false);
+
+    const pollRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         const sym = symbol.toUpperCase();
@@ -23,7 +47,7 @@ export const useBinanceWebSocket = (symbol = 'btcusdt', interval = '1m') => {
                 if (!Array.isArray(data) || data.length === 0) return;
 
                 const k = data[data.length - 1];
-                const newCandle = {
+                const newCandle: Candle = {
                     time: k[0] / 1000,
                     open: parseFloat(k[1]),
                     high: parseFloat(k[2]),
@@ -41,7 +65,7 @@ export const useBinanceWebSocket = (symbol = 'btcusdt', interval = '1m') => {
                     );
                     const tradesJson = await tradesRes.json();
                     if (Array.isArray(tradesJson)) {
-                        const mappedTrades = tradesJson.map((t) => ({
+                        const mappedTrades: Trade[] = tradesJson.map((t: any) => ({
                             id: t.id,
                             time: new Date(t.time).toLocaleTimeString(),
                             price: parseFloat(t.price),

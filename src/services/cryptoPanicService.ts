@@ -9,14 +9,81 @@ const CRYPTOPANIC_BASE = 'https://cryptopanic.com/api/v1';
 
 // You'll need to get a free API key from https://cryptopanic.com/developers/api/
 // For now, we'll use public endpoint (limited)
-const API_KEY = import.meta.env.VITE_CRYPTOPANIC_KEY || 'free';
+const API_KEY = (import.meta as any).env.VITE_CRYPTOPANIC_KEY || 'free';
+
+interface NewsOptions {
+    currencies?: string;
+    regions?: string;
+    kind?: 'news' | 'media';
+    filter?: 'rising' | 'hot' | 'trending' | 'latest' | 'bullish' | 'bearish' | 'important';
+    limit?: number;
+}
+
+interface CryptoPanicCurrency {
+    code: string;
+    title: string;
+    slug: string;
+    url: string;
+}
+
+interface CryptoPanicSource {
+    title: string;
+    region: string;
+    domain: string;
+    path: string | null;
+}
+
+interface CryptoPanicVotes {
+    negative: number;
+    positive: number;
+    important: number;
+    liked: number;
+    disliked: number;
+    lol: number;
+    toxic: number;
+    saved: number;
+    comments: number;
+}
+
+interface CryptoPanicPost {
+    id: number;
+    kind: string;
+    domain: string;
+    votes: CryptoPanicVotes;
+    source: CryptoPanicSource;
+    title: string;
+    published_at: string;
+    slug: string;
+    url: string;
+    created_at: string;
+    currencies?: CryptoPanicCurrency[];
+}
+
+interface CryptoPanicResponse {
+    count: number;
+    next: string | null;
+    previous: string | null;
+    results: CryptoPanicPost[];
+}
+
+export interface NewsArticle {
+    id: number;
+    headline: string;
+    url: string;
+    source: string;
+    published: string;
+    sentiment: 'positive' | 'negative' | 'neutral';
+    currencies: string[];
+    metadata: {
+        domain: string;
+        votes: CryptoPanicVotes;
+    };
+}
 
 /**
  * Fetch latest crypto news
- * @param {Object} options - Filter options
- * @returns {Promise<Array>} News articles
  */
-export async function fetchCryptoNews(options = {}) {
+export async function fetchCryptoNews(options: NewsOptions = {}): Promise<NewsArticle[]> {
     const {
         currencies = null, // e.g., 'BTC,ETH'
         regions = 'en',
@@ -44,7 +111,7 @@ export async function fetchCryptoNews(options = {}) {
             throw new Error(`CryptoPanic API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data: CryptoPanicResponse = await response.json();
 
         // Transform to our format
         return data.results.slice(0, limit).map(article => ({
@@ -71,10 +138,8 @@ export async function fetchCryptoNews(options = {}) {
 
 /**
  * Map CryptoPanic votes to sentiment
- * @param {Object} votes - Vote counts
- * @returns {string} 'positive', 'negative', or 'neutral'
  */
-function mapVotesToSentiment(votes) {
+function mapVotesToSentiment(votes: CryptoPanicVotes): 'positive' | 'negative' | 'neutral' {
     if (!votes) return 'neutral';
 
     const positive = (votes.positive || 0) + (votes.important || 0);
@@ -87,13 +152,11 @@ function mapVotesToSentiment(votes) {
 
 /**
  * Get time ago string
- * @param {string} dateString - ISO date string
- * @returns {string} Human-readable time ago
  */
-export function getTimeAgo(dateString) {
+export function getTimeAgo(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
     if (seconds < 60) return 'just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -103,11 +166,8 @@ export function getTimeAgo(dateString) {
 
 /**
  * Start polling for news updates
- * @param {Function} callback - Called with new articles
- * @param {number} interval - Poll interval in ms
- * @returns {Function} Cleanup function
  */
-export function startNewsPolling(callback, interval = 60000) {
+export function startNewsPolling(callback: (news: NewsArticle[]) => void, interval: number = 60000): () => void {
     let isActive = true;
 
     const poll = async () => {

@@ -72,6 +72,7 @@ export interface AlertState {
 
 /** Portfolio Position */
 export interface Position {
+    id: string;
     symbol: string;
     side: 'LONG' | 'SHORT';
     size: number;
@@ -82,6 +83,9 @@ export interface Position {
     pnlPercent: number;
     liquidationPrice?: number;
     timestamp: number;
+    status: 'OPEN' | 'CLOSED';
+    exitPrice?: number;
+    exitTime?: number;
 }
 
 /** Portfolio Store State */

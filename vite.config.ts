@@ -21,6 +21,7 @@ export default defineConfig({
         port: 3000,
     },
     build: {
+        target: 'es2020',
         sourcemap: true,
         rollupOptions: {
             output: {
@@ -28,6 +29,7 @@ export default defineConfig({
                     'react-vendor': ['react', 'react-dom'],
                     'charts': ['lightweight-charts'],
                     'three': ['three', '@react-three/fiber', '@react-three/drei'],
+                    'icons': ['lucide-react']
                 }
             }
         }

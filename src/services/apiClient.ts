@@ -2,47 +2,77 @@
  * Robust API Client with retry logic, caching, and error handling
  * Designed for production use with proper timeout and rate limiting
  */
+
+interface APIClientOptions {
+    timeout?: number;
+    retries?: number;
+    retryDelay?: number;
+}
+
+interface RequestOptions extends Omit<RequestInit, 'cache'> {
+    params?: Record<string, any>;
+    useCache?: boolean;
+    cacheTTL?: number;
+    headers?: Record<string, string>;
+    cache?: RequestCache;
+}
+
+interface CacheItem<T> {
+    data: T;
+    timestamp: number;
+}
+
+interface ExtendedError extends Error {
+    status?: number;
+    response?: Response;
+    isTimeout?: boolean;
+}
+
 class APIClient {
-    constructor(baseURL, options = {}) {
+    private baseURL: string;
+    private timeout: number;
+    private retries: number;
+    private retryDelay: number;
+    private cache: Map<string, CacheItem<any>>;
+
+    constructor(baseURL: string, options: APIClientOptions = {}) {
         this.baseURL = baseURL;
         this.timeout = options.timeout || 10000;
         this.retries = options.retries || 3;
         this.retryDelay = options.retryDelay || 1000;
         this.cache = new Map();
-        this.requestQueue = [];
-        this.isProcessing = false;
     }
 
     /**
      * Main request method with retry logic
      */
-    async request(endpoint, options = {}) {
+    async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
         const cacheKey = this.getCacheKey(url, options);
 
         // Check cache
-        if (options.cache !== false) {
-            const cached = this.getFromCache(cacheKey, options.cacheTTL || 60000);
+        if (options.useCache !== false) {
+            const cached = this.getFromCache<T>(cacheKey, options.cacheTTL || 60000);
             if (cached) return cached;
         }
 
         // Retry logic with exponential backoff
-        let lastError;
+        let lastError: ExtendedError | undefined;
         for (let attempt = 0; attempt < this.retries; attempt++) {
             try {
-                const data = await this.fetchWithTimeout(url, options);
+                const data = await this.fetchWithTimeout<T>(url, options);
 
                 // Update cache
-                if (options.cache !== false) {
+                if (options.useCache !== false) {
                     this.setCache(cacheKey, data);
                 }
 
                 return data;
-            } catch (error) {
+            } catch (error: any) {
                 lastError = error;
 
                 // Don't retry on client errors (4xx)
-                if (error.status >= 400 && error.status < 500) {
+                if (error.status && error.status >= 400 && error.status < 500) {
                     break;
                 }
 
@@ -55,13 +85,13 @@ class APIClient {
 
         // All retries failed
         console.error(`API request failed after ${this.retries} attempts:`, lastError);
-        throw lastError;
+        throw lastError || new Error('Unknown error');
     }
 
     /**
      * Fetch with timeout
      */
-    async fetchWithTimeout(url, options) {
+    private async fetchWithTimeout<T>(url: string, options: RequestOptions): Promise<T> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
@@ -78,19 +108,19 @@ class APIClient {
             clearTimeout(timeoutId);
 
             if (!response.ok) {
-                const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const error: ExtendedError = new Error(`HTTP ${response.status}: ${response.statusText}`);
                 error.status = response.status;
                 error.response = response;
                 throw error;
             }
 
             const data = await response.json();
-            return data;
-        } catch (error) {
+            return data as T;
+        } catch (error: any) {
             clearTimeout(timeoutId);
 
             if (error.name === 'AbortError') {
-                const timeoutError = new Error(`Request timeout after ${this.timeout}ms`);
+                const timeoutError: ExtendedError = new Error(`Request timeout after ${this.timeout}ms`);
                 timeoutError.isTimeout = true;
                 throw timeoutError;
             }
@@ -102,38 +132,38 @@ class APIClient {
     /**
      * HTTP Methods
      */
-    get(endpoint, options = {}) {
-        return this.request(endpoint, { ...options, method: 'GET' });
+    get<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+        return this.request<T>(endpoint, { ...options, method: 'GET' });
     }
 
-    post(endpoint, data, options = {}) {
-        return this.request(endpoint, {
+    post<T>(endpoint: string, data: any, options: RequestOptions = {}): Promise<T> {
+        return this.request<T>(endpoint, {
             ...options,
             method: 'POST',
             body: JSON.stringify(data)
         });
     }
 
-    put(endpoint, data, options = {}) {
-        return this.request(endpoint, {
+    put<T>(endpoint: string, data: any, options: RequestOptions = {}): Promise<T> {
+        return this.request<T>(endpoint, {
             ...options,
             method: 'PUT',
             body: JSON.stringify(data)
         });
     }
 
-    delete(endpoint, options = {}) {
-        return this.request(endpoint, { ...options, method: 'DELETE' });
+    delete<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+        return this.request<T>(endpoint, { ...options, method: 'DELETE' });
     }
 
     /**
      * Cache management
      */
-    getCacheKey(url, options) {
+    private getCacheKey(url: string, options: RequestOptions): string {
         return `${url}_${JSON.stringify(options.params || {})}`;
     }
 
-    getFromCache(key, ttl) {
+    private getFromCache<T>(key: string, ttl: number): T | null {
         const cached = this.cache.get(key);
         if (!cached) return null;
 
@@ -143,14 +173,14 @@ class APIClient {
             return null;
         }
 
-        return cached.data;
+        return cached.data as T;
     }
 
-    setCache(key, data) {
+    private setCache(key: string, data: any): void {
         // Limit cache size to prevent memory leaks
         if (this.cache.size > 100) {
             const firstKey = this.cache.keys().next().value;
-            this.cache.delete(firstKey);
+            if (firstKey) this.cache.delete(firstKey);
         }
 
         this.cache.set(key, {
@@ -159,14 +189,14 @@ class APIClient {
         });
     }
 
-    clearCache() {
+    clearCache(): void {
         this.cache.clear();
     }
 
     /**
      * Utilities
      */
-    delay(ms) {
+    private delay(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 }

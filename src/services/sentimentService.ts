@@ -1,11 +1,41 @@
 import toast from 'react-hot-toast';
 
+interface FearGreedData {
+    value: number;
+    classification: string;
+    timestamp: number;
+    lastUpdate?: string;
+}
+
+interface FearGreedResponse {
+    current: FearGreedData;
+    history: FearGreedData[];
+    metadata: {
+        source: string;
+        updateFrequency: string;
+        scale: string;
+    };
+}
+
+interface AlternativeMeData {
+    value: string;
+    value_classification: string;
+    timestamp: string;
+}
+
+interface AlternativeMeResponse {
+    data: AlternativeMeData[];
+    metadata: {
+        error?: any;
+    };
+}
+
 /**
  * Fetch Fear & Greed Index from Alternative.me
  * Free API, no key required
  * Updates daily
  */
-export async function fetchFearGreedIndex() {
+export async function fetchFearGreedIndex(): Promise<FearGreedResponse | null> {
     try {
         // Alternative.me API - free, no key needed
         const response = await fetch('https://api.alternative.me/fng/?limit=30');
@@ -14,7 +44,7 @@ export async function fetchFearGreedIndex() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data: AlternativeMeResponse = await response.json();
 
         if (!data || !data.data || !data.data[0]) {
             throw new Error('Invalid response format');
@@ -41,7 +71,7 @@ export async function fetchFearGreedIndex() {
                 scale: '0-100 (0 = Extreme Fear, 100 = Extreme Greed)'
             }
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Fear & Greed Index fetch error:', error);
         toast.error(`Sentiment API Error: ${error.message}`);
         return null;
@@ -51,7 +81,7 @@ export async function fetchFearGreedIndex() {
 /**
  * Get sentiment color based on value
  */
-export function getSentimentColor(value) {
+export function getSentimentColor(value: number): string {
     if (value >= 75) return '#00FF9D'; // Extreme Greed - Green
     if (value >= 55) return '#7FFF00'; // Greed - Light Green
     if (value >= 45) return '#FFD700'; // Neutral - Gold
@@ -62,7 +92,7 @@ export function getSentimentColor(value) {
 /**
  * Get sentiment label
  */
-export function getSentimentLabel(value) {
+export function getSentimentLabel(value: number): string {
     if (value >= 75) return 'Extreme Greed';
     if (value >= 55) return 'Greed';
     if (value >= 45) return 'Neutral';

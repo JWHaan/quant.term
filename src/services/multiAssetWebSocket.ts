@@ -12,7 +12,47 @@ import { useConnectionStore } from '../stores/connectionStore';
  * - Automatic subscription management
  */
 
+interface TickerData {
+    symbol: string;
+    price: number;
+    priceChange: number;
+    priceChangePercent: number;
+    volume: number;
+    quoteVolume: number;
+    high24h: number;
+    low24h: number;
+    openPrice: number;
+    lastUpdate: number;
+}
+
+interface BinanceTicker {
+    s: string;
+    c: string;
+    p: string;
+    P: string;
+    v: string;
+    q: string;
+    h: string;
+    l: string;
+    o: string;
+}
+
+interface ConnectionInfo {
+    ws: WebSocket;
+    symbols: string[];
+    heartbeat: NodeJS.Timeout | null;
+}
+
+type TickerCallback = (data: { symbol: string; data: TickerData }) => void;
+
 class MultiAssetWebSocket {
+    private connections: Map<string, ConnectionInfo>;
+    private subscribers: Map<string, Set<TickerCallback>>;
+    private messageQueue: Map<string, TickerData>;
+    private batchTimeout: NodeJS.Timeout | null;
+    private reconnectAttempts: Map<string, number>;
+    private maxReconnectDelay: number;
+
     constructor() {
         this.connections = new Map(); // symbolGroup -> WebSocket
         this.subscribers = new Map(); // symbol -> Set of callbacks
@@ -24,15 +64,15 @@ class MultiAssetWebSocket {
 
     /**
      * Subscribe to multiple symbols
-     * @param {string[]} symbols - Array of trading pairs (e.g., ['BTCUSDT', 'ETHUSDT'])
-     * @param {function} callback - Called with {symbol, data} on updates
+     * @param symbols - Array of trading pairs (e.g., ['BTCUSDT', 'ETHUSDT'])
+     * @param callback - Called with {symbol, data} on updates
      */
-    subscribe(symbols, callback) {
+    subscribe(symbols: string[], callback: TickerCallback): void {
         symbols.forEach(symbol => {
             if (!this.subscribers.has(symbol)) {
                 this.subscribers.set(symbol, new Set());
             }
-            this.subscribers.get(symbol).add(callback);
+            this.subscribers.get(symbol)?.add(callback);
         });
 
         // Group symbols for pooled connections
@@ -42,7 +82,7 @@ class MultiAssetWebSocket {
     /**
      * Unsubscribe from symbols
      */
-    unsubscribe(symbols, callback) {
+    unsubscribe(symbols: string[], callback: TickerCallback): void {
         symbols.forEach(symbol => {
             const subs = this.subscribers.get(symbol);
             if (subs) {
@@ -58,7 +98,7 @@ class MultiAssetWebSocket {
     /**
      * Connect to symbols using pooled WebSockets
      */
-    _connectSymbols(symbols) {
+    private _connectSymbols(symbols: string[]): void {
         const SYMBOLS_PER_CONNECTION = 10;
 
         // Group symbols into batches
@@ -75,7 +115,7 @@ class MultiAssetWebSocket {
     /**
      * Create a WebSocket connection for a group of symbols
      */
-    _createConnection(groupKey, symbols) {
+    private _createConnection(groupKey: string, symbols: string[]): void {
         // Binance combined streams endpoint
         const streams = symbols.map(s => `${s.toLowerCase()}@ticker`).join('/');
         const wsUrl = `wss://stream.binance.com:9443/stream?streams=${streams}`;
@@ -92,7 +132,7 @@ class MultiAssetWebSocket {
             this._startHeartbeat(groupKey, ws);
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = (event: MessageEvent) => {
             try {
                 const message = JSON.parse(event.data);
                 if (message.data) {
@@ -103,7 +143,7 @@ class MultiAssetWebSocket {
             }
         };
 
-        ws.onerror = (error) => {
+        ws.onerror = (error: Event) => {
             console.error(`[WebSocket] Error: ${groupKey}`, error);
             useConnectionStore.getState().setConnectionStatus(`marketData_${groupKey}`, 'error');
         };
@@ -120,11 +160,11 @@ class MultiAssetWebSocket {
     /**
      * Handle incoming ticker message
      */
-    _handleMessage(data) {
+    private _handleMessage(data: BinanceTicker): void {
         const symbol = data.s; // Symbol (e.g., 'BTCUSDT')
 
         // Normalize data
-        const normalized = {
+        const normalized: TickerData = {
             symbol,
             price: parseFloat(data.c), // Current price
             priceChange: parseFloat(data.p), // 24h change
@@ -147,7 +187,7 @@ class MultiAssetWebSocket {
     /**
      * Batch process updates every 50ms
      */
-    _scheduleBatch() {
+    private _scheduleBatch(): void {
         if (this.batchTimeout) return;
 
         this.batchTimeout = setTimeout(() => {
@@ -159,7 +199,7 @@ class MultiAssetWebSocket {
     /**
      * Process batched messages and notify subscribers
      */
-    _processBatch() {
+    private _processBatch(): void {
         this.messageQueue.forEach((data, symbol) => {
             const subscribers = this.subscribers.get(symbol);
             if (subscribers) {
@@ -179,7 +219,7 @@ class MultiAssetWebSocket {
     /**
      * Heartbeat to detect dead connections
      */
-    _startHeartbeat(groupKey, ws) {
+    private _startHeartbeat(groupKey: string, ws: WebSocket): void {
         const connection = this.connections.get(groupKey);
         if (!connection) return;
 
@@ -193,7 +233,7 @@ class MultiAssetWebSocket {
     /**
      * Reconnect with exponential backoff
      */
-    _reconnect(groupKey, symbols) {
+    private _reconnect(groupKey: string, symbols: string[]): void {
         const attempts = this.reconnectAttempts.get(groupKey) || 0;
         const delay = Math.min(1000 * Math.pow(2, attempts), this.maxReconnectDelay);
 
@@ -209,7 +249,7 @@ class MultiAssetWebSocket {
     /**
      * Disconnect symbol
      */
-    _disconnectSymbol(symbol) {
+    private _disconnectSymbol(symbol: string): void {
         // Find which group this symbol belongs to
         for (const [groupKey, connection] of this.connections.entries()) {
             if (connection.symbols.includes(symbol)) {
@@ -228,7 +268,7 @@ class MultiAssetWebSocket {
     /**
      * Disconnect all
      */
-    disconnectAll() {
+    disconnectAll(): void {
         this.connections.forEach((connection) => {
             connection.ws.close();
             if (connection.heartbeat) clearInterval(connection.heartbeat);
