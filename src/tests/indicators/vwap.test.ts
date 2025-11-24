@@ -12,14 +12,14 @@ describe('calculateVWAP', () => {
         const result = calculateVWAP(data);
 
         expect(result).toHaveLength(3);
-        expect(result[0].time).toBe(1);
+        expect(result[0]?.time).toBe(1);
 
         // First VWAP: (102.33 * 1000) / 1000 = 102.33
-        expect(result[0].value).toBeCloseTo(102.33, 2);
+        expect(result[0]?.value).toBeCloseTo(102.33, 2);
 
         // Second VWAP: cumulative
-        expect(result[1].value).toBeGreaterThan(102);
-        expect(result[1].value).toBeLessThan(106);
+        expect(result[1]?.value).toBeGreaterThan(102);
+        expect(result[1]?.value).toBeLessThan(106);
     });
 
     it('should throw error on empty array', () => {
@@ -33,7 +33,7 @@ describe('calculateVWAP', () => {
 
         const result = calculateVWAP(data);
         expect(result).toHaveLength(1);
-        expect(result[0].value).toBeCloseTo(102.33, 2);
+        expect(result[0]?.value).toBeCloseTo(102.33, 2);
     });
 
     it('should accumulate volume correctly', () => {
@@ -45,7 +45,7 @@ describe('calculateVWAP', () => {
         const result = calculateVWAP(data);
 
         // VWAP should be weighted average: (100*100 + 200*100) / 200 = 150
-        expect(result[1].value).toBeCloseTo(150, 2);
+        expect(result[1]?.value).toBeCloseTo(150, 2);
     });
 
     it('should handle zero volume gracefully', () => {
@@ -56,6 +56,7 @@ describe('calculateVWAP', () => {
         const result = calculateVWAP(data);
         expect(result).toHaveLength(1);
         // Should handle division by zero
-        expect(Number.isFinite(result[0].value) || Number.isNaN(result[0].value)).toBe(true);
+        const value = result[0]?.value;
+        expect(value !== undefined && (Number.isFinite(value) || Number.isNaN(value))).toBe(true);
     });
 });

@@ -14,10 +14,10 @@ describe('calculateSMA', () => {
         const result = calculateSMA(data, 3);
 
         expect(result).toHaveLength(3);
-        expect(result[0].time).toBe(3);
-        expect(result[0].value).toBe(12); // (11 + 12 + 13) / 3
-        expect(result[1].value).toBe(13); // (12 + 13 + 14) / 3
-        expect(result[2].value).toBe(14); // (13 + 14 + 15) / 3
+        expect(result[0]?.time).toBe(3);
+        expect(result[0]?.value).toBe(12); // (11 + 12 + 13) / 3
+        expect(result[1]?.value).toBe(13); // (12 + 13 + 14) / 3
+        expect(result[2]?.value).toBe(14); // (13 + 14 + 15) / 3
     });
 
     it('should throw error on empty array', () => {
@@ -41,8 +41,8 @@ describe('calculateSMA', () => {
 
         const result = calculateSMA(data, 1);
         expect(result).toHaveLength(2);
-        expect(result[0].value).toBe(11);
-        expect(result[1].value).toBe(12);
+        expect(result[0]?.value).toBe(11);
+        expect(result[1]?.value).toBe(12);
     });
 });
 
@@ -59,16 +59,16 @@ describe('calculateEMA', () => {
         const result = calculateEMA(data, 3);
 
         expect(result).toHaveLength(3);
-        expect(result[0].time).toBe(3);
+        expect(result[0]?.time).toBe(3);
 
         // First EMA is SMA: (10 + 11 + 12) / 3 = 11
-        expect(result[0].value).toBe(11);
+        expect(result[0]?.value).toBe(11);
 
         // Second EMA: (13 * 0.5) + (11 * 0.5) = 12
-        expect(result[1].value).toBe(12);
+        expect(result[1]?.value).toBe(12);
 
         // Third EMA: (14 * 0.5) + (12 * 0.5) = 13
-        expect(result[2].value).toBe(13);
+        expect(result[2]?.value).toBe(13);
     });
 
     it('should be more responsive than SMA', () => {
@@ -83,7 +83,7 @@ describe('calculateEMA', () => {
         const ema = calculateEMA(data, 3);
 
         // EMA should react more to the spike than SMA
-        expect(ema[ema.length - 1].value).toBeGreaterThan(sma[sma.length - 1].value);
+        expect(ema[ema.length - 1]?.value).toBeGreaterThan(sma[sma.length - 1]?.value ?? 0);
     });
 
     it('should throw error on empty array', () => {
