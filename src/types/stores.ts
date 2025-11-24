@@ -37,7 +37,7 @@ export interface Alert {
     symbol: string;
     type: AlertType;
     condition: AlertCondition;
-    value: number;
+    value: number | string;
     message: string;
     enabled: boolean;
     triggered: boolean;
@@ -45,6 +45,7 @@ export interface Alert {
     lastTriggered?: number;
     soundEnabled: boolean;
     notificationEnabled: boolean;
+    indicator?: string;
 }
 
 /** Alert Store State */
@@ -53,6 +54,8 @@ export interface AlertState {
     alerts: Alert[];
     triggeredAlerts: string[]; // Alert IDs
     history: Array<Alert & { triggeredAt: number }>;
+    // New alias for backward compatibility
+    alertHistory: Array<Alert & { triggeredAt: number }>;
 
     // Actions
     addAlert: (alert: Omit<Alert, 'id' | 'createdAt' | 'triggered'>) => string;
@@ -62,14 +65,17 @@ export interface AlertState {
     triggerAlert: (id: string) => void;
     clearTriggeredAlerts: () => void;
     clearAlerts: () => void;
-    checkAlerts: (symbol: string, price: number, indicators?: Record<string, number>) => void;
+
     checkMarketConditions: (marketData: any) => void;
+    // Returns IDs of triggered alerts for testing
+    checkAlerts: (symbol: string, price: number, marketData?: { rsi?: number; macd?: number; volumeRatio?: number; signal?: string; ofi?: number; liquidation?: number }) => string[];
 
     // Getters
     getAlertsBySymbol: (symbol: string) => Alert[];
     getActiveAlerts: () => Alert[];
     getHistory: () => Array<Alert & { triggeredAt: number }>;
     clearHistory: () => void;
+    requestNotificationPermission: () => Promise<string>;
 }
 
 /** Portfolio Position */

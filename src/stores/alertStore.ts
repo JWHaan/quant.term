@@ -80,8 +80,7 @@ class AlertEngine {
 
     private playAlertSound(): void {
         try {
-            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjJ7yvLRgj4IEnC67+yNRwsWZsfr77NSFQpJmu36vmQdBSp4y/HSlEILFGbA7/KUUA0KVbHj6MBkHgY5i9nxx2MqBCh0wfHZlj8JF3DF8+SOSwsYYrTq7aZNEQxGm9vvxGQhBi+D0fPTgjsHEWi/8eeJNQgZabvv6Zs+CRNlvez0mE0ODV2378NjHQY2jtH1zm0pBSZ2yo/LejgEEWrD8OOOSQsXX7nr87JiHgU6k9f0yXEqBSd4zvPWjj0IDmzB8O2NRQsVXrbn7qpSEQtGnOD1xWMcBjGH0fLOeygEJHXI89CGPwkVb7/y45FGDRVW6+n0sGAfBjiP1vLLeScEJnfM8tiLOwgTc8Xx4It4IQUqeMvw04k5BxNqv+3smEIKFGS97++VTw0OVrLl67JcGwU4jNPy0m8nBSV4y++8fzgGD2K87eJ7FgMW8BfD4/+3j60gcAIAAAEFCgsPEhUZHR8gISIiIiMiIiIhHx0YFhMPDAgHBQMCAAABAgQGCgsMCA0QFRUVFBQTExIRERAODgwMCgoDAwIBAAABAwQGBggKDAwODg8RERITExMUFBQUExQTEhIREA8PCg' +
-                'oJCAYFAwIBAAABAQMFBggICw4PEBETExQVFRYWFRUUFBISERAOCw8LCwoIBwYFAwIBAAACAwQGBgkLDQ4QERQVFhUWFRQUExERDw4MCwkIBQQCAgECAAAAAwMGBggJCwoMDA4PEBESExMSExMSERAPDgwLCggGBQMBAAABAAIDBAQGBwgKDAwN');
+            const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjJ7yvLRgj4IEnC67+yNRwsWZsfr77NSFQpJmu36vmQdBSp4y/HSlEILFGbA7/KUUA0KVbHj6MBkHgY5i9nxx2MqBCh0wfHZlj8JF3DF8+SOSwsYYrTq7aZNEQxGm9vvxGQhBi+D0fPTgjsHEWi/8eeJNQgZabvv6Zs+CRNlvez0mE0ODV2378NjHQY2jtH1zm0pBSZ2yo/LejgEEWrD8OOOSQsXX7nr87JiHgU6k9f0yXEqBSd4zvPWjj0IDmzB8O2NRQsVXrbn7qpSEQtGnOD1xWMcBjGH0fLOeygEJHXI89CGPwkVb7/y45FGDRVW6+n0sGAfBjiP1vLLeScEJnfM8tiLOwgTc8Xx4It4IQUqeMvw04k5BxNqv+3smEIKFGS97++VTw0OVrLl67JcGwU4jNPy0m8nBSV4y++8fzgGD2K87eJ7FgMW8BfD4/+3j60gcAIAAAEFCgsPEhUZHR8gISIiIiMiIiIhHx0YFhMPDAgHBQMCAAABAgQGCgsMCA0QFRUVFBQTExIRERAODgwMCgoDAwIBAAABAwQGBggKDAwODg8RERITExMUFBQUExMTEhIREA8PCgoJCAYFAwIBAAABAAIDBAQGBwgKDAwODQ8RERITExMUFBQUExMTEhIREA8PCgoJCAYFAwIBAAACAwQGBgkLDQ4QERQVFhUWFRQUExERDw4MCwkIBQQCAgECAAAAAwMGBggJCwoMDA4PEBESExMSExMSERAPDgwLCggGBQMBAAABAAIDBAQGBwgKDAwN');
             audio.play().catch(() => {
                 // Silent fail for audio playback errors
             });
@@ -90,7 +89,7 @@ class AlertEngine {
         }
     }
 
-    checkAlerts(symbol: string, price: number, indicators?: Record<string, number>): string[] {
+    checkAlerts(symbol: string, price: number, marketData?: { rsi?: number; macd?: number; volumeRatio?: number; signal?: string; ofi?: number; liquidation?: number }): string[] {
         const triggeredIds: string[] = [];
 
         this.alerts.forEach(alert => {
@@ -102,18 +101,47 @@ class AlertEngine {
 
             switch (alert.type) {
                 case 'price':
-                    shouldTrigger = this.checkPriceCondition(price, alert.condition, alert.value);
+                    // Ensure alert.value is treated as a number for price comparisons
+                    if (typeof alert.value === 'number') {
+                        shouldTrigger = this.checkPriceCondition(price, alert.condition, alert.value);
+                    }
                     break;
                 case 'indicator':
-                    if (indicators) {
-                        const indicatorValue = indicators[alert.condition];
-                        if (indicatorValue !== undefined) {
+                    if (marketData && alert.condition in marketData && typeof alert.value === 'number') {
+                        const indicatorValue = marketData[alert.condition as keyof typeof marketData];
+                        if (typeof indicatorValue === 'number') {
                             shouldTrigger = indicatorValue >= alert.value;
                         }
                     }
                     break;
                 case 'volume':
-                    // Volume alerts would need volume data
+                    if (marketData?.volumeRatio !== undefined && typeof alert.value === 'number') {
+                        shouldTrigger = this.checkPriceCondition(marketData.volumeRatio, alert.condition, alert.value);
+                    }
+                    break;
+                case 'signal':
+                    // Signal alerts compare string values directly
+                    if (marketData?.signal !== undefined && typeof alert.value === 'string') {
+                        shouldTrigger = marketData.signal === alert.value;
+                    }
+                    break;
+                case 'ofi':
+                    // OFI alerts compare numeric OFI values
+                    if (marketData && 'ofi' in marketData && typeof alert.value === 'number') {
+                        const ofiValue = (marketData as any).ofi;
+                        if (typeof ofiValue === 'number') {
+                            shouldTrigger = this.checkPriceCondition(ofiValue, alert.condition, alert.value);
+                        }
+                    }
+                    break;
+                case 'liquidation':
+                    // Liquidation alerts would need liquidation data
+                    if (marketData && 'liquidation' in marketData && typeof alert.value === 'number') {
+                        const liqValue = (marketData as any).liquidation;
+                        if (typeof liqValue === 'number') {
+                            shouldTrigger = this.checkPriceCondition(liqValue, alert.condition, alert.value);
+                        }
+                    }
                     break;
                 default:
                     break;
@@ -191,6 +219,8 @@ export const useAlertStore = create<AlertState>()(
             // State
             alerts: [],
             triggeredAlerts: [],
+            // expose history as alias for backward compatibility with tests
+            alertHistory: [] as Array<Alert & { triggeredAt: number }>,
 
             // Actions
             addAlert: (alert: Omit<Alert, 'id' | 'createdAt' | 'triggered'>) => {
@@ -203,7 +233,8 @@ export const useAlertStore = create<AlertState>()(
                 alertEngine.removeAlert(id);
                 set({
                     alerts: alertEngine.getAlerts(),
-                    triggeredAlerts: get().triggeredAlerts.filter(tId => tId !== id)
+                    triggeredAlerts: get().triggeredAlerts.filter(tId => tId !== id),
+                    alertHistory: alertEngine.getHistory()
                 });
             },
 
@@ -222,7 +253,8 @@ export const useAlertStore = create<AlertState>()(
                 set(state => ({
                     alerts: alertEngine.getAlerts(),
                     triggeredAlerts: [...state.triggeredAlerts, id],
-                    history: alertEngine.getHistory()
+                    history: alertEngine.getHistory(),
+                    alertHistory: alertEngine.getHistory()
                 }));
             },
 
@@ -235,14 +267,17 @@ export const useAlertStore = create<AlertState>()(
                 set({ alerts: [], triggeredAlerts: [] });
             },
 
-            checkAlerts: (symbol: string, price: number, indicators?: Record<string, number>) => {
-                const triggeredIds = alertEngine.checkAlerts(symbol, price, indicators);
+            // Returns IDs of triggered alerts for test assertions
+            checkAlerts: (symbol: string, price: number, marketData?: { rsi?: number; macd?: number; volumeRatio?: number; signal?: string; ofi?: number; liquidation?: number }) => {
+                const triggeredIds = alertEngine.checkAlerts(symbol, price, marketData);
                 if (triggeredIds.length > 0) {
                     set(state => ({
                         alerts: alertEngine.getAlerts(),
-                        triggeredAlerts: [...state.triggeredAlerts, ...triggeredIds]
+                        triggeredAlerts: [...state.triggeredAlerts, ...triggeredIds],
+                        alertHistory: alertEngine.getHistory()
                     }));
                 }
+                return triggeredIds;
             },
 
             // Getters
@@ -257,21 +292,36 @@ export const useAlertStore = create<AlertState>()(
             // History management
             history: alertEngine.getHistory(),
 
+            // Compatibility getter used by tests
             getHistory: (): Array<Alert & { triggeredAt: number }> => {
-                return alertEngine.getHistory();
+                const hist = alertEngine.getHistory();
+                set({ alertHistory: hist });
+                return hist;
             },
 
             clearHistory: () => {
                 alertEngine.clearHistory();
-                set({ history: [] });
+                set({ history: [], alertHistory: [] });
             },
 
+            // Expose a method to request notification permission (no‑op in test env)
+            requestNotificationPermission: async (): Promise<string> => {
+                if (typeof Notification !== 'undefined' && Notification.requestPermission) {
+                    return await Notification.requestPermission();
+                }
+                return 'granted'; // default for Node environment
+            },
             checkMarketConditions: (marketData: any) => {
                 // For compatibility with components expecting this method
                 if (marketData.symbol && marketData.price) {
+                    // Pass full market data for volume and signal handling
                     get().checkAlerts(marketData.symbol, marketData.price, {
                         rsi: marketData.rsi,
-                        macd: marketData.macd
+                        macd: marketData.macd,
+                        volumeRatio: marketData.volumeRatio,
+                        signal: marketData.signal,
+                        ofi: marketData.ofi,
+                        liquidation: marketData.liquidation
                     });
                 }
             }
