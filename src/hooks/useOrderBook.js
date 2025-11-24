@@ -14,6 +14,11 @@ export const useOrderBook = (symbol = 'BTCUSDT') => {
     useEffect(() => {
         if (!symbol) return;
 
+        // Immediately clear state when symbol changes to prevent showing stale data
+        setBids([]);
+        setAsks([]);
+        setIsConnected(false);
+
         const wsSymbol = symbol.toLowerCase();
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@depth20@100ms`);
         wsRef.current = ws;
@@ -37,8 +42,13 @@ export const useOrderBook = (symbol = 'BTCUSDT') => {
             setIsConnected(false);
         };
 
+        ws.onerror = (error) => {
+            console.error("OrderBook WebSocket Error:", error);
+            setIsConnected(false);
+        };
+
         return () => {
-            if (ws.readyState === WebSocket.OPEN) {
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
                 ws.close();
             }
         };

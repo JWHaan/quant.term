@@ -63,6 +63,7 @@ export interface AlertState {
     clearTriggeredAlerts: () => void;
     clearAlerts: () => void;
     checkAlerts: (symbol: string, price: number, indicators?: Record<string, number>) => void;
+    checkMarketConditions: (marketData: any) => void;
 
     // Getters
     getAlertsBySymbol: (symbol: string) => Alert[];

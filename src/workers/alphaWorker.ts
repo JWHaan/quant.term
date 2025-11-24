@@ -20,6 +20,7 @@ export interface AlphaWorkerInput {
 export interface AlphaWorkerOutput {
     symbol: string;
     regime: 'TRENDING' | 'MEAN_REVERSION' | 'RANDOM_WALK';
+    marketCondition: 'BULL' | 'BEAR' | 'STATIC' | 'VOLATILE';
     hurst: number;
     adx: number;
     rsi: number;
@@ -108,11 +109,28 @@ self.onmessage = (e: MessageEvent<AlphaWorkerInput>) => {
 
         const obvTrend = obvChange > 0 ? 'BULLISH' : obvChange < 0 ? 'BEARISH' : 'NEUTRAL';
 
+        // 6. Market Condition Logic
+        let marketCondition: AlphaWorkerOutput['marketCondition'] = 'STATIC';
+
+        // Simple SMA50 logic for trend direction
+        const isAboveSMA = lastClose > lastEMA;
+
+        if (atrPercent > 1.5) {
+            marketCondition = 'VOLATILE';
+        } else if (isAboveSMA && rsi > 55) {
+            marketCondition = 'BULL';
+        } else if (!isAboveSMA && rsi < 45) {
+            marketCondition = 'BEAR';
+        } else {
+            marketCondition = 'STATIC';
+        }
+
         const totalScore = (trendScore * 0.4) + (momScore * 0.3) + (volmScore * 0.3);
 
         const result: AlphaWorkerOutput = {
             symbol,
             regime,
+            marketCondition,
             hurst,
             adx,
             rsi,

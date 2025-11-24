@@ -1,33 +1,37 @@
-import React, { Suspense, useRef } from 'react';
+import React, { Suspense, useRef, useMemo } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useMarketStore } from './stores/marketStore';
 import { useConnectionStore } from './stores/connectionStore';
-import DashboardPanel from './components/DashboardPanel';
-import MarketGrid from './components/MarketGrid.jsx';
-import LoadingSpinner from './components/LoadingSpinner';
-import PanelErrorBoundary from './components/PanelErrorBoundary';
-import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame } from 'lucide-react';
-import ThemeProvider from './components/ThemeProvider';
-import ErrorBoundary from './components/ErrorBoundary';
-import AlphaPanel from './components/AlphaPanel.tsx';
-import NewsTicker from './components/NewsTicker.tsx';
-import NewsFeed from './components/NewsFeed.tsx';
-import EconomicCalendar from './components/EconomicCalendar';
-import TabPanel from './components/TabPanel';
-import OrderBookDOM from './components/OrderBookDOM.tsx';
-import LiquidationFeed from './components/LiquidationFeed.tsx';
-import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
+import DashboardPanel from './ui/DashboardPanel';
+import MarketGrid from './features/market/MarketGrid';
+import LoadingSpinner from './ui/LoadingSpinner';
+import PanelErrorBoundary from './ui/PanelErrorBoundary';
+import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame, Activity } from 'lucide-react';
+import ThemeProvider from './ui/ThemeProvider';
+import ErrorBoundary from './ui/ErrorBoundary';
+import AlphaPanel from './features/analytics/AlphaPanel';
+import NewsTicker from './features/news/NewsTicker';
+import NewsFeed from './features/news/NewsFeed';
+import EconomicCalendar from './features/news/EconomicCalendar';
+import TabPanel from './ui/TabPanel';
+import OrderBookDOM from './features/market/OrderBookDOM';
+import LiquidationFeed from './features/market/LiquidationFeed';
+import OnChainPanel from './features/news/OnChainPanel';
+import KeyboardShortcutsModal from './ui/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
-const ChartContainer = React.lazy(() => import('./components/ChartContainer.jsx'));
+const ChartContainer = React.lazy(() => import('./features/charts/ChartContainer'));
 
-import PerformancePanel from './components/PerformancePanel';
+import PerformancePanel from './features/trading/PerformancePanel';
 // Lazy Load Secondary/Heavy Analytics
-const QuantSignalEngine = React.lazy(() => import('./components/QuantSignalEngine'));
+const QuantSignalEngine = React.lazy(() => import('./features/analytics/QuantSignalEngine'));
+
+import { useConnectionLatency } from './hooks/useConnectionLatency';
 
 const App: React.FC = () => {
     const { selectedSymbol, setSymbol } = useMarketStore();
     const connections = useConnectionStore(state => state.connections);
+    const { latency, quality, updatesPerSecond } = useConnectionLatency();
 
     // Panel refs for keyboard focus
     const marketWatchRef = useRef<HTMLDivElement>(null);
@@ -71,6 +75,16 @@ const App: React.FC = () => {
             }
         ]
     });
+
+    const getQualityColor = (q: string) => {
+        switch (q) {
+            case 'Excellent': return 'var(--accent-primary)'; // Green
+            case 'Good': return '#FFD700'; // Gold
+            case 'Fair': return '#FFA500'; // Orange
+            case 'Poor': return 'var(--accent-danger)'; // Red
+            default: return 'var(--text-muted)';
+        }
+    };
 
     return (
         <ThemeProvider>
@@ -118,12 +132,14 @@ const App: React.FC = () => {
                         <PanelGroup direction="horizontal">
 
                             {/* COLUMN 1: Market Watch (15%) */}
-                            <Panel defaultSize={15} minSize={10} maxSize={20}>
-                                <DashboardPanel title="Market Watch">
-                                    <PanelErrorBoundary>
-                                        <MarketGrid onSelectSymbol={setSymbol} />
-                                    </PanelErrorBoundary>
-                                </DashboardPanel>
+                            <Panel defaultSize={15} minSize={10} maxSize={20} collapsible>
+                                <div ref={marketWatchRef} style={{ height: '100%' }}>
+                                    <DashboardPanel title="Market Watch">
+                                        <PanelErrorBoundary>
+                                            <MarketGrid onSelectSymbol={setSymbol} />
+                                        </PanelErrorBoundary>
+                                    </DashboardPanel>
+                                </div>
                             </Panel>
 
                             <PanelResizeHandle className="resize-handle" />
@@ -133,13 +149,15 @@ const App: React.FC = () => {
                                 <PanelGroup direction="vertical">
                                     {/* Top: Main Chart (50%) */}
                                     <Panel defaultSize={50}>
-                                        <DashboardPanel title={`Chart - ${selectedSymbol}`}>
-                                            <PanelErrorBoundary>
-                                                <Suspense fallback={<LoadingSpinner />}>
-                                                    <ChartContainer symbol={selectedSymbol} />
-                                                </Suspense>
-                                            </PanelErrorBoundary>
-                                        </DashboardPanel>
+                                        <div ref={chartRef} style={{ height: '100%' }}>
+                                            <DashboardPanel title={`Chart - ${selectedSymbol}`}>
+                                                <PanelErrorBoundary>
+                                                    <Suspense fallback={<LoadingSpinner />}>
+                                                        <ChartContainer symbol={selectedSymbol} />
+                                                    </Suspense>
+                                                </PanelErrorBoundary>
+                                            </DashboardPanel>
+                                        </div>
                                     </Panel>
 
                                     <PanelResizeHandle className="resize-handle" />
@@ -162,7 +180,7 @@ const App: React.FC = () => {
                                         <DashboardPanel title="Market Depth">
                                             <PanelErrorBoundary>
                                                 <TabPanel
-                                                    tabs={[
+                                                    tabs={useMemo(() => [
                                                         {
                                                             id: 'orderbook',
                                                             label: 'Order Book',
@@ -175,7 +193,7 @@ const App: React.FC = () => {
                                                             icon: <Flame size={12} />,
                                                             content: <LiquidationFeed symbol={selectedSymbol} />
                                                         }
-                                                    ]}
+                                                    ], [selectedSymbol])}
                                                     defaultTab="orderbook"
                                                 />
                                             </PanelErrorBoundary>
@@ -186,47 +204,56 @@ const App: React.FC = () => {
 
                             <PanelResizeHandle className="resize-handle" />
 
-                            {/* COLUMN 3: Alpha Factors & News (30%) */}
+                            {/* COLUMN 3: Alpha & News (30%) */}
                             <Panel defaultSize={30} minSize={20} maxSize={35}>
                                 <PanelGroup direction="vertical">
                                     {/* Top: Alpha Factors (50%) */}
                                     <Panel defaultSize={50}>
-                                        <DashboardPanel title="Alpha Factors">
-                                            <PanelErrorBoundary>
-                                                <AlphaPanel symbol={selectedSymbol} interval="15m" />
-                                            </PanelErrorBoundary>
-                                        </DashboardPanel>
+                                        <div ref={alphaRef} style={{ height: '100%' }}>
+                                            <DashboardPanel title="Alpha Factors">
+                                                <PanelErrorBoundary>
+                                                    <AlphaPanel symbol={selectedSymbol} />
+                                                </PanelErrorBoundary>
+                                            </DashboardPanel>
+                                        </div>
                                     </Panel>
 
                                     <PanelResizeHandle className="resize-handle" />
 
                                     {/* Bottom: News & Calendar (50%) */}
                                     <Panel defaultSize={50}>
-                                        <DashboardPanel title="Market Intelligence">
-                                            <PanelErrorBoundary>
-                                                <TabPanel
-                                                    tabs={[
-                                                        {
-                                                            id: 'news',
-                                                            label: 'News',
-                                                            icon: <Newspaper size={12} />,
-                                                            content: <NewsFeed symbol={selectedSymbol} maxItems={15} />
-                                                        },
-                                                        {
-                                                            id: 'calendar',
-                                                            label: 'Calendar',
-                                                            icon: <Calendar size={12} />,
-                                                            content: <EconomicCalendar />
-                                                        }
-                                                    ]}
-                                                    defaultTab="news"
-                                                />
-                                            </PanelErrorBoundary>
-                                        </DashboardPanel>
+                                        <div ref={newsRef} style={{ height: '100%' }}>
+                                            <DashboardPanel title="Market Intelligence">
+                                                <PanelErrorBoundary>
+                                                    <TabPanel
+                                                        tabs={useMemo(() => [
+                                                            {
+                                                                id: 'onchain',
+                                                                label: 'On-Chain',
+                                                                icon: <Activity size={12} />,
+                                                                content: <OnChainPanel />
+                                                            },
+                                                            {
+                                                                id: 'news',
+                                                                label: 'News Feed',
+                                                                icon: <Newspaper size={12} />,
+                                                                content: <NewsFeed symbol={selectedSymbol} />
+                                                            },
+                                                            {
+                                                                id: 'calendar',
+                                                                label: 'Economic Calendar',
+                                                                icon: <Calendar size={12} />,
+                                                                content: <EconomicCalendar />
+                                                            }
+                                                        ], [selectedSymbol])}
+                                                        defaultTab="onchain"
+                                                    />
+                                                </PanelErrorBoundary>
+                                            </DashboardPanel>
+                                        </div>
                                     </Panel>
                                 </PanelGroup>
                             </Panel>
-
                         </PanelGroup>
                     </div>
 
@@ -234,7 +261,13 @@ const App: React.FC = () => {
                     <footer className="app-footer">
                         <div className="status-item">
                             <span className="label">LATENCY</span>
-                            <span className="value good">12MS</span>
+                            <span className="value" style={{ color: getQualityColor(quality) }}>
+                                {latency}ms ({quality})
+                            </span>
+                        </div>
+                        <div className="status-item">
+                            <span className="label">DATA RATE</span>
+                            <span className="value">{updatesPerSecond} msg/s</span>
                         </div>
                         <div className="status-item">
                             <span className="label">STATUS</span>
@@ -260,9 +293,9 @@ const App: React.FC = () => {
                         isOpen={showHelp}
                         onClose={() => setShowHelp(false)}
                     />
-                </div>
-            </ErrorBoundary>
-        </ThemeProvider>
+                </div >
+            </ErrorBoundary >
+        </ThemeProvider >
     );
 };
 

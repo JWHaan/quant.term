@@ -7,7 +7,7 @@ interface FearGreedData {
     lastUpdate?: string;
 }
 
-interface FearGreedResponse {
+export interface FearGreedResponse {
     current: FearGreedData;
     history: FearGreedData[];
     metadata: {

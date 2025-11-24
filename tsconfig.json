@@ -59,6 +59,15 @@
             ],
             "@/data/*": [
                 "./src/data/*"
+            ],
+            "@/features/*": [
+                "./src/features/*"
+            ],
+            "@/ui/*": [
+                "./src/ui/*"
+            ],
+            "@/layout/*": [
+                "./src/layout/*"
             ]
         }
     },

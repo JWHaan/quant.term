@@ -1,16 +1,26 @@
-/**
- * Test setup file for Vitest
- * Runs before all tests to configure the testing environment
- */
-
-import { afterEach, beforeAll, afterAll, vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 
-// Cleanup after each test
+// Cleanup after each test case (e.g. clearing jsdom)
 afterEach(() => {
     cleanup();
 });
+
+// Mock ResizeObserver (needed for charting libraries)
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+}));
+
+// Mock WebSocket if not provided by environment (though vitest-websocket-mock handles this usually)
+// We'll let vitest-websocket-mock handle the specific WS mocking in tests, 
+// but ensuring the global object exists is good practice for JSDOM.
+if (!global.WebSocket) {
+    // @ts-ignore
+    global.WebSocket = vi.fn();
+}
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -19,53 +29,10 @@ Object.defineProperty(window, 'matchMedia', {
         matches: false,
         media: query,
         onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
+        addListener: vi.fn(), // deprecated
+        removeListener: vi.fn(), // deprecated
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
         dispatchEvent: vi.fn(),
     })),
-});
-
-// Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-    constructor() { }
-    disconnect() { }
-    observe() { }
-    takeRecords() {
-        return [];
-    }
-    unobserve() { }
-} as any;
-
-// Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
-    constructor() { }
-    disconnect() { }
-    observe() { }
-    unobserve() { }
-} as any;
-
-// Mock Notification API
-global.Notification = {
-    permission: 'default',
-    requestPermission: vi.fn().mockResolvedValue('granted'),
-} as any;
-
-// Suppress console errors in tests (optional - remove if you want to see them)
-const originalError = console.error;
-beforeAll(() => {
-    console.error = (...args: any[]) => {
-        if (
-            typeof args[0] === 'string' &&
-            args[0].includes('Warning: ReactDOM.render')
-        ) {
-            return;
-        }
-        originalError.call(console, ...args);
-    };
-});
-
-afterAll(() => {
-    console.error = originalError;
 });
