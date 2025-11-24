@@ -24,10 +24,10 @@ export default defineConfig({
                 'vitest.config.ts'
             ],
             thresholds: {
-                lines: 50,
-                functions: 50,
-                branches: 45,
-                statements: 50
+                lines: 70,
+                functions: 70,
+                branches: 65,
+                statements: 70
             }
         },
         include: ['src/**/*.{test,spec}.{ts,tsx}'],
@@ -36,13 +36,16 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
-            '@/components': path.resolve(__dirname, './src/components'),
+            '@/ui': path.resolve(__dirname, './src/ui'),
+            '@/features': path.resolve(__dirname, './src/features'),
+            '@/layout': path.resolve(__dirname, './src/layout'),
             '@/stores': path.resolve(__dirname, './src/stores'),
             '@/services': path.resolve(__dirname, './src/services'),
             '@/utils': path.resolve(__dirname, './src/utils'),
             '@/hooks': path.resolve(__dirname, './src/hooks'),
             '@/types': path.resolve(__dirname, './src/types'),
             '@/data': path.resolve(__dirname, './src/data'),
+            '@/workers': path.resolve(__dirname, './src/workers'),
         }
     }
 })
