@@ -10,41 +10,53 @@ export const useOrderBook = (symbol = 'BTCUSDT') => {
     const [asks, setAsks] = useState([]);
     const [isConnected, setIsConnected] = useState(false);
     const wsRef = useRef(null);
+    const currentSymbolRef = useRef(symbol);
 
     useEffect(() => {
         if (!symbol) return;
 
-        // Immediately clear state when symbol changes to prevent showing stale data
-        setBids([]);
-        setAsks([]);
-        setIsConnected(false);
+        // Update the current symbol ref
+        currentSymbolRef.current = symbol;
 
         const wsSymbol = symbol.toLowerCase();
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@depth20@100ms`);
         wsRef.current = ws;
 
         ws.onopen = () => {
-            setIsConnected(true);
+            // Only update connection status if this is still the current symbol
+            if (currentSymbolRef.current === symbol) {
+                setIsConnected(true);
+            }
         };
 
         ws.onmessage = (event) => {
             try {
+                // Only update state if this WebSocket is for the current symbol
+                if (currentSymbolRef.current !== symbol) {
+                    return;
+                }
+
                 const data = JSON.parse(event.data);
                 // Binance @depth20 stream returns arrays of [price, quantity]
-                setBids(data.bids);
-                setAsks(data.asks);
+                setBids(data.bids || []);
+                setAsks(data.asks || []);
             } catch (err) {
                 console.error("OrderBook Parse Error:", err);
             }
         };
 
         ws.onclose = () => {
-            setIsConnected(false);
+            // Only update connection status if this is still the current symbol
+            if (currentSymbolRef.current === symbol) {
+                setIsConnected(false);
+            }
         };
 
         ws.onerror = (error) => {
             console.error("OrderBook WebSocket Error:", error);
-            setIsConnected(false);
+            if (currentSymbolRef.current === symbol) {
+                setIsConnected(false);
+            }
         };
 
         return () => {
