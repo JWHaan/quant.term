@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import AlphaWorker from '@/workers/alphaWorker?worker';
 import type { AlphaWorkerOutput } from '@/workers/alphaWorker';
 import { TrendingUp, Activity, Zap } from 'lucide-react';
+import { OFIIndicator } from './OFIIndicator';
 
 const BINANCE_REST_URL = 'https://api.binance.com';
 
@@ -244,6 +245,20 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* OFI Indicator */}
+            <div style={{ marginTop: '16px' }}>
+                <div style={{
+                    fontSize: '10px',
+                    color: 'var(--text-muted)',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px'
+                }}>
+                    Order Flow Imbalance
+                </div>
+                <OFIIndicator symbol={symbol} />
             </div>
         </div>
     );

@@ -28,8 +28,8 @@ describe('marketStore', () => {
         const candles = updatedStore.getCandles(symbol);
 
         expect(candles.length).toBe(10000);
-        expect(candles[0].time).toBe(5); // First 5 should be dropped
-        expect(candles[9999].time).toBe(10004);
+        expect(candles[0]?.time).toBe(5); // First 5 should be dropped
+        expect(candles[9999]?.time).toBe(10004);
     });
 
     it('should add trades and respect circular buffer limit', () => {
@@ -53,8 +53,8 @@ describe('marketStore', () => {
         const trades = updatedStore.getTrades(symbol);
 
         expect(trades.length).toBe(10000);
-        expect(trades[0].id).toBe(5);
-        expect(trades[9999].id).toBe(10004);
+        expect(trades[0]?.id).toBe(5);
+        expect(trades[9999]?.id).toBe(10004);
     });
 
     it('should cleanup data', () => {
