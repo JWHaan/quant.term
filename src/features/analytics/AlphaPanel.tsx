@@ -4,6 +4,7 @@ import AlphaWorker from '@/workers/alphaWorker?worker';
 import type { AlphaWorkerOutput } from '@/workers/alphaWorker';
 import { TrendingUp, Activity, Zap } from 'lucide-react';
 import { OFIIndicator } from './OFIIndicator';
+import { VolumeDeltaIndicator } from './VolumeDeltaIndicator';
 
 const BINANCE_REST_URL = 'https://api.binance.com';
 
@@ -259,6 +260,20 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     Order Flow Imbalance
                 </div>
                 <OFIIndicator symbol={symbol} />
+            </div>
+
+            {/* Volume Delta Indicator */}
+            <div style={{ marginTop: '16px' }}>
+                <div style={{
+                    fontSize: '10px',
+                    color: 'var(--text-muted)',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px'
+                }}>
+                    Volume Delta (CVD)
+                </div>
+                <VolumeDeltaIndicator symbol={symbol} />
             </div>
         </div>
     );
