@@ -27,11 +27,17 @@
   - Volume Profile and VWAP
 - Multiple timeframes: 1m to 1M
 
-### Quantitative Analysis
+### Quantitative Analysis (Institutional-Grade)
+- **Order Flow Imbalance (OFI)**: Real-time bid/ask pressure detection with 2σ event alerts
+- **Volume Delta (CVD)**: Tick Rule & Lee-Ready trade classification with divergence detection
+- **VPIN (Toxicity)**: Volume-synchronized informed trading probability (flash crash predictor)
 - **Quant Signal Engine**: Multi-indicator scoring system for directional bias
-- **Order Flow Imbalance (OFI)**: Real-time buy/sell pressure analysis
 - **Liquidation Feed**: Track large liquidations across major exchanges
 - **Options Flow Analytics**: Greeks, implied volatility, and block trade detection (Deribit)
+- **Real-Time VaR**: Historical simulation with 99%/95%/90% confidence levels
+- **Memory Profiler**: Live heap usage monitoring for long sessions
+
+> **Note**: OFI, CVD, and VPIN are features typically found only in Bloomberg Terminal ($2,000/month). We provide them for free.
 
 ### Alert System
 - Price-based alerts (above/below/crosses)
@@ -50,14 +56,20 @@
 
 We follow a [Strategic Roadmap](./ROADMAP.md) focused on stability, zero-cost infrastructure, and community governance.
 
-### Phase 1: Critical Fixes (Current)
-- [ ] Eliminate Memory Leaks (Circular buffers, WeakRef)
-- [ ] Harden WebSocket Layer (Connection pooling, Offline mode)
-- [ ] Error Boundaries & Graceful Degradation
+### Phase 1: Critical Fixes ✅ COMPLETE
+- [x] Eliminate Memory Leaks (Circular buffers, cleanup methods)
+- [x] Harden WebSocket Layer (Connection pooling, rate limiting)
+- [x] Error Boundaries & Graceful Degradation
+- [x] Memory Profiler UI
+- [x] CI/CD Pipeline (GitHub Actions)
 
-### Phase 2: Optional Backend
-- [ ] Cloudflare Workers + D1 Backend
-- [ ] Mobile-First Redesign
+### Phase 2: Quantitative Features (In Progress)
+- [x] Order Flow Imbalance (OFI)
+- [x] Volume Delta (CVD) with Tick Rule
+- [x] VPIN (Toxicity Measurement)
+- [x] Real-Time VaR Calculator
+- [ ] Portfolio Greeks
+- [ ] Volatility Surface
 
 See [ROADMAP.md](./ROADMAP.md) for the full vision.
 
