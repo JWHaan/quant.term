@@ -5,6 +5,7 @@ import type { AlphaWorkerOutput } from '@/workers/alphaWorker';
 import { TrendingUp, Activity, Zap } from 'lucide-react';
 import { OFIIndicator } from './OFIIndicator';
 import { VolumeDeltaIndicator } from './VolumeDeltaIndicator';
+import { VPINIndicator } from './VPINIndicator';
 
 const BINANCE_REST_URL = 'https://api.binance.com';
 
@@ -274,6 +275,20 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     Volume Delta (CVD)
                 </div>
                 <VolumeDeltaIndicator symbol={symbol} />
+            </div>
+
+            {/* VPIN Indicator */}
+            <div style={{ marginTop: '16px' }}>
+                <div style={{
+                    fontSize: '10px',
+                    color: 'var(--text-muted)',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px'
+                }}>
+                    VPIN (Toxicity)
+                </div>
+                <VPINIndicator symbol={symbol} />
             </div>
         </div>
     );
