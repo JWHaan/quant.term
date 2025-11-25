@@ -19,6 +19,7 @@ import LiquidationFeed from './features/market/LiquidationFeed';
 import OnChainPanel from './features/news/OnChainPanel';
 import KeyboardShortcutsModal from './ui/KeyboardShortcutsModal';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { MemoryProfiler } from './features/debug/MemoryProfiler';
 
 const ChartContainer = React.lazy(() => import('./features/charts/ChartContainer'));
 
@@ -287,12 +288,12 @@ const App: React.FC = () => {
                         <PerformancePanel />
                     </footer>
 
-                    {/* Keyboard Shortcuts Modal */}
                     <KeyboardShortcutsModal
                         shortcuts={shortcuts}
                         isOpen={showHelp}
                         onClose={() => setShowHelp(false)}
                     />
+                    <MemoryProfiler />
                 </div >
             </ErrorBoundary >
         </ThemeProvider >

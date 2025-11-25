@@ -6,6 +6,8 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
 ![React](https://img.shields.io/badge/React-19.2-61DAFB)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)
+
 
 ## 🚀 Features
 
@@ -43,6 +45,21 @@
 - Automatic P&L calculation
 - Performance statistics (win rate, profit factor, Sharpe ratio)
 - Risk analytics and exposure monitoring
+
+## 🗺️ Roadmap
+
+We follow a [Strategic Roadmap](./ROADMAP.md) focused on stability, zero-cost infrastructure, and community governance.
+
+### Phase 1: Critical Fixes (Current)
+- [ ] Eliminate Memory Leaks (Circular buffers, WeakRef)
+- [ ] Harden WebSocket Layer (Connection pooling, Offline mode)
+- [ ] Error Boundaries & Graceful Degradation
+
+### Phase 2: Optional Backend
+- [ ] Cloudflare Workers + D1 Backend
+- [ ] Mobile-First Redesign
+
+See [ROADMAP.md](./ROADMAP.md) for the full vision.
 
 ## 📋 System Requirements
 

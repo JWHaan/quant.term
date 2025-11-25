@@ -4,12 +4,34 @@
 
 import type { MarketData } from './binance';
 
+
+
+export interface Candle {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
+export interface Trade {
+    id: number;
+    time: string;
+    price: number;
+    size: number;
+    side: 'BUY' | 'SELL';
+    symbol: string;
+}
+
 /** Market Store State */
 export interface MarketState {
     // State
     selectedSymbol: string;
     watchlist: string[];
     marketData: Record<string, MarketData>;
+    candles: Record<string, Candle[]>;
+    trades: Record<string, Trade[]>;
     lastUpdate: number | null;
 
     // Actions
@@ -18,11 +40,16 @@ export interface MarketState {
     removeFromWatchlist: (symbol: string) => void;
     reorderWatchlist: (fromIndex: number, toIndex: number) => void;
     updateMarketData: (symbol: string, data: Partial<MarketData>) => void;
+    addCandle: (symbol: string, candle: Candle) => void;
+    addTrade: (symbol: string, trade: Trade) => void;
     clearMarketData: () => void;
+    cleanup: () => void;
 
     // Getters
     getMarketData: (symbol: string) => MarketData | null;
     isInWatchlist: (symbol: string) => boolean;
+    getCandles: (symbol: string) => Candle[];
+    getTrades: (symbol: string) => Trade[];
 }
 
 /** Alert Types */

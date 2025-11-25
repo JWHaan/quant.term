@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { MarketState } from '@/types/stores';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { MarketState, Candle, Trade } from '@/types/stores';
 import type { MarketData } from '@/types/binance';
 
 /**
@@ -20,6 +20,8 @@ export const useMarketStore = create<MarketState>()(
             selectedSymbol: 'BTCUSDT',
             watchlist: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'ADAUSDT'],
             marketData: {},
+            candles: {},
+            trades: {},
             lastUpdate: null,
 
             // Actions
@@ -65,8 +67,46 @@ export const useMarketStore = create<MarketState>()(
                 }));
             },
 
+            addCandle: (symbol: string, candle: Candle) => {
+                set((state) => {
+                    const current = state.candles[symbol] || [];
+                    // Circular buffer: max 10,000 items
+                    const next = [...current, candle];
+                    if (next.length > 10000) {
+                        next.splice(0, next.length - 10000);
+                    }
+                    return {
+                        candles: {
+                            ...state.candles,
+                            [symbol]: next
+                        }
+                    };
+                });
+            },
+
+            addTrade: (symbol: string, trade: Trade) => {
+                set((state) => {
+                    const current = state.trades[symbol] || [];
+                    // Circular buffer: max 10,000 items
+                    const next = [...current, trade];
+                    if (next.length > 10000) {
+                        next.splice(0, next.length - 10000);
+                    }
+                    return {
+                        trades: {
+                            ...state.trades,
+                            [symbol]: next
+                        }
+                    };
+                });
+            },
+
             clearMarketData: () => {
-                set({ marketData: {}, lastUpdate: null });
+                set({ marketData: {}, candles: {}, trades: {}, lastUpdate: null });
+            },
+
+            cleanup: () => {
+                set({ candles: {}, trades: {} });
             },
 
             // Getters
@@ -78,10 +118,31 @@ export const useMarketStore = create<MarketState>()(
             isInWatchlist: (symbol: string): boolean => {
                 const { watchlist } = get();
                 return watchlist.includes(symbol.toUpperCase());
+            },
+
+            getCandles: (symbol: string) => {
+                const { candles } = get();
+                return candles[symbol] || [];
+            },
+
+            getTrades: (symbol: string) => {
+                const { trades } = get();
+                return trades[symbol] || [];
             }
         }),
         {
             name: 'market-store',
+            storage: createJSONStorage(() => {
+                // Disable persistence in test environment
+                if (process.env.NODE_ENV === 'test') {
+                    return {
+                        getItem: () => null,
+                        setItem: () => { },
+                        removeItem: () => { },
+                    };
+                }
+                return localStorage;
+            }),
             partialize: (state) => ({
                 selectedSymbol: state.selectedSymbol,
                 watchlist: state.watchlist
