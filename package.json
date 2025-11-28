@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage && node scripts/generate-coverage-summary.js"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
