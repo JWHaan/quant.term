@@ -24,8 +24,7 @@ interface LiquidationStats {
 
 /**
  * Liquidation Feed (The "Rekt" Tape)
- * Displays raw, real-time forced liquidation orders from Binance Futures.
- * Source: wss://fstream.binance.com/ws/!forceOrder@arr (ALL symbols)
+ * Terminal-style liquidation feed
  */
 const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' }) => {
     const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
@@ -77,24 +76,23 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#000', overflow: 'hidden' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', overflow: 'hidden', fontFamily: 'var(--font-mono)' }}>
             {/* Header Stats */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 padding: '8px',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                background: 'rgba(255,255,255,0.02)',
-                fontSize: '10px',
-                fontFamily: 'var(--font-mono)'
+                borderBottom: '1px solid var(--border-color)',
+                background: 'rgba(51, 255, 0, 0.05)',
+                fontSize: '10px'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-danger)' }}>
                     <TrendingDown size={12} />
-                    <span>Longs: {formatValue(stats.longVol)}</span>
+                    <span>LONGS_REKT: {formatValue(stats.longVol)}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-success)' }}>
                     <TrendingUp size={12} />
-                    <span>Shorts: {formatValue(stats.shortVol)}</span>
+                    <span>SHORTS_REKT: {formatValue(stats.shortVol)}</span>
                 </div>
             </div>
 
@@ -105,18 +103,18 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
                 padding: '4px 8px',
                 fontSize: '9px',
                 color: 'var(--text-muted)',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                borderBottom: '1px solid var(--border-subtle)',
                 textTransform: 'uppercase',
-                fontFamily: 'var(--font-mono)'
+                background: '#000'
             }}>
-                <div>Time</div>
-                <div>Price</div>
-                <div>Value</div>
-                <div style={{ textAlign: 'right' }}>Side</div>
+                <div>TIME</div>
+                <div>PRICE</div>
+                <div>VAL</div>
+                <div style={{ textAlign: 'right' }}>TYPE</div>
             </div>
 
             {/* List */}
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
                 {liquidations.length === 0 ? (
                     <div style={{
                         display: 'flex',
@@ -130,8 +128,8 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
                         opacity: 0.6
                     }}>
                         <Droplets size={24} />
-                        <span>Waiting for liquidations...</span>
-                        <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)' }}>Real-time !forceOrder@arr</span>
+                        <span>SCANNING_FOR_LIQUIDATIONS...</span>
+                        <span style={{ fontSize: '9px' }}>[TARGET: !forceOrder@arr]</span>
                     </div>
                 ) : (
                     liquidations.map(liq => (
@@ -142,23 +140,22 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
                                 gridTemplateColumns: '50px 1fr 1fr 60px',
                                 padding: '4px 8px',
                                 fontSize: '11px',
-                                fontFamily: 'var(--font-mono)',
                                 borderBottom: '1px solid rgba(255,255,255,0.02)',
-                                background: liq.value > 10000 ? (liq.side === 'LONG' ? 'rgba(255,0,85,0.1)' : 'rgba(0,255,157,0.1)') : 'transparent',
-                                animation: 'fadeIn 0.2s ease-out'
+                                background: liq.value > 10000 ? (liq.side === 'LONG' ? 'rgba(255,0,0,0.1)' : 'rgba(0,255,0,0.1)') : 'transparent',
+                                animation: 'fadeIn 0.2s ease-out',
+                                color: liq.side === 'LONG' ? 'var(--accent-danger)' : 'var(--accent-success)'
                             }}
                         >
                             <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{formatTime(liq.time)}</div>
-                            <div style={{ color: '#fff' }}>{liq.price.toFixed(2)}</div>
+                            <div style={{ color: 'var(--text-primary)' }}>{liq.price.toFixed(2)}</div>
                             <div style={{ fontWeight: liq.value > 10000 ? 'bold' : 'normal' }}>
                                 {formatValue(liq.value)}
                             </div>
                             <div style={{
                                 textAlign: 'right',
-                                color: liq.side === 'LONG' ? 'var(--accent-danger)' : 'var(--accent-primary)',
                                 fontWeight: 'bold'
                             }}>
-                                {liq.side}
+                                {liq.side === 'LONG' ? '[LONG]' : '[SHRT]'}
                             </div>
                         </div>
                     ))

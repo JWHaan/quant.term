@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import AlphaWorker from '@/workers/alphaWorker?worker';
 import type { AlphaWorkerOutput } from '@/workers/alphaWorker';
@@ -107,37 +106,36 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                 fontFamily: 'var(--font-mono)'
             }}>
                 <Activity size={16} className="spin" style={{ marginRight: '8px' }} />
-                CALCULATING ALPHA...
+                [CALCULATING_ALPHA_FACTORS]...
             </div>
         );
     }
 
     const getScoreColor = (score: number) => {
-        if (score > 20) return 'var(--accent-primary)';
+        if (score > 20) return 'var(--accent-success)';
         if (score < -20) return 'var(--accent-danger)';
         return 'var(--text-muted)';
     };
 
     const getRegimeColor = (regime: string) => {
         switch (regime) {
-            case 'BULL': return 'var(--accent-primary)';
+            case 'BULL': return 'var(--accent-success)';
             case 'BEAR': return 'var(--accent-danger)';
-            case 'VOLATILE': return '#FFD700'; // Gold
+            case 'VOLATILE': return '#FFFF00'; // Yellow
             default: return 'var(--text-muted)';
         }
     };
 
     return (
-        <div style={{ padding: '12px', height: '100%', overflowY: 'auto' }}>
+        <div style={{ padding: '12px', height: '100%', overflowY: 'auto', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
             {/* Top Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                 <div style={{
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'rgba(51, 255, 0, 0.05)',
                     padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(255,255,255,0.05)'
+                    border: '1px solid var(--border-color)'
                 }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>MARKET REGIME</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>MARKET_REGIME</div>
                     <div style={{
                         fontSize: '14px',
                         fontWeight: 'bold',
@@ -150,17 +148,16 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                             state.marketCondition === 'BEAR' ? <TrendingUp size={14} style={{ transform: 'scaleY(-1)' }} /> :
                                 state.marketCondition === 'VOLATILE' ? <Zap size={14} /> :
                                     <Activity size={14} />}
-                        {state.marketCondition}
+                        [{state.marketCondition}]
                     </div>
                 </div>
 
                 <div style={{
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'rgba(51, 255, 0, 0.05)',
                     padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(255,255,255,0.05)'
+                    border: '1px solid var(--border-color)'
                 }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>ALPHA SCORE</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>ALPHA_SCORE</div>
                     <div style={{
                         fontSize: '14px',
                         fontWeight: 'bold',
@@ -178,16 +175,18 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     color: 'var(--text-muted)',
                     marginBottom: '8px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px'
+                    letterSpacing: '1px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    paddingBottom: '2px'
                 }}>
-                    Factor Analysis
+                    &gt; FACTOR_ANALYSIS
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {[
-                        { label: 'Trend', score: state.scores.trend, val: state.adx.toFixed(1) + ' ADX' },
-                        { label: 'Momentum', score: state.scores.momentum, val: state.rsi.toFixed(1) + ' RSI' },
-                        { label: 'Volatility', score: state.scores.volatility, val: state.atrPercent.toFixed(2) + '% ATR' },
-                        { label: 'Volume', score: state.scores.volume, val: state.obvTrend }
+                        { label: 'TREND', score: state.scores.trend, val: state.adx.toFixed(1) + ' ADX' },
+                        { label: 'MOMENTUM', score: state.scores.momentum, val: state.rsi.toFixed(1) + ' RSI' },
+                        { label: 'VOLATILITY', score: state.scores.volatility, val: state.atrPercent.toFixed(2) + '% ATR' },
+                        { label: 'VOLUME', score: state.scores.volume, val: state.obvTrend }
                     ].map((factor) => (
                         <div key={factor.label} style={{
                             display: 'flex',
@@ -195,15 +194,15 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                             alignItems: 'center',
                             fontSize: '11px',
                             padding: '4px 8px',
-                            background: 'rgba(255,255,255,0.02)',
-                            borderRadius: '2px'
+                            background: '#000',
+                            borderLeft: `2px solid ${getScoreColor(factor.score)}`
                         }}>
                             <span style={{ color: 'var(--text-secondary)' }}>{factor.label}</span>
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{factor.val}</span>
                                 <span style={{
                                     color: getScoreColor(factor.score),
-                                    fontWeight: '600',
+                                    fontWeight: 'bold',
                                     width: '30px',
                                     textAlign: 'right'
                                 }}>
@@ -222,9 +221,11 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     color: 'var(--text-muted)',
                     marginBottom: '8px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px'
+                    letterSpacing: '1px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    paddingBottom: '2px'
                 }}>
-                    Deep Dive
+                    &gt; DEEP_DIVE
                 </div>
                 <div style={{
                     display: 'grid',
@@ -232,18 +233,18 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     gap: '8px',
                     fontSize: '11px'
                 }}>
-                    <div style={{ padding: '6px', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Hurst Exp</div>
-                        <div style={{ color: '#fff' }}>{state.hurst.toFixed(3)}</div>
+                    <div style={{ padding: '6px', background: '#000', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>HURST_EXP</div>
+                        <div style={{ color: 'var(--text-primary)' }}>{state.hurst.toFixed(3)}</div>
                         <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{state.regime}</div>
                     </div>
-                    <div style={{ padding: '6px', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>OBV Trend</div>
+                    <div style={{ padding: '6px', background: '#000', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>OBV_TREND</div>
                         <div style={{
-                            color: state.obvTrend === 'BULLISH' ? 'var(--accent-primary)' :
+                            color: state.obvTrend === 'BULLISH' ? 'var(--accent-success)' :
                                 state.obvTrend === 'BEARISH' ? 'var(--accent-danger)' : 'var(--text-muted)'
                         }}>
-                            {state.obvTrend}
+                            [{state.obvTrend}]
                         </div>
                     </div>
                 </div>
@@ -256,9 +257,11 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     color: 'var(--text-muted)',
                     marginBottom: '8px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px'
+                    letterSpacing: '1px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    paddingBottom: '2px'
                 }}>
-                    Order Flow Imbalance
+                    &gt; ORDER_FLOW_IMBALANCE
                 </div>
                 <OFIIndicator symbol={symbol} />
             </div>
@@ -270,9 +273,11 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     color: 'var(--text-muted)',
                     marginBottom: '8px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px'
+                    letterSpacing: '1px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    paddingBottom: '2px'
                 }}>
-                    Volume Delta (CVD)
+                    &gt; VOL_DELTA_CVD
                 </div>
                 <VolumeDeltaIndicator symbol={symbol} />
             </div>
@@ -284,9 +289,11 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                     color: 'var(--text-muted)',
                     marginBottom: '8px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px'
+                    letterSpacing: '1px',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    paddingBottom: '2px'
                 }}>
-                    VPIN (Toxicity)
+                    &gt; VPIN_TOXICITY
                 </div>
                 <VPINIndicator symbol={symbol} />
             </div>

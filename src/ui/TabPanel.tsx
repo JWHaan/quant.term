@@ -21,49 +21,48 @@ const TabPanel: React.FC<TabPanelProps> = ({ tabs, defaultTab }) => {
             <div style={{
                 display: 'flex',
                 borderBottom: '1px solid var(--border-color)',
-                background: 'rgba(255,255,255,0.02)',
-                gap: '2px'
+                background: 'var(--bg-panel)',
+                paddingTop: '4px'
             }}>
-                {tabs.map(tab => (
+                {tabs.map((tab) => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         style={{
-                            padding: '8px 16px',
-                            background: activeTab === tab.id ? 'rgba(255,128,0,0.1)' : 'transparent',
-                            border: 'none',
-                            borderBottom: activeTab === tab.id ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                            color: activeTab === tab.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            padding: '4px 12px',
+                            background: activeTab === tab.id ? 'var(--accent-primary)' : 'transparent',
+                            border: '1px solid transparent',
+                            borderBottom: 'none',
+                            color: activeTab === tab.id ? '#000' : 'var(--text-secondary)',
                             fontSize: '11px',
-                            fontWeight: activeTab === tab.id ? '600' : '400',
+                            fontWeight: 'bold',
                             textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
                             cursor: 'pointer',
-                            transition: 'all 0.2s',
                             fontFamily: 'var(--font-mono)',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px'
-                        }}
-                        onMouseEnter={(e) => {
-                            if (activeTab !== tab.id) {
-                                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (activeTab !== tab.id) {
-                                e.currentTarget.style.background = 'transparent';
-                            }
+                            gap: '6px',
+                            marginRight: '2px',
+                            position: 'relative',
+                            top: '1px' // Overlap border
                         }}
                     >
+                        {activeTab === tab.id && <span style={{ marginRight: '4px' }}>&gt;</span>}
                         {tab.icon}
                         {tab.label}
+                        {activeTab === tab.id && <span style={{ marginLeft: '4px' }}>_</span>}
                     </button>
                 ))}
+                <div style={{ flex: 1, borderBottom: '1px solid var(--border-color)' }}></div>
             </div>
 
             {/* Tab Content - Keep all tabs mounted to prevent remounting */}
-            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div style={{
+                flex: 1,
+                overflow: 'hidden',
+                position: 'relative',
+                borderTop: 'none' // Handled by headers
+            }}>
                 {tabs.map(tab => (
                     <div
                         key={tab.id}

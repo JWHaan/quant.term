@@ -101,7 +101,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
         switch (sentiment) {
             case 'bullish':
             case 'positive':
-                return 'var(--accent-primary)';
+                return 'var(--accent-success)';
             case 'bearish':
             case 'negative':
                 return 'var(--accent-danger)';
@@ -129,47 +129,35 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
         const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);
 
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-        return `${Math.floor(diffMins / 1440)}d ago`;
+        if (diffMins < 1) return 'NOW';
+        if (diffMins < 60) return `${diffMins}m`;
+        if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h`;
+        return `${Math.floor(diffMins / 1440)}d`;
     };
 
     if (loading) {
         return (
-            <div style={{ padding: '12px' }}>
-                {[1, 2, 3, 4, 5].map(i => (
-                    <div
-                        key={i}
-                        style={{
-                            width: '100%',
-                            height: '60px',
-                            marginBottom: '8px',
-                            borderRadius: '4px',
-                            background: 'rgba(255,255,255,0.05)',
-                            animation: 'pulse 1.5s ease-in-out infinite'
-                        }}
-                    />
-                ))}
+            <div style={{ padding: '12px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
+                [FETCHING_NEWS_FEED]...
             </div>
         );
     }
 
     return (
-        <div style={{ height: '100%', overflow: 'auto', fontFamily: 'var(--font-ui)' }}>
+        <div style={{ height: '100%', overflow: 'auto', fontFamily: 'var(--font-mono)', background: 'var(--bg-panel)' }}>
             {error && (
                 <div style={{
                     padding: '8px 12px',
-                    background: 'rgba(255,128,0,0.1)',
-                    borderBottom: '1px solid var(--accent-primary)',
+                    background: 'rgba(255,0,0,0.1)',
+                    borderBottom: '1px solid var(--accent-danger)',
                     fontSize: '10px',
-                    color: 'var(--accent-primary)',
+                    color: 'var(--accent-danger)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
                 }}>
                     <Newspaper size={12} />
-                    {error}
+                    [ERROR] {error}
                 </div>
             )}
 
@@ -178,13 +166,13 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
                     key={item.id}
                     style={{
                         padding: '12px',
-                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        borderBottom: '1px solid var(--border-subtle)',
                         cursor: 'pointer',
                         background: 'transparent',
                         transition: 'background 0.2s'
                     }}
                     onClick={() => window.open(item.url, '_blank')}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(51, 255, 0, 0.05)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
@@ -192,36 +180,34 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
                             fontSize: '10px',
                             color: 'var(--text-secondary)',
                             textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            fontFamily: 'var(--font-mono)'
+                            letterSpacing: '0.5px'
                         }}>
-                            {item.source}
+                            [{item.source}]
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{
                                 fontSize: '10px',
                                 color: getSentimentColor(item.sentiment),
-                                fontWeight: '600',
+                                fontWeight: 'bold',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '4px',
-                                fontFamily: 'var(--font-mono)'
+                                gap: '4px'
                             }}>
                                 {getSentimentIcon(item.sentiment)}
                                 {item.sentiment.toUpperCase()}
                             </span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                                 {formatTimestamp(item.timestamp)}
                             </span>
                         </div>
                     </div>
                     <div style={{
-                        fontSize: '13px',
-                        color: '#fff',
+                        fontSize: '12px',
+                        color: 'var(--text-primary)',
                         lineHeight: '1.4',
-                        fontWeight: '500'
+                        fontWeight: 'normal'
                     }}>
-                        {item.title}
+                        {item.title.toUpperCase()}
                     </div>
                 </div>
             ))}
@@ -229,9 +215,9 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
             {news.length === 0 && !loading && (
                 <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     <Newspaper size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                    <p>No recent news available</p>
+                    <p>NO_DATA_AVAILABLE</p>
                     <p style={{ fontSize: '12px', marginTop: '8px' }}>
-                        {symbol ? `No news for ${symbol.replace('USDT', '')}` : 'Select a symbol to view news'}
+                        {symbol ? `NO_NEWS_FOR_${symbol.replace('USDT', '')}` : 'SELECT_SYMBOL'}
                     </p>
                 </div>
             )}

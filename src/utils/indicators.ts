@@ -8,6 +8,7 @@
  */
 
 import type { OHLCV } from '@/types/common';
+import { Money } from '@/types/Money';
 
 /**
  * Technical indicator result types
@@ -69,23 +70,28 @@ function validateOHLCVData(data: OHLCV[], minLength: number = 1): void {
 export function calculateVWAP(data: OHLCV[]): IndicatorValue[] {
     validateOHLCVData(data);
 
-    let cumulativeTPV = 0; // Typical Price * Volume
-    let cumulativeVolume = 0;
+    let cumulativeTPV = Money.zero(); // Typical Price * Volume
+    let cumulativeVolume = Money.zero();
     const vwapData: IndicatorValue[] = [];
 
     for (let i = 0; i < data.length; i++) {
         const candle = data[i]!;
-        const typicalPrice = (candle.high + candle.low + candle.close) / 3;
-        const volume = candle.volume;
+        const typicalPrice = Money.divide(
+            Money.add(
+                Money.add(Money.from(candle.high), Money.from(candle.low)),
+                Money.from(candle.close)
+            ),
+            Money.from(3)
+        );
+        const volume = Money.from(candle.volume);
 
-        cumulativeTPV += typicalPrice * volume;
-        cumulativeVolume += volume;
+        cumulativeTPV = Money.add(cumulativeTPV, Money.multiply(typicalPrice, volume));
+        cumulativeVolume = Money.add(cumulativeVolume, volume);
 
-        const vwap = cumulativeVolume === 0 ? 0 : cumulativeTPV / cumulativeVolume;
-
+        const vwap = Money.isZero(cumulativeVolume) ? Money.zero() : Money.divide(cumulativeTPV, cumulativeVolume);
         vwapData.push({
             time: candle.time,
-            value: vwap
+            value: Money.toNumber(vwap)
         });
     }
 
@@ -105,20 +111,15 @@ export function calculateVWAP(data: OHLCV[]): IndicatorValue[] {
  */
 export function calculateSMA(data: OHLCV[], period: number = 20): IndicatorValue[] {
     validateOHLCVData(data, period);
-
     const smaData: IndicatorValue[] = [];
-
     for (let i = period - 1; i < data.length; i++) {
-        const slice = data.slice(i - period + 1, i + 1);
-        const sum = slice.reduce((acc, val) => acc + val.close, 0);
-        const sma = sum / period;
-
-        smaData.push({
-            time: data[i]!.time,
-            value: sma
-        });
+        let sum = Money.zero();
+        for (let j = i - period + 1; j <= i; j++) {
+            sum = sum.add(Money.from(data[j]!.close));
+        }
+        const sma = sum.dividedBy(Money.from(period));
+        smaData.push({ time: data[i]!.time, value: sma.toNumber() });
     }
-
     return smaData;
 }
 

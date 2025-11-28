@@ -36,7 +36,7 @@ class MLService {
             await tf.setBackend('webgl');
             await tf.ready();
             console.log('[MLService] TensorFlow.js initialized with WebGL backend');
-            
+
             // Try to load existing model
             await this.loadModel();
         } catch (error) {
@@ -113,7 +113,7 @@ class MLService {
             const firstRow = features[0];
             if (!firstRow) throw new Error('No features to normalize');
             const m = firstRow.length;
-            
+
             const mean = new Array(m).fill(0);
             const std = new Array(m).fill(0);
 
@@ -142,7 +142,7 @@ class MLService {
         }
 
         // Transform
-        return features.map(row => 
+        return features.map(row =>
             row.map((val, j) => (val - (this.scaler!.mean[j] ?? 0)) / (this.scaler!.std[j] ?? 1))
         );
     }
@@ -246,7 +246,7 @@ class MLService {
             const trueLabels = ysVal.argMax(-1);
 
             const accuracy = await tf.metrics.categoricalAccuracy(ysVal, predictions).mean().data();
-            
+
             // Calculate precision, recall, F1 (simplified)
             const predArray = await predLabels.array() as number[];
             const trueArray = await trueLabels.array() as number[];
@@ -318,7 +318,7 @@ class MLService {
 
         try {
             // Normalize
-            const normalized = this.scaler 
+            const normalized = this.scaler
                 ? features.map((val, j) => (val - (this.scaler!.mean[j] ?? 0)) / (this.scaler!.std[j] ?? 1))
                 : features;
 
@@ -406,7 +406,7 @@ class MLService {
             this.model = await tf.loadLayersModel('indexeddb://ml-model');
             const scaler = await get<StandardScaler>('ml-scaler');
             this.scaler = scaler ?? null;
-            
+
             if (this.model && this.scaler) {
                 console.log('[MLService] Model loaded from IndexedDB');
                 return true;
@@ -432,7 +432,7 @@ class MLService {
         if (!this.model) {
             return 'No model loaded';
         }
-        
+
         const layers = this.model.layers.length;
         const params = this.model.countParams();
         return `${layers} layers, ${params} parameters`;
@@ -448,6 +448,140 @@ class MLService {
         }
         this.scaler = null;
         console.log('[MLService] Model disposed');
+    }
+    /**
+     * K-Means Clustering for market patterns
+     * @param data Array of feature vectors
+     * @param k Number of clusters
+     * @returns Array of cluster assignments (0 to k-1) for each data point
+     */
+    clusterPatterns(data: number[][], k: number = 3): number[] {
+        if (data.length < k) return new Array(data.length).fill(0);
+        const firstRow = data[0];
+        if (!firstRow) return new Array(data.length).fill(0);
+
+        // Initialize centroids randomly
+        let centroids = data.slice(0, k).map(row => [...row]);
+        let assignments = new Array(data.length).fill(-1);
+        let changed = true;
+        let iterations = 0;
+        const maxIterations = 100;
+
+        while (changed && iterations < maxIterations) {
+            changed = false;
+            iterations++;
+
+            // Assign points to nearest centroid
+            for (let i = 0; i < data.length; i++) {
+                let minDist = Infinity;
+                let cluster = -1;
+
+                for (let j = 0; j < k; j++) {
+                    const centroid = centroids[j];
+                    if (!centroid) continue;
+
+                    const point = data[i];
+                    if (!point) continue;
+
+                    const dist = this.euclideanDistance(point, centroid);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        cluster = j;
+                    }
+                }
+
+                if (assignments[i] !== cluster) {
+                    assignments[i] = cluster;
+                    changed = true;
+                }
+            }
+
+            // Update centroids
+            const newCentroids = Array(k).fill(0).map(() => Array(firstRow.length).fill(0));
+            const counts = Array(k).fill(0);
+
+            for (let i = 0; i < data.length; i++) {
+                const cluster = assignments[i];
+                if (cluster === -1) continue;
+
+                const point = data[i];
+                if (!point) continue;
+
+                const newCentroid = newCentroids[cluster];
+                if (!newCentroid) continue;
+
+                for (let d = 0; d < firstRow.length; d++) {
+                    const val = point[d];
+                    if (val !== undefined) {
+                        newCentroid[d] += val;
+                    }
+                }
+                counts[cluster]++;
+            }
+
+            for (let j = 0; j < k; j++) {
+                if (counts[j] > 0) {
+                    const centroid = centroids[j];
+                    const newCentroid = newCentroids[j];
+                    if (centroid && newCentroid) {
+                        for (let d = 0; d < firstRow.length; d++) {
+                            const val = newCentroid[d];
+                            if (val !== undefined) {
+                                centroid[d] = val / counts[j];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return assignments;
+    }
+
+    private euclideanDistance(a: number[], b: number[]): number {
+        return Math.sqrt(a.reduce((sum, val, i) => {
+            const bVal = b[i];
+            return sum + Math.pow(val - (bVal ?? 0), 2);
+        }, 0));
+    }
+
+    /**
+     * Forecast volatility using a simple ARIMA-like model (AutoRegressive)
+     * @param history Historical volatility values
+     * @param horizon Number of steps to forecast
+     * @returns Forecasted volatility values
+     */
+    async forecastVolatility(history: number[], horizon: number = 5): Promise<number[]> {
+        if (history.length < 10) return new Array(horizon).fill(history[history.length - 1] || 0);
+
+        // Simple AR(1) model: X_t = c + phi * X_{t-1} + epsilon
+        // Estimate phi using correlation
+        const n = history.length;
+        const mean = history.reduce((a, b) => a + b, 0) / n;
+
+        let num = 0;
+        let den = 0;
+        for (let i = 1; i < n; i++) {
+            const curr = history[i];
+            const prev = history[i - 1];
+            if (curr !== undefined && prev !== undefined) {
+                num += (curr - mean) * (prev - mean);
+                den += Math.pow(prev - mean, 2);
+            }
+        }
+        const phi = den === 0 ? 0 : num / den;
+        const c = mean * (1 - phi);
+
+        const forecast: number[] = [];
+        let lastVal = history[n - 1] ?? 0;
+
+        for (let i = 0; i < horizon; i++) {
+            const nextVal = c + phi * lastVal;
+            forecast.push(nextVal);
+            lastVal = nextVal;
+        }
+
+        return forecast;
     }
 }
 

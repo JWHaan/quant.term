@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TOP_CRYPTOS } from '@/data/cryptoAssets';
-import { TrendingUp, TrendingDown, Search } from 'lucide-react';
 
 const BINANCE_REST_URL = 'https://api.binance.com';
 
@@ -18,27 +17,22 @@ interface MarketData {
 }
 
 /**
- * Market Grid - Bloomberg-style live watchlist
- * Shows 40+ cryptos with real-time updates
- * Standard scrolling list (optimized for <100 items)
+ * Market Grid - Terminal-style live watchlist
  */
 const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
     const [marketData, setMarketData] = useState<Map<string, MarketData>>(new Map());
-    const [sortBy, setSortBy] = useState<keyof MarketData>('quoteVolume'); // marketCap approximated by quoteVolume
+    const [sortBy, setSortBy] = useState<keyof MarketData>('quoteVolume');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Poll Binance REST API for 24h ticker data (works even when WebSockets are blocked)
+    // Poll Binance REST API
     useEffect(() => {
         let cancelled = false;
-
         const symbols = TOP_CRYPTOS.map(c => c.symbol);
 
         const fetchTickers = async () => {
             try {
                 const next = new Map<string, MarketData>();
-
-                // Binance supports batch-like fetch via repeated requests; keep it simple and sequential
                 for (const symbol of symbols) {
                     try {
                         const res = await fetch(`${BINANCE_REST_URL}/api/v3/ticker/24hr?symbol=${symbol}`);
@@ -54,35 +48,23 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
                                 quoteVolume: parseFloat(data.quoteVolume),
                             });
                         }
-                    } catch {
-                        // Ignore individual symbol errors
-                    }
+                    } catch { }
                 }
-
-                if (!cancelled) {
-                    setMarketData(next);
-                }
-            } catch {
-                if (!cancelled) {
-                    // Keep previous data on error
-                }
-            }
+                if (!cancelled) setMarketData(next);
+            } catch { }
         };
 
         fetchTickers();
         const id = setInterval(fetchTickers, 15000);
-
         return () => {
             cancelled = true;
             clearInterval(id);
         };
     }, []);
 
-    // Sort and filter data
+    // Sort and filter
     const sortedData = useMemo(() => {
         let data = Array.from(marketData.values());
-
-        // Filter by search
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             data = data.filter(item =>
@@ -91,63 +73,26 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
             );
         }
 
-        // Sort
         data.sort((a, b) => {
-            let aVal: string | number, bVal: string | number;
+            let aVal: any = a[sortBy] || 0;
+            let bVal: any = b[sortBy] || 0;
 
-            switch (sortBy) {
-                case 'name':
-                    aVal = a.name;
-                    bVal = b.name;
-                    break;
-                case 'price':
-                    aVal = a.price || 0;
-                    bVal = b.price || 0;
-                    break;
-                case 'priceChangePercent':
-                    aVal = a.priceChangePercent || 0;
-                    bVal = b.priceChangePercent || 0;
-                    break;
-                case 'quoteVolume':
-                    aVal = a.quoteVolume || 0;
-                    bVal = b.quoteVolume || 0;
-                    break;
-                default:
-                    // Fallback for marketCap or other keys
-                    if (sortBy === 'category') {
-                        aVal = a.category;
-                        bVal = b.category;
-                    } else {
-                        // Default to volume for marketCap approximation
-                        aVal = (a.quoteVolume || 0) * 10;
-                        bVal = (b.quoteVolume || 0) * 10;
-                    }
+            // Special handling for approximation if needed, but direct access works for defined keys
+            if (sortBy === 'category') {
+                aVal = a.category;
+                bVal = b.category;
             }
 
-            if (typeof aVal === 'string' && typeof bVal === 'string') {
-                return sortDir === 'asc'
-                    ? aVal.localeCompare(bVal)
-                    : bVal.localeCompare(aVal);
+            if (typeof aVal === 'string') {
+                return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
             }
-
-            // Ensure numbers for subtraction
-            const numA = typeof aVal === 'number' ? aVal : 0;
-            const numB = typeof bVal === 'number' ? bVal : 0;
-
-            return sortDir === 'asc' ? numA - numB : numB - numA;
+            return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
         });
 
         return data;
     }, [marketData, sortBy, sortDir, searchQuery]);
 
-    const handleSort = useCallback((column: string) => {
-        // Map column names to MarketData keys
-        let key: keyof MarketData = 'quoteVolume';
-        if (column === 'name') key = 'name';
-        if (column === 'price') key = 'price';
-        if (column === 'change') key = 'priceChangePercent';
-        if (column === 'volume') key = 'quoteVolume';
-
+    const handleSort = useCallback((key: keyof MarketData) => {
         if (sortBy === key) {
             setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
@@ -158,54 +103,56 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
 
     const formatNumber = (num: number, decimals = 2) => {
         if (!num) return '—';
-        if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-        if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-        if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
-        return `$${num.toFixed(decimals)}`;
+        if (num >= 1e9) return `${(num / 1e9).toFixed(2)}B`;
+        if (num >= 1e6) return `${(num / 1e6).toFixed(2)}M`;
+        if (num >= 1e3) return `${(num / 1e3).toFixed(2)}K`;
+        return num.toFixed(decimals);
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#000' }}>
-            {/* Header */}
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
+            {/* Command Input Header */}
             <div style={{
-                padding: '12px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.02)'
+                padding: '8px',
+                borderBottom: '1px solid var(--border-color)',
+                background: 'rgba(51, 255, 0, 0.05)'
             }}>
-                <div style={{ display: ' flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{
                         flex: 1,
-                        position: 'relative'
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        background: '#000',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '4px 8px'
                     }}>
-                        <Search size={14} style={{
-                            position: 'absolute',
-                            left: '10px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: 'var(--text-muted)'
-                        }} />
+                        <span style={{ color: 'var(--accent-primary)', marginRight: '8px', fontWeight: 'bold' }}>$</span>
                         <input
                             type="text"
-                            placeholder="Search assets..."
+                            placeholder="GREP ASSET..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{
                                 width: '100%',
-                                padding: '8px 8px 8px 32px',
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                borderRadius: '4px',
-                                color: '#fff',
-                                fontSize: '12px'
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-primary)',
+                                fontSize: '12px',
+                                fontFamily: 'var(--font-mono)',
+                                outline: 'none',
+                                textTransform: 'uppercase'
                             }}
                         />
                     </div>
                     <div style={{
-                        fontSize: '11px',
-                        color: 'var(--text-muted)',
-                        fontFamily: 'var(--font-mono)'
+                        fontSize: '10px',
+                        color: 'var(--text-secondary)',
+                        border: '1px solid var(--border-subtle)',
+                        padding: '4px 8px',
+                        background: '#000'
                     }}>
-                        {sortedData.length} assets • Live
+                        COUNT: {sortedData.length}
                     </div>
                 </div>
             </div>
@@ -213,45 +160,31 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
             {/* Column Headers */}
             <div style={{
                 display: 'flex',
-                padding: '8px 12px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                background: 'rgba(255,255,255,0.03)',
+                padding: '6px 4px',
+                borderBottom: '1px solid var(--border-subtle)',
                 fontSize: '10px',
                 color: 'var(--text-muted)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                background: '#000'
             }}>
-                <div style={{ width: '40px' }}>#</div>
-                <div
-                    style={{ flex: '0 0 180px', cursor: 'pointer' }}
-                    onClick={() => handleSort('name')}
-                >
-                    Asset {sortBy === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
+                <div style={{ width: '40px', textAlign: 'center' }}>#</div>
+                <div style={{ flex: '0 0 140px', cursor: 'pointer' }} onClick={() => handleSort('name')}>
+                    ASSET {sortBy === 'name' && (sortDir === 'asc' ? '▲' : '▼')}
                 </div>
-                <div
-                    style={{ flex: '0 0 120px', cursor: 'pointer' }}
-                    onClick={() => handleSort('price')}
-                >
-                    Price {sortBy === 'price' && (sortDir === 'asc' ? '↑' : '↓')}
+                <div style={{ flex: '0 0 100px', cursor: 'pointer', textAlign: 'right' }} onClick={() => handleSort('price')}>
+                    PRICE {sortBy === 'price' && (sortDir === 'asc' ? '▲' : '▼')}
                 </div>
-                <div
-                    style={{ flex: '0 0 100px', cursor: 'pointer' }}
-                    onClick={() => handleSort('change')}
-                >
-                    24h % {sortBy === 'priceChangePercent' && (sortDir === 'asc' ? '↑' : '↓')}
+                <div style={{ flex: '0 0 80px', cursor: 'pointer', textAlign: 'right' }} onClick={() => handleSort('priceChangePercent')}>
+                    24H% {sortBy === 'priceChangePercent' && (sortDir === 'asc' ? '▲' : '▼')}
                 </div>
-                <div
-                    style={{ flex: '0 0 100px', cursor: 'pointer' }}
-                    onClick={() => handleSort('volume')}
-                >
-                    Volume {sortBy === 'quoteVolume' && (sortDir === 'asc' ? '↑' : '↓')}
+                <div style={{ flex: '0 0 80px', cursor: 'pointer', textAlign: 'right' }} onClick={() => handleSort('quoteVolume')}>
+                    VOL {sortBy === 'quoteVolume' && (sortDir === 'asc' ? '▲' : '▼')}
                 </div>
-                <div style={{ flex: 1, textAlign: 'right' }}>Chart</div>
-                <div style={{ flex: '0 0 80px', textAlign: 'right' }}>Category</div>
+                <div style={{ flex: 1 }}></div>
             </div>
 
             {/* Scrollable List */}
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto' }}>
                 {sortedData.map((item, index) => (
                     <MarketRow
                         key={item.symbol}
@@ -282,93 +215,58 @@ const MarketRow = React.memo(({ item, index, onSelect, formatNumber }: MarketRow
             style={{
                 display: 'flex',
                 alignItems: 'center',
-                padding: '0 12px',
-                height: '50px',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                padding: '4px 4px',
+                borderBottom: '1px solid rgba(51, 255, 0, 0.1)',
                 cursor: 'pointer',
-                background: index % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                transition: 'background 0.2s'
+                fontSize: '11px',
+                color: 'var(--text-secondary)',
+                transition: 'all 0.1s'
             }}
             onClick={() => onSelect && onSelect(item.symbol)}
-            onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.background = index % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--accent-primary)';
+                e.currentTarget.style.color = '#000';
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+            }}
         >
-            {/* Rank */}
-            <div style={{ width: '40px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                {index + 1}
+            <div style={{ width: '40px', textAlign: 'center', opacity: 0.7 }}>
+                {String(index + 1).padStart(2, '0')}
             </div>
 
-            {/* Name & Symbol */}
-            <div style={{ flex: '0 0 180px', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#fff' }}>
-                    {item.name}
-                </div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    {item.symbol.replace('USDT', '')}
-                </div>
+            <div style={{ flex: '0 0 140px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 'bold' }}>{item.symbol.replace('USDT', '')}</span>
+                <span style={{ fontSize: '9px', opacity: 0.7 }}>{item.name.substring(0, 10)}</span>
             </div>
 
-            {/* Price */}
-            <div style={{ flex: '0 0 120px', fontFamily: 'var(--font-mono)', fontSize: '13px', color: '#fff' }}>
-                ${item.price?.toFixed(item.price > 1000 ? 0 : item.price > 1 ? 2 : 6) || '—'}
+            <div style={{ flex: '0 0 100px', textAlign: 'right', fontWeight: 'bold' }}>
+                {item.price?.toFixed(item.price > 1000 ? 1 : item.price > 1 ? 3 : 6)}
             </div>
 
-            {/* 24h Change */}
-            <div style={{
-                flex: '0 0 100px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                color: changeColor,
-                fontFamily: 'var(--font-mono)',
-                fontSize: '13px',
-                fontWeight: '600'
-            }}>
-                {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                {isPositive ? '+' : ''}{item.priceChangePercent?.toFixed(2) || '0.00'}%
-            </div>
-
-            {/* 24h Volume */}
-            <div style={{
-                flex: '0 0 100px',
-                fontSize: '12px',
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--text-secondary)'
-            }}>
-                {formatNumber(item.quoteVolume)}
-            </div>
-
-            {/* Mini Sparkline (simplified) */}
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                <div style={{
-                    width: '60px',
-                    height: '20px',
-                    background: `linear-gradient(90deg, ${changeColor}20 0%, ${changeColor}40 100%)`,
-                    borderRadius: '2px',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: `${Math.min(Math.abs(item.priceChangePercent || 0) * 5, 100)}%`,
-                        background: changeColor,
-                        borderRadius: '2px 2px 0 0'
-                    }} />
-                </div>
-            </div>
-
-            {/* Category Tag */}
             <div style={{
                 flex: '0 0 80px',
                 textAlign: 'right',
-                fontSize: '9px',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase'
+                color: changeColor,
+                // Override color on hover via CSS class or inline style trick? 
+                // Since we are using inline styles for hover, we need to be careful.
+                // The parent hover effect sets color to #000, which is good.
+                // But we need to make sure this specific element doesn't override it with changeColor when hovered.
+                // We'll trust the parent hover for now, but strictly speaking, inline styles override inherited ones.
+                // Let's use a span that inherits color on hover.
             }}>
-                {item.category}
+                <span style={{ color: 'inherit' }}>
+                    {isPositive ? '+' : ''}{item.priceChangePercent?.toFixed(2)}%
+                </span>
+            </div>
+
+            <div style={{ flex: '0 0 80px', textAlign: 'right', opacity: 0.8 }}>
+                {formatNumber(item.quoteVolume)}
+            </div>
+
+            <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px' }}>
+                <span style={{ fontSize: '9px', opacity: 0.5 }}>[{item.category.substring(0, 3).toUpperCase()}]</span>
             </div>
         </div>
     );

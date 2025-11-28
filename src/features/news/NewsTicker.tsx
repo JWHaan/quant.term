@@ -11,7 +11,7 @@ interface NewsTickerItem {
 }
 
 /**
- * News Ticker - Bloomberg-style scrolling headlines
+ * News Ticker - Terminal-style scrolling headlines
  * Real-time crypto news from CryptoPanic API
  */
 const NewsTicker: React.FC = () => {
@@ -77,14 +77,14 @@ const NewsTicker: React.FC = () => {
         <div
             style={{
                 width: '100%',
-                height: '32px',
-                background: 'linear-gradient(90deg, rgba(0,0,0,0.95) 0%, rgba(10,10,20,0.95) 100%)',
-                backdropFilter: 'blur(10px)',
-                borderBottom: '1px solid rgba(255,128,0,0.2)',
+                height: '28px',
+                background: 'var(--bg-app)',
+                borderBottom: '1px solid var(--border-color)',
                 overflow: 'hidden',
                 position: 'relative',
                 display: 'flex',
-                alignItems: 'center'
+                alignItems: 'center',
+                fontFamily: 'var(--font-mono)'
             }}
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
@@ -95,47 +95,45 @@ const NewsTicker: React.FC = () => {
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: '80px',
-                background: 'linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%)',
+                width: '100px',
+                background: 'var(--bg-app)',
                 zIndex: 2,
                 display: 'flex',
                 alignItems: 'center',
                 paddingLeft: '12px',
-                gap: '6px'
+                gap: '6px',
+                borderRight: '1px solid var(--border-subtle)'
             }}>
-                <div style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: 'var(--accent-danger)',
-                    boxShadow: '0 0 8px var(--accent-danger)',
-                    animation: 'pulse 2s infinite'
-                }} />
+                <span className="cursor-blink" style={{
+                    color: 'var(--accent-danger)',
+                    fontWeight: 'bold',
+                    fontSize: '14px'
+                }}>●</span>
                 <span style={{
-                    fontSize: '11px',
-                    fontWeight: '700',
-                    color: '#fff',
-                    letterSpacing: '1px',
-                    fontFamily: 'var(--font-mono)'
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    color: 'var(--accent-danger)',
+                    letterSpacing: '1px'
                 }}>
-                    LIVE
+                    STREAM
                 </span>
+                <span style={{ color: 'var(--border-color)' }}>&gt;&gt;</span>
             </div>
 
             {/* Scrolling news */}
             <div
                 style={{
                     display: 'flex',
-                    gap: '48px',
-                    paddingLeft: '100px',
+                    gap: '32px',
+                    paddingLeft: '110px',
                     animation: isPaused ? 'none' : 'scroll 60s linear infinite',
                     whiteSpace: 'nowrap'
                 }}
             >
                 {/* Duplicate news for seamless loop */}
                 {isLoading ? (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
-                        Loading live news...
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                        INITIALIZING NEWS FEED...
                     </div>
                 ) : (
                     [...news, ...news].map((item, index) => (
@@ -145,24 +143,25 @@ const NewsTicker: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 color: getSentimentColor(item.sentiment),
                                 cursor: 'pointer'
                             }}
                             onClick={() => item.url && window.open(item.url, '_blank')}
                             title="Click to read full article"
                         >
+                            <span style={{ color: 'var(--text-muted)' }}>[</span>
                             {getSentimentIcon(item.sentiment)}
-                            <span style={{ color: '#fff', fontWeight: '500' }}>
-                                {item.headline}
+                            <span style={{ color: 'var(--text-muted)' }}>]</span>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                                {item.headline.toUpperCase()}
                             </span>
                             <span style={{
                                 fontSize: '10px',
                                 color: 'var(--text-muted)',
-                                marginLeft: '4px',
-                                fontFamily: 'var(--font-mono)'
+                                marginLeft: '4px'
                             }}>
-                                {item.time}
+                                :: {item.time}
                             </span>
                         </div>
                     ))
@@ -175,8 +174,8 @@ const NewsTicker: React.FC = () => {
                 right: 0,
                 top: 0,
                 bottom: 0,
-                width: '100px',
-                background: 'linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 100%)',
+                width: '50px',
+                background: 'linear-gradient(90deg, rgba(0,0,0,0) 0%, var(--bg-app) 100%)',
                 pointerEvents: 'none'
             }} />
 
@@ -187,15 +186,6 @@ const NewsTicker: React.FC = () => {
           }
           100% {
             transform: translateX(-50%);
-          }
-        }
-        
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.4;
           }
         }
       `}</style>

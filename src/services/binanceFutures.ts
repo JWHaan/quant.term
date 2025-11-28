@@ -1,4 +1,5 @@
 import { useConnectionStore } from '@/stores/connectionStore';
+import { provenanceRegistry } from '@/services/provenanceEngine';
 
 /**
  * Binance Futures WebSocket Service
@@ -157,6 +158,7 @@ class BinanceFuturesService {
 
         this.ws.onmessage = (event: MessageEvent) => {
             try {
+                const receivedTimestamp = Date.now();
                 const data = JSON.parse(event.data);
 
                 // Handle ping/pong
@@ -167,11 +169,31 @@ class BinanceFuturesService {
                     const eventType: string = data.e;
                     const symbol: string | undefined = data.s;
 
+                    // Extract exchange timestamp (Binance uses 'E' for event time in ms)
+                    const exchangeTimestamp = data.E || data.T || receivedTimestamp;
+
+                    // Augment data with provenance if symbol is present
+                    if (symbol) {
+                        const engine = provenanceRegistry.getEngine(symbol);
+                        const latencyMs = receivedTimestamp - exchangeTimestamp;
+
+                        // Add provenance metadata to data object
+                        data._provenance = {
+                            exchangeTimestamp,
+                            receivedTimestamp,
+                            latencyMs,
+                            feedStatus: engine.getFeedStatus()
+                        };
+
+                        // Update connection store with latest latency
+                        useConnectionStore.getState().setLatency('binance', latencyMs);
+                    }
+
                     // Construct possible topic variants
                     const topics = [
                         eventType,
-                        symbol ? `${symbol} @${eventType} ` : null,
-                        symbol ? `${symbol.toLowerCase()} @${eventType} ` : null
+                        symbol ? `${symbol}@${eventType}` : null,
+                        symbol ? `${symbol.toLowerCase()}@${eventType}` : null
                     ].filter((t): t is string => t !== null);
 
                     // Notify all subscribers for matching topics
@@ -182,7 +204,7 @@ class BinanceFuturesService {
                                 try {
                                     cb(data);
                                 } catch (err) {
-                                    console.error(`[Binance] Subscriber callback error for ${topic}: `, err);
+                                    console.error(`[Binance] Subscriber callback error for ${topic}:`, err);
                                 }
                             });
                         }

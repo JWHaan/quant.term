@@ -25,7 +25,10 @@ const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         localStorage.setItem('theme', theme);
     }, [theme]);
 
-    const toggleTheme = () => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    const toggleTheme = () => setTheme(prev => {
+        if (prev === 'dark') return 'light';
+        return 'dark';
+    });
 
     return (
         <ThemeContext.Provider value={{ theme, toggleTheme }}>

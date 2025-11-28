@@ -1,4 +1,4 @@
-import React, { Suspense, useRef, useMemo } from 'react';
+import React, { Suspense, useRef, useMemo, useEffect } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useMarketStore } from './stores/marketStore';
 import { useConnectionStore } from './stores/connectionStore';
@@ -6,7 +6,7 @@ import DashboardPanel from './ui/DashboardPanel';
 import MarketGrid from './features/market/MarketGrid';
 import LoadingSpinner from './ui/LoadingSpinner';
 import PanelErrorBoundary from './ui/PanelErrorBoundary';
-import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame, Activity } from 'lucide-react';
+import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame, Activity, Search, Keyboard, Globe } from 'lucide-react';
 import ThemeProvider from './ui/ThemeProvider';
 import ErrorBoundary from './ui/ErrorBoundary';
 import AlphaPanel from './features/analytics/AlphaPanel';
@@ -28,6 +28,8 @@ import PerformancePanel from './features/trading/PerformancePanel';
 const QuantSignalEngine = React.lazy(() => import('./features/analytics/QuantSignalEngine'));
 
 import { useConnectionLatency } from './hooks/useConnectionLatency';
+import CommandPalette from './features/command-palette/CommandPalette';
+import MacroAnalysisModal from './features/macro/MacroAnalysisModal';
 
 const App: React.FC = () => {
     const { selectedSymbol, setSymbol } = useMarketStore();
@@ -39,6 +41,25 @@ const App: React.FC = () => {
     const chartRef = useRef<HTMLDivElement>(null);
     const alphaRef = useRef<HTMLDivElement>(null);
     const newsRef = useRef<HTMLDivElement>(null);
+
+    // Command Palette State
+    const [showCommandPalette, setShowCommandPalette] = React.useState(false);
+    const [showMacroModal, setShowMacroModal] = React.useState(false);
+
+
+
+    // Global keyboard listener for Command Palette (Cmd+K)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                setShowCommandPalette(prev => !prev);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     // Calculate overall status
     const isGlobalConnected = Object.values(connections).every(status => status === 'connected');
@@ -77,6 +98,82 @@ const App: React.FC = () => {
         ]
     });
 
+    // Command Palette Items
+    const commands = useMemo(() => [
+        {
+            id: 'open-macro',
+            label: 'Open Macro Analysis',
+            description: 'View GDP, CPI, and Fed Rates (OpenBB)',
+            icon: <Globe size={16} />,
+            action: () => setShowMacroModal(true),
+            category: 'Analysis'
+        },
+        {
+            id: 'focus-market',
+            label: 'Focus Market Watch',
+            description: 'Navigate to the market watch panel',
+            icon: <Activity size={16} />,
+            action: () => marketWatchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+            category: 'Navigation'
+        },
+        {
+            id: 'focus-chart',
+            label: 'Focus Chart',
+            description: 'Navigate to the main chart',
+            icon: <BarChart2 size={16} />,
+            action: () => chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+            category: 'Navigation'
+        },
+        {
+            id: 'focus-alpha',
+            label: 'Focus Alpha Panel',
+            description: 'Navigate to alpha factors',
+            icon: <Flame size={16} />,
+            action: () => alphaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+            category: 'Navigation'
+        },
+        {
+            id: 'focus-news',
+            label: 'Focus News',
+            description: 'Navigate to news feed',
+            icon: <Newspaper size={16} />,
+            action: () => newsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+            category: 'Navigation'
+        },
+        {
+            id: 'toggle-help',
+            label: 'Show Keyboard Shortcuts',
+            description: 'View all available keyboard shortcuts',
+            icon: <Keyboard size={16} />,
+            action: () => setShowHelp(true),
+            category: 'Help'
+        },
+        {
+            id: 'analyze-btc',
+            label: 'Analyze BTCUSDT',
+            description: 'Switch symbol to Bitcoin',
+            icon: <Activity size={16} />,
+            action: () => setSymbol('BTCUSDT'),
+            category: 'Actions'
+        },
+        {
+            id: 'analyze-eth',
+            label: 'Analyze ETHUSDT',
+            description: 'Switch symbol to Ethereum',
+            icon: <Activity size={16} />,
+            action: () => setSymbol('ETHUSDT'),
+            category: 'Actions'
+        },
+        {
+            id: 'analyze-sol',
+            label: 'Analyze SOLUSDT',
+            description: 'Switch symbol to Solana',
+            icon: <Activity size={16} />,
+            action: () => setSymbol('SOLUSDT'),
+            category: 'Actions'
+        }
+    ], [setSymbol, setShowHelp]);
+
     const getQualityColor = (q: string) => {
         switch (q) {
             case 'Excellent': return 'var(--accent-primary)'; // Green
@@ -101,21 +198,54 @@ const App: React.FC = () => {
                         </div>
 
                         <div className="header-controls">
+                            <div
+                                className="command-trigger"
+                                onClick={() => setShowCommandPalette(true)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '6px 12px',
+                                    background: 'var(--bg-panel)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    marginRight: '16px',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
+                                onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                            >
+                                <Search size={14} color="var(--text-muted)" />
+                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
+                                    Search...
+                                </span>
+                                <kbd style={{
+                                    fontSize: '10px',
+                                    padding: '2px 6px',
+                                    background: 'var(--bg-app)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '4px',
+                                    color: 'var(--text-secondary)',
+                                    fontFamily: 'var(--font-mono)'
+                                }}>⌘K</kbd>
+                            </div>
                             <div className="connection-status" style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                padding: '0 8px',
-                                height: '24px',
-                                background: isGlobalConnected ? 'rgba(255, 128, 0, 0.1)' : 'rgba(255, 59, 48, 0.1)',
+                                padding: '6px 12px',
+                                height: '32px',
+                                background: isGlobalConnected ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                 border: `1px solid ${isGlobalConnected ? 'var(--accent-primary)' : 'var(--accent-danger)'}`,
+                                borderRadius: '8px',
                                 color: isGlobalConnected ? 'var(--accent-primary)' : 'var(--accent-danger)'
                             }}>
                                 {isGlobalConnected ?
                                     <Wifi size={12} /> :
                                     <WifiOff size={12} />
                                 }
-                                <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)' }}>
+                                <span style={{ fontSize: '11px', fontFamily: 'var(--font-ui)', fontWeight: 500 }}>
                                     {isGlobalConnected ? 'LIVE' : 'OFFLINE'}
                                 </span>
                             </div>
@@ -292,6 +422,16 @@ const App: React.FC = () => {
                         shortcuts={shortcuts}
                         isOpen={showHelp}
                         onClose={() => setShowHelp(false)}
+                    />
+
+                    <CommandPalette
+                        isOpen={showCommandPalette}
+                        onClose={() => setShowCommandPalette(false)}
+                        commands={commands}
+                    />
+                    <MacroAnalysisModal
+                        isOpen={showMacroModal}
+                        onClose={() => setShowMacroModal(false)}
                     />
                     <MemoryProfiler />
                 </div >

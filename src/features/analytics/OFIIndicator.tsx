@@ -40,21 +40,21 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
             <div style={{
                 padding: '8px',
                 background: 'rgba(0,0,0,0.5)',
-                borderRadius: '4px',
                 fontSize: '10px',
-                color: 'var(--text-muted)'
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)'
             }}>
-                Initializing OFI...
+                [INITIALIZING_OFI]...
             </div>
         );
     }
 
     const getOFIColor = (ofi: number): string => {
-        if (ofi > 0.3) return '#00ff9d'; // Strong buy pressure
-        if (ofi > 0.1) return '#4CAF50'; // Moderate buy
-        if (ofi < -0.3) return '#ff3b30'; // Strong sell pressure
-        if (ofi < -0.1) return '#FF6B6B'; // Moderate sell
-        return '#888'; // Neutral
+        if (ofi > 0.3) return 'var(--accent-success)'; // Strong buy pressure
+        if (ofi > 0.1) return 'var(--accent-success)'; // Moderate buy
+        if (ofi < -0.3) return 'var(--accent-danger)'; // Strong sell pressure
+        if (ofi < -0.1) return 'var(--accent-danger)'; // Moderate sell
+        return 'var(--text-muted)'; // Neutral
     };
 
     const ofiPercent = Math.abs(currentOFI.ofi) * 100;
@@ -63,9 +63,8 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
     return (
         <div style={{
             padding: '8px',
-            background: 'rgba(0,0,0,0.8)',
-            borderRadius: '4px',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-subtle)',
             fontFamily: 'var(--font-mono)'
         }}>
             {/* Header */}
@@ -76,13 +75,13 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
                 marginBottom: '8px'
             }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    ORDER FLOW IMBALANCE
+                    &gt; ORDER_FLOW_IMBALANCE
                 </span>
                 <span style={{
                     fontSize: '8px',
                     color: isConnected ? 'var(--accent-primary)' : 'var(--accent-danger)'
                 }}>
-                    {isConnected ? '● LIVE' : '○ OFFLINE'}
+                    {isConnected ? '[LIVE]' : '[OFFLINE]'}
                 </span>
             </div>
 
@@ -95,7 +94,7 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
             }}>
                 <span style={{
                     fontSize: '20px',
-                    fontWeight: '600',
+                    fontWeight: 'bold',
                     color: ofiColor
                 }}>
                     {currentOFI.ofi > 0 ? '+' : ''}{currentOFI.ofi.toFixed(3)}
@@ -108,17 +107,27 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
             {/* Visual Bar */}
             <div style={{
                 height: '4px',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                marginBottom: '8px'
+                background: '#000',
+                border: '1px solid var(--border-subtle)',
+                marginBottom: '8px',
+                position: 'relative'
             }}>
                 <div style={{
                     height: '100%',
-                    width: `${ofiPercent}%`,
+                    width: `${Math.min(ofiPercent, 100)}%`,
                     background: ofiColor,
                     transition: 'width 0.2s, background 0.2s',
-                    marginLeft: currentOFI.ofi < 0 ? `${100 - ofiPercent}%` : '0'
+                    marginLeft: currentOFI.ofi < 0 ? `${Math.max(0, 50 - ofiPercent)}%` : '50%',
+                    position: 'absolute'
+                }} />
+                {/* Center marker */}
+                <div style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: 0,
+                    bottom: 0,
+                    width: '1px',
+                    background: 'var(--text-muted)'
                 }} />
             </div>
 
@@ -131,26 +140,26 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
                 color: 'var(--text-secondary)'
             }}>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Bid Pressure:</span>
-                    <span style={{ color: '#00ff9d', marginLeft: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>BID_PRESSURE:</span>
+                    <span style={{ color: 'var(--accent-success)', marginLeft: '4px' }}>
                         {currentOFI.bidPressure.toFixed(2)}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Ask Pressure:</span>
-                    <span style={{ color: '#ff3b30', marginLeft: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>ASK_PRESSURE:</span>
+                    <span style={{ color: 'var(--accent-danger)', marginLeft: '4px' }}>
                         {currentOFI.askPressure.toFixed(2)}
                     </span>
                 </div>
                 <div>
                     <span style={{ color: 'var(--text-muted)' }}>MA(10):</span>
-                    <span style={{ marginLeft: '4px' }}>
+                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
                         {ofiMA.toFixed(3)}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Total Vol:</span>
-                    <span style={{ marginLeft: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>TOTAL_VOL:</span>
+                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
                         {currentOFI.totalVolume.toFixed(2)}
                     </span>
                 </div>
@@ -162,15 +171,14 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
                     marginTop: '8px',
                     padding: '4px 6px',
                     background: significantEvent.type === 'buy'
-                        ? 'rgba(0, 255, 157, 0.1)'
-                        : 'rgba(255, 59, 48, 0.1)',
-                    border: `1px solid ${significantEvent.type === 'buy' ? '#00ff9d' : '#ff3b30'}`,
-                    borderRadius: '2px',
+                        ? 'rgba(51, 255, 0, 0.1)'
+                        : 'rgba(255, 0, 0, 0.1)',
+                    border: `1px solid ${significantEvent.type === 'buy' ? 'var(--accent-success)' : 'var(--accent-danger)'}`,
                     fontSize: '9px',
-                    color: significantEvent.type === 'buy' ? '#00ff9d' : '#ff3b30',
+                    color: significantEvent.type === 'buy' ? 'var(--accent-success)' : 'var(--accent-danger)',
                     textAlign: 'center'
                 }}>
-                    ⚡ {significantEvent.type.toUpperCase()} SIGNAL ({significantEvent.magnitude.toFixed(1)}σ)
+                    &gt;&gt; {significantEvent.type.toUpperCase()}_SIGNAL ({significantEvent.magnitude.toFixed(1)}σ)
                 </div>
             )}
         </div>

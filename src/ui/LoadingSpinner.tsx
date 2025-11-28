@@ -1,6 +1,18 @@
 
+import { useState, useEffect } from 'react';
 
 const LoadingSpinner = () => {
+    const [frame, setFrame] = useState(0);
+    const frames = ['|', '/', '-', '\\'];
+    // Alternative: const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setFrame(f => (f + 1) % frames.length);
+        }, 100);
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <div style={{
             display: 'flex',
@@ -8,27 +20,17 @@ const LoadingSpinner = () => {
             justifyContent: 'center',
             height: '100%',
             width: '100%',
-            color: 'var(--text-muted)',
-            fontSize: '12px',
+            color: 'var(--accent-primary)',
+            fontSize: '14px',
             fontFamily: 'var(--font-mono)',
             flexDirection: 'column',
-            gap: '8px'
+            gap: '8px',
+            background: 'var(--bg-panel)'
         }}>
-            <div className="spinner" style={{
-                width: '20px',
-                height: '20px',
-                border: '2px solid rgba(255,255,255,0.1)',
-                borderTop: '2px solid var(--accent-primary)',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-            }} />
-            <span>LOADING...</span>
-            <style>{`
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
+            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                [{frames[frame]}]
+            </div>
+            <span className="cursor-blink">INITIALIZING...</span>
         </div>
     );
 };

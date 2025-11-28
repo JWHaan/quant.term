@@ -78,19 +78,19 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
             <div style={{
                 padding: '8px',
                 background: 'rgba(0,0,0,0.5)',
-                borderRadius: '4px',
                 fontSize: '10px',
-                color: 'var(--text-muted)'
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)'
             }}>
-                Initializing Volume Delta...
+                [INITIALIZING_CVD]...
             </div>
         );
     }
 
     const getDeltaColor = (delta: number): string => {
-        if (delta > 0) return '#00ff9d';
-        if (delta < 0) return '#ff3b30';
-        return '#888';
+        if (delta > 0) return 'var(--accent-success)';
+        if (delta < 0) return 'var(--accent-danger)';
+        return 'var(--text-muted)';
     };
 
     const deltaColor = getDeltaColor(volumeDelta.delta);
@@ -99,9 +99,8 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
     return (
         <div style={{
             padding: '8px',
-            background: 'rgba(0,0,0,0.8)',
-            borderRadius: '4px',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-subtle)',
             fontFamily: 'var(--font-mono)'
         }}>
             {/* Header */}
@@ -112,13 +111,13 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                 marginBottom: '8px'
             }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    VOLUME DELTA (CVD)
+                    &gt; VOLUME_DELTA_CVD
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {isPositive ? (
-                        <TrendingUp size={12} color="#00ff9d" />
+                        <TrendingUp size={12} color="var(--accent-success)" />
                     ) : (
-                        <TrendingDown size={12} color="#ff3b30" />
+                        <TrendingDown size={12} color="var(--accent-danger)" />
                     )}
                 </div>
             </div>
@@ -132,7 +131,7 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
             }}>
                 <span style={{
                     fontSize: '20px',
-                    fontWeight: '600',
+                    fontWeight: 'bold',
                     color: deltaColor
                 }}>
                     {isPositive ? '+' : ''}{volumeDelta.delta.toFixed(2)}
@@ -152,21 +151,21 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
             }}>
                 <div style={{
                     padding: '4px',
-                    background: 'rgba(0, 255, 157, 0.1)',
-                    borderRadius: '2px'
+                    background: 'rgba(51, 255, 0, 0.05)',
+                    border: '1px solid var(--accent-success)'
                 }}>
-                    <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Buy Vol</div>
-                    <div style={{ color: '#00ff9d', fontWeight: '600' }}>
+                    <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>BUY_VOL</div>
+                    <div style={{ color: 'var(--accent-success)', fontWeight: 'bold' }}>
                         {volumeDelta.buyVolume.toFixed(2)}
                     </div>
                 </div>
                 <div style={{
                     padding: '4px',
-                    background: 'rgba(255, 59, 48, 0.1)',
-                    borderRadius: '2px'
+                    background: 'rgba(255, 0, 0, 0.05)',
+                    border: '1px solid var(--accent-danger)'
                 }}>
-                    <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>Sell Vol</div>
-                    <div style={{ color: '#ff3b30', fontWeight: '600' }}>
+                    <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>SELL_VOL</div>
+                    <div style={{ color: 'var(--accent-danger)', fontWeight: 'bold' }}>
                         {volumeDelta.sellVolume.toFixed(2)}
                     </div>
                 </div>
@@ -178,13 +177,13 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '4px 6px',
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: '2px',
+                background: '#000',
+                border: '1px solid var(--border-subtle)',
                 fontSize: '9px',
                 marginBottom: '8px'
             }}>
-                <span style={{ color: 'var(--text-muted)' }}>Buy/Sell Ratio:</span>
-                <span style={{ color: buySellRatio > 1 ? '#00ff9d' : '#ff3b30', fontWeight: '600' }}>
+                <span style={{ color: 'var(--text-muted)' }}>BUY/SELL_RATIO:</span>
+                <span style={{ color: buySellRatio > 1 ? 'var(--accent-success)' : 'var(--accent-danger)', fontWeight: 'bold' }}>
                     {buySellRatio.toFixed(2)}x
                 </span>
             </div>
@@ -194,19 +193,18 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                 <div style={{
                     padding: '4px 6px',
                     background: divergence.type === 'bullish'
-                        ? 'rgba(0, 255, 157, 0.1)'
-                        : 'rgba(255, 59, 48, 0.1)',
-                    border: `1px solid ${divergence.type === 'bullish' ? '#00ff9d' : '#ff3b30'}`,
-                    borderRadius: '2px',
+                        ? 'rgba(51, 255, 0, 0.1)'
+                        : 'rgba(255, 0, 0, 0.1)',
+                    border: `1px solid ${divergence.type === 'bullish' ? 'var(--accent-success)' : 'var(--accent-danger)'}`,
                     fontSize: '9px',
-                    color: divergence.type === 'bullish' ? '#00ff9d' : '#ff3b30',
+                    color: divergence.type === 'bullish' ? 'var(--accent-success)' : 'var(--accent-danger)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px'
                 }}>
                     <Activity size={10} />
                     <span>
-                        {divergence.type.toUpperCase()} DIVERGENCE ({(divergence.strength * 100).toFixed(1)}%)
+                        &gt;&gt; {divergence.type.toUpperCase()}_DIVERGENCE ({(divergence.strength * 100).toFixed(1)}%)
                     </span>
                 </div>
             )}
@@ -218,7 +216,7 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                 color: 'var(--text-muted)',
                 textAlign: 'center'
             }}>
-                1-minute rolling window • Tick Rule classification
+                1-MIN_WINDOW • TICK_RULE_CLASSIFICATION
             </div>
         </div>
     );

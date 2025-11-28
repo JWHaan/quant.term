@@ -75,22 +75,22 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
             <div style={{
                 padding: '8px',
                 background: 'rgba(0,0,0,0.5)',
-                borderRadius: '4px',
                 fontSize: '10px',
-                color: 'var(--text-muted)'
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)'
             }}>
-                Initializing VPIN... ({bucketProgress.toFixed(0)}% bucket)
+                [INITIALIZING_VPIN]... ({bucketProgress.toFixed(0)}% BUCKET)
             </div>
         );
     }
 
     const getToxicityColor = (toxicity: string): string => {
         switch (toxicity) {
-            case 'low': return '#00ff9d';
+            case 'low': return 'var(--accent-success)';
             case 'medium': return '#FFD700';
             case 'high': return '#FFA500';
-            case 'extreme': return '#ff3b30';
-            default: return '#888';
+            case 'extreme': return 'var(--accent-danger)';
+            default: return 'var(--text-muted)';
         }
     };
 
@@ -100,9 +100,8 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
     return (
         <div style={{
             padding: '8px',
-            background: 'rgba(0,0,0,0.8)',
-            borderRadius: '4px',
-            border: `1px solid ${vpinResult.toxicity === 'extreme' ? '#ff3b30' : 'rgba(255,255,255,0.1)'}`,
+            background: 'var(--bg-panel)',
+            border: `1px solid ${vpinResult.toxicity === 'extreme' ? 'var(--accent-danger)' : 'var(--border-subtle)'}`,
             fontFamily: 'var(--font-mono)'
         }}>
             {/* Header */}
@@ -113,14 +112,14 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 marginBottom: '8px'
             }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    VPIN (TOXICITY)
+                    &gt; VPIN_TOXICITY
                 </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {trend === 'increasing' && <TrendingUp size={10} color="#ff3b30" />}
-                    {trend === 'decreasing' && <TrendingDown size={10} color="#00ff9d" />}
-                    {trend === 'stable' && <Minus size={10} color="#888" />}
+                    {trend === 'increasing' && <TrendingUp size={10} color="var(--accent-danger)" />}
+                    {trend === 'decreasing' && <TrendingDown size={10} color="var(--accent-success)" />}
+                    {trend === 'stable' && <Minus size={10} color="var(--text-muted)" />}
                     <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
-                        {trend.toUpperCase()}
+                        [{trend.toUpperCase()}]
                     </span>
                 </div>
             </div>
@@ -134,32 +133,32 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
             }}>
                 <span style={{
                     fontSize: '20px',
-                    fontWeight: '600',
+                    fontWeight: 'bold',
                     color: toxicityColor
                 }}>
                     {vpinResult.vpin.toFixed(3)}
                 </span>
                 <span style={{
                     fontSize: '11px',
-                    fontWeight: '600',
+                    fontWeight: 'bold',
                     color: toxicityColor,
                     textTransform: 'uppercase'
                 }}>
-                    {vpinResult.toxicity}
+                    [{vpinResult.toxicity}]
                 </span>
             </div>
 
             {/* Visual Bar */}
             <div style={{
                 height: '6px',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '3px',
-                overflow: 'hidden',
-                marginBottom: '8px'
+                background: '#000',
+                border: '1px solid var(--border-subtle)',
+                marginBottom: '8px',
+                position: 'relative'
             }}>
                 <div style={{
                     height: '100%',
-                    width: `${vpinPercent}%`,
+                    width: `${Math.min(vpinPercent, 100)}%`,
                     background: toxicityColor,
                     transition: 'width 0.3s, background 0.3s'
                 }} />
@@ -172,14 +171,13 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 marginBottom: '8px'
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Current Bucket:</span>
+                    <span style={{ color: 'var(--text-muted)' }}>CURRENT_BUCKET:</span>
                     <span>{bucketProgress.toFixed(1)}%</span>
                 </div>
                 <div style={{
                     height: '2px',
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: '1px',
-                    overflow: 'hidden'
+                    background: '#000',
+                    border: '1px solid var(--border-subtle)'
                 }}>
                     <div style={{
                         height: '100%',
@@ -199,14 +197,14 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 color: 'var(--text-secondary)'
             }}>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Buckets:</span>
-                    <span style={{ marginLeft: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>BUCKETS:</span>
+                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
                         {vpinResult.bucketsFilled}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Bucket Vol:</span>
-                    <span style={{ marginLeft: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>BUCKET_VOL:</span>
+                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
                         {vpinResult.currentBucket.totalVolume.toFixed(1)}
                     </span>
                 </div>
@@ -217,18 +215,17 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 <div style={{
                     marginTop: '8px',
                     padding: '4px 6px',
-                    background: 'rgba(255, 59, 48, 0.2)',
-                    border: '1px solid #ff3b30',
-                    borderRadius: '2px',
+                    background: 'rgba(255, 0, 0, 0.2)',
+                    border: '1px solid var(--accent-danger)',
                     fontSize: '9px',
-                    color: '#ff3b30',
+                    color: 'var(--accent-danger)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
                     animation: 'pulse 2s infinite'
                 }}>
                     <AlertTriangle size={10} />
-                    <span>HIGH TOXICITY - VOLATILITY EXPECTED</span>
+                    <span>&gt;&gt; HIGH_TOXICITY_DETECTED</span>
                 </div>
             )}
 
@@ -239,7 +236,7 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 color: 'var(--text-muted)',
                 textAlign: 'center'
             }}>
-                Volume-bucketed • 50-bucket window
+                VOL_BUCKETED • 50_BUCKET_WINDOW
             </div>
         </div>
     );

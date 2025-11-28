@@ -16,18 +16,19 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
     const { price, vol, type } = row;
     const isBid = type === 'bid';
     const width = (vol / maxVol) * 100;
-    const barColor = isBid ? 'rgba(0, 255, 157, 0.15)' : 'rgba(255, 59, 48, 0.15)';
-    const textColor = isBid ? 'var(--accent-primary)' : 'var(--accent-danger)';
+    const barColor = isBid ? 'var(--accent-success)' : 'var(--accent-danger)';
+    const textColor = isBid ? 'var(--accent-success)' : 'var(--accent-danger)';
 
     return (
         <div style={{
             display: 'flex',
             alignItems: 'center',
-            height: '20px', // Explicit height for virtualizer
+            height: '18px',
             fontSize: '11px',
             fontFamily: 'var(--font-mono)',
             borderBottom: '1px solid rgba(255,255,255,0.02)',
-            background: '#000'
+            background: 'var(--bg-panel)',
+            position: 'relative'
         }}>
             {/* Bid Side (Left) */}
             <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px', position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -35,10 +36,11 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
                     <>
                         <div style={{
                             position: 'absolute',
-                            top: 1, bottom: 1, right: 0,
+                            top: 2, bottom: 2, right: 0,
                             width: `${width}%`,
                             background: barColor,
-                            transition: 'width 0.1s'
+                            opacity: 0.2,
+                            borderLeft: `2px solid ${barColor}`
                         }} />
                         <span style={{ position: 'relative', zIndex: 1, color: 'var(--text-primary)' }}>
                             {vol.toFixed(precision > 1 ? 2 : 4)}
@@ -54,11 +56,11 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'rgba(255,255,255,0.03)',
+                background: '#000',
                 color: textColor,
-                fontWeight: '600',
-                borderLeft: '1px solid rgba(255,255,255,0.05)',
-                borderRight: '1px solid rgba(255,255,255,0.05)'
+                fontWeight: 'bold',
+                borderLeft: '1px solid var(--border-subtle)',
+                borderRight: '1px solid var(--border-subtle)'
             }}>
                 {price.toFixed(precision >= 1 ? 0 : 2)}
             </div>
@@ -69,10 +71,11 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
                     <>
                         <div style={{
                             position: 'absolute',
-                            top: 1, bottom: 1, left: 0,
+                            top: 2, bottom: 2, left: 0,
                             width: `${width}%`,
                             background: barColor,
-                            transition: 'width 0.1s'
+                            opacity: 0.2,
+                            borderRight: `2px solid ${barColor}`
                         }} />
                         <span style={{ position: 'relative', zIndex: 1, color: 'var(--text-primary)' }}>
                             {vol.toFixed(precision > 1 ? 2 : 4)}
@@ -86,7 +89,7 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
 
 /**
  * Vertical Depth of Market (DOM) Ladder
- * Institutional-style order book visualization with Virtual Scrolling (react-virtuoso)
+ * Terminal-style order book visualization
  */
 const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
     const { bids, asks, isConnected } = useOrderBook(symbol);
@@ -109,7 +112,7 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
         };
 
         let processedAsks: OrderBookRow[], processedBids: OrderBookRow[];
-        const DEPTH = 500;
+        const DEPTH = 50; // Reduced for terminal look
 
         if (precision > 0.01) {
             // Aggregate
@@ -141,21 +144,21 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
     }, [bids, asks, precision]);
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#000' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
             {/* Header */}
             <div style={{
                 padding: '8px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                borderBottom: '1px solid var(--border-color)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 fontSize: '10px',
-                color: 'var(--text-muted)'
+                background: 'rgba(51, 255, 0, 0.05)'
             }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '600' }}>DOM</span>
+                    <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>&gt; DOM_LADDER</span>
                     {/* Precision Toggles */}
-                    <div style={{ display: 'flex', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
+                    <div style={{ display: 'flex', border: '1px solid var(--border-subtle)' }}>
                         {[0.01, 1, 10].map(p => (
                             <button
                                 key={p}
@@ -170,15 +173,15 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
                                     fontFamily: 'var(--font-mono)'
                                 }}
                             >
-                                {p === 0.01 ? 'Raw' : p}
+                                {p === 0.01 ? 'RAW' : p}
                             </button>
                         ))}
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', fontFamily: 'var(--font-mono)' }}>
-                    <span>Spread: <span style={{ color: '#fff' }}>{spread.toFixed(2)}</span></span>
-                    <span style={{ color: isConnected ? 'var(--accent-primary)' : 'var(--accent-danger)' }}>
-                        {isConnected ? '●' : '○'}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>SPREAD: <span style={{ color: '#fff' }}>{spread.toFixed(2)}</span></span>
+                    <span className={isConnected ? "text-glow" : ""} style={{ color: isConnected ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
+                        {isConnected ? '[LINK_OK]' : '[NO_LINK]'}
                     </span>
                 </div>
             </div>
@@ -189,17 +192,17 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
                 fontSize: '9px',
                 color: 'var(--text-muted)',
                 padding: '4px 0',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                fontFamily: 'var(--font-mono)'
+                borderBottom: '1px solid var(--border-subtle)',
+                background: '#000'
             }}>
-                <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px' }}>BID SIZE</div>
+                <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px' }}>BID_VOL</div>
                 <div style={{ width: '80px', textAlign: 'center' }}>PRICE</div>
-                <div style={{ flex: 1, textAlign: 'left', paddingLeft: '8px' }}>ASK SIZE</div>
+                <div style={{ flex: 1, textAlign: 'left', paddingLeft: '8px' }}>ASK_VOL</div>
             </div>
 
-            {/* Standard Ladder (Non-Virtualized for Stability) */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                {rows.slice(0, 50).map((row, i) => (
+            {/* Ladder */}
+            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                {rows.map((row, i) => (
                     <RowItem
                         key={`${row.type}-${row.price}-${i}`}
                         row={row}
@@ -208,8 +211,8 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
                     />
                 ))}
                 {rows.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        Waiting for data...
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
+                        AWAITING_DATA_STREAM...
                     </div>
                 )}
             </div>
