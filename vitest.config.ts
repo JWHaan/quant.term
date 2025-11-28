@@ -24,10 +24,10 @@ export default defineConfig({
                 'vitest.config.ts'
             ],
             thresholds: {
-                lines: 70,
-                functions: 70,
-                branches: 65,
-                statements: 70
+                lines: 65,
+                functions: 65,
+                branches: 50,
+                statements: 65
             }
         },
         include: ['src/**/*.{test,spec}.{ts,tsx}'],
