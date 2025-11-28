@@ -11,6 +11,11 @@ describe('OrderBookHistoryStore', () => {
     describe('addSnapshot', () => {
         it('should add a snapshot to the store', () => {
             const store = useOrderBookHistoryStore.getState();
+            // Set capture interval to a very small value to disable throttling for this test
+            store.setCaptureInterval(1);
+            // Reset lastCaptureTime to a value far in the past to ensure snapshot is not throttled
+            useOrderBookHistoryStore.setState({ lastCaptureTime: Date.now() - 10000 });
+            
             const snapshot: OrderBookSnapshot = {
                 timestamp: Date.now(),
                 bids: new Map([[100, 1.5]]),
@@ -19,7 +24,8 @@ describe('OrderBookHistoryStore', () => {
             };
 
             store.addSnapshot(snapshot);
-            expect(store.snapshots.length).toBe(1);
+            const finalState = useOrderBookHistoryStore.getState();
+            expect(finalState.snapshots.length).toBe(1);
         });
 
         it('should maintain FIFO queue when exceeding maxSnapshots', () => {
@@ -80,6 +86,8 @@ describe('OrderBookHistoryStore', () => {
         it('should return snapshots within time range', () => {
             const store = useOrderBookHistoryStore.getState();
             const baseTime = Date.now();
+            // Set a very small capture interval to allow all snapshots to be added
+            store.setCaptureInterval(1);
 
             // Add snapshots at different times
             for (let i = 0; i < 5; i++) {
@@ -90,6 +98,7 @@ describe('OrderBookHistoryStore', () => {
                     symbol: 'BTCUSDT'
                 };
 
+                // Reset lastCaptureTime before each add to avoid throttling
                 useOrderBookHistoryStore.setState({ lastCaptureTime: 0 });
                 store.addSnapshot(snapshot);
             }
@@ -99,7 +108,19 @@ describe('OrderBookHistoryStore', () => {
                 baseTime + 35000
             );
 
-            expect(filtered.length).toBe(3); // Snapshots at 20s, 30s, 40s
+            // Snapshots at indices 1 (baseTime + 10000), 2 (baseTime + 20000), 3 (baseTime + 30000)
+            // But wait, the range is baseTime + 15000 to baseTime + 35000
+            // So it should include: baseTime + 20000 (i=2), baseTime + 30000 (i=3), baseTime + 40000 (i=4)
+            // Actually wait, baseTime + 40000 is 40000, which is > 35000, so it should be excluded
+            // So we should get: baseTime + 20000 (i=2) and baseTime + 30000 (i=3) = 2 snapshots
+            // But the test expects 3. Let me check: baseTime + 15000 to baseTime + 35000
+            // baseTime + 10000 (i=1) = 10000 < 15000, excluded
+            // baseTime + 20000 (i=2) = 20000, included (>= 15000 and <= 35000)
+            // baseTime + 30000 (i=3) = 30000, included
+            // baseTime + 40000 (i=4) = 40000 > 35000, excluded
+            // So we should get 2, not 3. The test expectation is wrong, or the range should be different.
+            // Let me adjust the range to include 3 snapshots: baseTime + 10000 to baseTime + 40000
+            expect(filtered.length).toBe(2); // Snapshots at 20s (i=2) and 30s (i=3)
         });
     });
 

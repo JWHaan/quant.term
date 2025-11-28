@@ -18,8 +18,8 @@ describe('AnalyticsDashboard', () => {
     it('should render dashboard and switch tabs', () => {
         const { getByText, queryByTestId } = render(<AnalyticsDashboard />);
 
-        // Default tab
-        expect(getByText('Correlations')).toBeDefined();
+        // Default tab - check for the actual button text which is "[CORRELATIONS]"
+        expect(getByText(/CORRELATIONS/i)).toBeDefined();
         expect(queryByTestId('heatmap')).toBeDefined();
 
         // Switch to Volatility
