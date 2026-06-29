@@ -1,4 +1,4 @@
-import React, { Suspense, useRef, useMemo, useEffect } from 'react';
+import React, { Suspense, useRef, useMemo, useEffect, useState } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useMarketStore } from './stores/marketStore';
 import { useConnectionStore } from './stores/connectionStore';
@@ -6,9 +6,10 @@ import DashboardPanel from './ui/DashboardPanel';
 import MarketGrid from './features/market/MarketGrid';
 import LoadingSpinner from './ui/LoadingSpinner';
 import PanelErrorBoundary from './ui/PanelErrorBoundary';
-import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame, Activity, Search, Keyboard, Globe } from 'lucide-react';
-import ThemeProvider from './ui/ThemeProvider';
+import { Wifi, WifiOff, Newspaper, Calendar, BarChart2, Flame, Activity, Search, Keyboard, Globe, Sun, Moon, Maximize2, Github } from 'lucide-react';
+import ThemeProvider, { ThemeContext } from './ui/ThemeProvider';
 import ErrorBoundary from './ui/ErrorBoundary';
+import MobileGate from './ui/MobileGate';
 import AlphaPanel from './features/analytics/AlphaPanel';
 import NewsTicker from './features/news/NewsTicker';
 import NewsFeed from './features/news/NewsFeed';
@@ -35,6 +36,8 @@ const App: React.FC = () => {
     const { selectedSymbol, setSymbol } = useMarketStore();
     const connections = useConnectionStore(state => state.connections);
     const { latency, quality, updatesPerSecond } = useConnectionLatency();
+    const { theme, toggleTheme } = React.useContext(ThemeContext);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Panel refs for keyboard focus
     const marketWatchRef = useRef<HTMLDivElement>(null);
@@ -45,6 +48,21 @@ const App: React.FC = () => {
     // Command Palette State
     const [showCommandPalette, setShowCommandPalette] = React.useState(false);
     const [showMacroModal, setShowMacroModal] = React.useState(false);
+
+    // Track fullscreen state
+    useEffect(() => {
+        const handler = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handler);
+        return () => document.removeEventListener('fullscreenchange', handler);
+    }, []);
+
+    const toggleFullscreen = () => {
+        if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+        } else {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+    };
 
 
 
@@ -187,7 +205,8 @@ const App: React.FC = () => {
     return (
         <ThemeProvider>
             <ErrorBoundary>
-                <div className="app-container">
+                <MobileGate>
+                    <div className="app-container">
                     {/* Header */}
                     <header className="app-header">
                         <div className="logo-section">
@@ -210,11 +229,20 @@ const App: React.FC = () => {
                                     border: '1px solid var(--border-color)',
                                     borderRadius: '8px',
                                     cursor: 'pointer',
-                                    marginRight: '16px',
+                                    marginRight: '8px',
                                     transition: 'all 0.2s'
                                 }}
                                 onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--accent-primary)'}
                                 onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
+                                role="button"
+                                tabIndex={0}
+                                aria-label="Open command palette"
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        setShowCommandPalette(true);
+                                    }
+                                }}
                             >
                                 <Search size={14} color="var(--text-muted)" />
                                 <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
@@ -230,6 +258,100 @@ const App: React.FC = () => {
                                     fontFamily: 'var(--font-mono)'
                                 }}>⌘K</kbd>
                             </div>
+
+                            {/* Icon button group */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '12px' }}>
+                                <button
+                                    onClick={toggleTheme}
+                                    aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+                                    title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '32px',
+                                        height: '32px',
+                                        background: 'var(--bg-panel)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-secondary)',
+                                        transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                                        e.currentTarget.style.color = 'var(--accent-primary)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                                        e.currentTarget.style.color = 'var(--text-secondary)';
+                                    }}
+                                >
+                                    {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+                                </button>
+
+                                <button
+                                    onClick={toggleFullscreen}
+                                    aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                    title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '32px',
+                                        height: '32px',
+                                        background: 'var(--bg-panel)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-secondary)',
+                                        transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                                        e.currentTarget.style.color = 'var(--accent-primary)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                                        e.currentTarget.style.color = 'var(--text-secondary)';
+                                    }}
+                                >
+                                    <Maximize2 size={14} />
+                                </button>
+
+                                <a
+                                    href="https://github.com/JWHaan/quant.term"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label="View source on GitHub"
+                                    title="GitHub"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '32px',
+                                        height: '32px',
+                                        background: 'var(--bg-panel)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-secondary)',
+                                        transition: 'all 0.2s',
+                                        textDecoration: 'none',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                                        e.currentTarget.style.color = 'var(--accent-primary)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                                        e.currentTarget.style.color = 'var(--text-secondary)';
+                                    }}
+                                >
+                                    <Github size={14} />
+                                </a>
+                            </div>
+
                             <div className="connection-status" style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -434,7 +556,8 @@ const App: React.FC = () => {
                         onClose={() => setShowMacroModal(false)}
                     />
                     <MemoryProfiler />
-                </div >
+                    </div >
+                </MobileGate>
             </ErrorBoundary >
         </ThemeProvider >
     );

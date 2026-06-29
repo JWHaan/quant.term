@@ -7,6 +7,9 @@
 ![React](https://img.shields.io/badge/React-19.2-61DAFB)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FJWHaan%2Fquant.term)
+
+**Live demo**: <https://quant-term.vercel.app/>
 
 
 ## 🚀 Features
@@ -106,6 +109,51 @@ npm run dev
 ```
 
 The application will open at `http://localhost:3000`
+
+## ☁️ Deploy on Vercel
+
+quant.term is configured for one-click deployment on Vercel. The included
+`vercel.json` sets up SPA routing, asset caching, and security headers.
+
+### Option 1 — One-click deploy
+
+Click the badge above, or [this link](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FJWHaan%2Fquant.term),
+and Vercel will:
+1. Fork the repo to your GitHub
+2. Install dependencies (`npm install`)
+3. Build the production bundle (`npm run build`)
+4. Serve the `dist/` directory with the right headers and rewrites
+
+### Option 2 — CLI deploy
+
+```bash
+# Install the Vercel CLI (one-time)
+npm i -g vercel
+
+# From the project root
+vercel          # preview deployment (creates a unique URL)
+vercel --prod   # production deployment (uses your main domain)
+```
+
+### Option 3 — Git integration
+
+1. Push the repo to your GitHub/GitLab/Bitbucket
+2. Visit <https://vercel.com/new> and import the repository
+3. Vercel auto-detects Vite — just click **Deploy**
+4. Every subsequent `git push` to `main` auto-deploys to production
+
+### Vercel project settings (auto-detected from `vercel.json`)
+
+| Setting            | Value             |
+| ------------------ | ----------------- |
+| Framework          | Vite              |
+| Build command      | `npm run build`   |
+| Output directory   | `dist`            |
+| Install command    | `npm install`     |
+| Dev command        | `npm run dev`     |
+
+No environment variables are required — the terminal uses public WebSocket
+streams only.
 
 ## 📜 Available Scripts
 

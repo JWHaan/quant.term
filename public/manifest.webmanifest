@@ -1,0 +1,19 @@
+{
+  "name": "quant.term — Professional Cryptocurrency Trading Terminal",
+  "short_name": "quant.term",
+  "description": "A Bloomberg Terminal-inspired crypto trading interface with real-time data, advanced technical analysis, and institutional-grade quantitative features.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "landscape",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/quant_term_logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
