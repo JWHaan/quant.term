@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBinanceWebSocket } from '@/hooks/useBinanceWebSocket';
 import { useChartDataStore } from '@/stores/chartDataStore';
 import { orderBookToSnapshot, useOrderBookHistoryStore } from '@/stores/orderBookHistoryStore';
@@ -73,7 +73,7 @@ export const useChartDataFeed = (
     const snapshots = useOrderBookHistoryStore((state) => state.snapshots);
 
     const isFetchingRef = useRef(false);
-    const errorRef = useRef<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const setSeriesLoading = useChartDataStore((state) => state.setSeriesLoading);
     const setHistoricalCandles = useChartDataStore((state) => state.setHistoricalCandles);
@@ -101,7 +101,8 @@ export const useChartDataFeed = (
 
         isFetchingRef.current = true;
         setSeriesLoading(normalizedSymbol, interval, true);
-        errorRef.current = null;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setError(null);
 
         fetchHistoricalCandles(normalizedSymbol, interval, fetchLimit)
             .then((candles) => {
@@ -111,7 +112,7 @@ export const useChartDataFeed = (
             .catch((err: any) => {
                 if (cancelled) return;
                 const message = err?.message ?? 'Failed to fetch historical candles';
-                errorRef.current = message;
+                setError(message);
                 setSeriesLoading(normalizedSymbol, interval, false);
             })
             .finally(() => {
@@ -172,7 +173,7 @@ export const useChartDataFeed = (
         latestCandle: candles[candles.length - 1] ?? null,
         candles,
         isLoading,
-        error: errorRef.current,
+        error,
         heatmap,
     };
 };

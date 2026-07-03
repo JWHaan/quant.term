@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, ArrowRight, Terminal } from 'lucide-react';
 
 export interface CommandItem {
@@ -23,13 +23,14 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, comman
     const listRef = useRef<HTMLDivElement>(null);
 
     // Filter commands based on query
-    const filteredCommands = commands.filter(cmd =>
+    const filteredCommands = useMemo(() => commands.filter(cmd =>
         cmd.label.toLowerCase().includes(query.toLowerCase()) ||
         cmd.description?.toLowerCase().includes(query.toLowerCase())
-    );
+    ), [commands, query]);
 
     // Reset selection when query changes
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSelectedIndex(0);
     }, [query]);
 
@@ -37,9 +38,12 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, comman
     useEffect(() => {
         if (isOpen) {
             setTimeout(() => inputRef.current?.focus(), 50);
-        } else {
-            setQuery('');
         }
+        return () => {
+            if (!isOpen) {
+                setQuery('');
+            }
+        };
     }, [isOpen]);
 
     // Handle keyboard navigation

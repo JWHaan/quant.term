@@ -23,7 +23,13 @@ export const useConnectionLatency = (wsUrl: string = 'wss://stream.binance.com:9
     // Token Bucket for Rate Limiting
     // Max 5 connections per minute
     const tokensRef = useRef<number>(5);
-    const lastRefillRef = useRef<number>(Date.now());
+    const lastRefillRef = useRef<number>(0);
+    
+    // Initialize last refill time on first render
+    if (lastRefillRef.current === 0) {
+        // eslint-disable-next-line react-hooks/purity
+        lastRefillRef.current = Date.now();
+    }
 
     const refillTokens = () => {
         const now = Date.now();

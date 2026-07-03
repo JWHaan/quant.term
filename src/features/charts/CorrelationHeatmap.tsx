@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Dead code from 3D chart experiments.
  * Kept for reference — delete when ready.

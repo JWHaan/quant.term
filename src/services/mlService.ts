@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
  * Kept for reference — delete when ready.
@@ -379,6 +379,7 @@ class MLService {
      */
     calculateFeatureImportance(_testData: TrainingData[]): Record<string, number> {
         // Placeholder - would need full implementation with validation set
+        void _testData;
         const importance: Record<string, number> = {};
         this.featureNames.forEach(name => {
             importance[name] = Math.random(); // Simplified
@@ -418,7 +419,7 @@ class MLService {
                 return true;
             }
             return false;
-        } catch (error) {
+        } catch {
             console.log('[MLService] No saved model found');
             return false;
         }
@@ -467,8 +468,8 @@ class MLService {
         if (!firstRow) return new Array(data.length).fill(0);
 
         // Initialize centroids randomly
-        let centroids = data.slice(0, k).map(row => [...row]);
-        let assignments = new Array(data.length).fill(-1);
+        const centroids = data.slice(0, k).map(row => [...row]);
+        const assignments = new Array(data.length).fill(-1);
         let changed = true;
         let iterations = 0;
         const maxIterations = 100;

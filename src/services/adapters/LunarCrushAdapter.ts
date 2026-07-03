@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
  * Kept for reference — delete when ready.
@@ -8,9 +8,9 @@ import { IMacroDataSource, MacroMetric } from '../../types/DataSource';
 
 export class LunarCrushAdapter implements IMacroDataSource {
     name = 'LunarCrush';
-    // @ts-ignore - Used in commented code for future implementation
+    // @ts-expect-error: Commented-out legacy code block
     private apiKey: string;
-    // @ts-ignore - Used in commented code for future implementation
+    // @ts-expect-error: Commented-out legacy code block
     private baseUrl = 'https://lunarcrush.com/api3';
 
     constructor(apiKey: string = 'YourApiKeyToken') {

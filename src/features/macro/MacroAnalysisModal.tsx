@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useContext } from 'react';
 import { ThemeContext } from '../../ui/ThemeProvider';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — lightweight-charts v5 conditional exports don't resolve in tsc but work at runtime via Vite
+// @ts-expect-error: lightweight-charts v5 ESM conditional exports don't resolve in tsc but work at runtime via Vite
 import { createChart, ColorType, IChartApi } from 'lightweight-charts';
 import { X, Globe } from 'lucide-react';
 import { OpenBBService, MacroData } from '../../services/OpenBBService';
@@ -15,17 +14,22 @@ const MacroAnalysisModal: React.FC<MacroAnalysisModalProps> = ({ isOpen, onClose
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const [data, setData] = useState<MacroData | null>(null);
-    const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'CPI' | 'GDP' | 'RATES'>('CPI');
+    const [loading, setLoading] = useState(false);
     const { theme } = useContext(ThemeContext);
 
     useEffect(() => {
         if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(true);
+            let cancelled = false;
             OpenBBService.getMacroData().then(d => {
-                setData(d);
-                setLoading(false);
+                if (!cancelled) {
+                    setData(d);
+                    setLoading(false);
+                }
             });
+            return () => { cancelled = true; };
         }
     }, [isOpen]);
 

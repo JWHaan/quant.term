@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
  * Kept for reference — delete when ready.
@@ -48,7 +48,7 @@ export class DataAggregator {
         for (const source of this.onChainSources) {
             try {
                 return await source.fetchMetric(metric, params);
-            } catch (e) {
+            } catch {
                 continue;
             }
         }
@@ -59,7 +59,7 @@ export class DataAggregator {
         for (const source of this.macroSources) {
             try {
                 return await source.fetchMetric(metric, params);
-            } catch (e) {
+            } catch {
                 continue;
             }
         }

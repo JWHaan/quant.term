@@ -91,7 +91,7 @@ export const useBinanceWebSocket = (
     const [candle, setCandle] = useState<Candle | null>(null);
     const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
     const [isConnected, setIsConnected] = useState<boolean>(false);
-    const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+    const [lastUpdate, setLastUpdate] = useState<number>(() => Date.now());
     const [reconnectCount, setReconnectCount] = useState<number>(0);
 
     const wsRef = useRef<WebSocket | null>(null);

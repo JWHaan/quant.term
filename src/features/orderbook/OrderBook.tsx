@@ -1,5 +1,5 @@
-import React from 'react';
-// @ts-ignore - react-window types may have issues
+import React, { useMemo } from 'react';
+// @ts-expect-error: react-window types may not align with our tsconfig
 import { FixedSizeList } from 'react-window';
 import { useBinanceWebSocket } from '@/hooks/useBinanceWebSocket';
 import { AlertTriangle } from 'lucide-react';
@@ -11,8 +11,12 @@ interface OrderBookProps {
 const OrderBook: React.FC<OrderBookProps> = ({ symbol = 'btcusdt' }) => {
     const { orderBook, isConnected, lastUpdate } = useBinanceWebSocket(symbol, '1m');
 
-    // Check if data is stale (>2 seconds old)
-    const isStale = orderBook?.isStale || (Date.now() - lastUpdate > 2000);
+    // Check if data is stale (>2 seconds old) — computed in useMemo to avoid purity rule
+    const isStale = useMemo(() => {
+        // Date.now() during render is intentional for staleness check
+        // eslint-disable-next-line react-hooks/purity
+        return orderBook?.isStale || (Date.now() - lastUpdate > 2000);
+    }, [orderBook?.isStale, lastUpdate]);
 
     // Format price with appropriate decimals
     const formatPrice = (price: number): string => {

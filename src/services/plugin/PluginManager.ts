@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
  * Kept for reference — delete when ready.
@@ -34,7 +34,7 @@ export class PluginManager {
         if (!plugin) {
             throw new Error(`Plugin ${pluginId} not found`);
         }
-        return plugin.calculate.apply(plugin, args as [any, any]);
+        return plugin.calculate(...(args as [any, any]));
     }
 }
 

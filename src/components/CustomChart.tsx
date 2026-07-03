@@ -1,6 +1,7 @@
 import React, {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState
@@ -71,12 +72,12 @@ const CustomChart: React.FC<CustomChartProps> = ({
     const [dimensions, setDimensions] = useState<ChartDimensions>({ width: 0, height });
 
     // Use external indicator toggles if provided, otherwise use defaults
-    const indicatorToggles = externalIndicatorToggles || {
+    const indicatorToggles = useMemo(() => externalIndicatorToggles || {
         ema9: true,
         ema21: false,
         macd: false,
         rsi: false
-    };
+    }, [externalIndicatorToggles]);
 
     const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
 
@@ -87,8 +88,12 @@ const CustomChart: React.FC<CustomChartProps> = ({
     // Store draw function in ref to avoid infinite loops
     const drawRef = useRef<(() => void) | null>(null);
 
-    useEffect(() => {
-        setDimensions(prev => ({ ...prev, height }));
+    // Sync height prop via layout effect with forced re-render
+    const [, forceRender] = useState(0);
+    useLayoutEffect(() => {
+        setDimensions(prev => prev.height !== height ? { ...prev, height } : prev);
+        forceRender(n => n + 1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [height]);
 
     useEffect(() => {
@@ -147,7 +152,7 @@ const CustomChart: React.FC<CustomChartProps> = ({
         const volumeHeight = Math.min(innerHeight * VOLUME_RATIO, 100);
         const indicatorHeight = indicatorCount > 0 ? Math.min(100, (innerHeight - volumeHeight) / (indicatorCount + 2)) : 0;
 
-        let priceHeight = innerHeight - volumeHeight - (indicatorHeight * indicatorCount) - (SECTION_GAP * indicatorCount);
+        const priceHeight = innerHeight - volumeHeight - (indicatorHeight * indicatorCount) - (SECTION_GAP * indicatorCount);
 
         // Sections
         const priceTop = MARGIN.top;

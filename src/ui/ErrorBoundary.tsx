@@ -16,7 +16,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         this.state = { hasError: false, error: null, errorInfo: null };
     }
 
-    static getDerivedStateFromError(_: Error): Partial<ErrorBoundaryState> {
+    static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
+        void error;
         return { hasError: true };
     }
 

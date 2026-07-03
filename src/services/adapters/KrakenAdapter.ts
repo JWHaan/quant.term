@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
  * Kept for reference — delete when ready.
@@ -53,6 +53,7 @@ export class KrakenAdapter implements IMarketDataSource {
 
     subscribeCandles(_symbol: string, _interval: string, _callback: (candle: Candle) => void): void {
         // Kraken uses 'ohlc' subscription
+        void _symbol; void _interval; void _callback;
         console.warn('Kraken candle subscription not fully implemented');
     }
 

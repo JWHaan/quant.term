@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
 /**
  * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
  * Kept for reference — delete when ready.
@@ -58,8 +58,9 @@ export class CoinbaseAdapter implements IMarketDataSource {
     }
 
     subscribeCandles(_symbol: string, _interval: string, _callback: (candle: Candle) => void): void {
-        // Coinbase WS might not support direct candle streams in the same way, 
+        // Coinbase WS might not support direct candle streams in the same way,
         // or requires a specific channel. For now, we'll log a warning or implement if known.
+        void _symbol; void _interval; void _callback;
         console.warn('Coinbase WS candle subscription not fully implemented in this demo adapter');
     }
 

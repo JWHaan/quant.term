@@ -13,6 +13,7 @@ const BINANCE_REST_URL = 'https://api.binance.com';
 
 // Inline computation — replaces deprecated alphaWorker
 function computeAlphaFactors(data: any[], _symbol: string) {
+    void _symbol;
     const hurst = calculateHurst(data);
     let regime: AlphaState['regime'] = 'RANDOM_WALK';
     if (hurst > 0.55) regime = 'TRENDING';
@@ -155,6 +156,7 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                 }));
 
                 // Compute indicators inline (worker removed — see alphaWorker deprecation)
+                // eslint-disable-next-line react-hooks/exhaustive-deps
                 const result = computeAlphaFactors(data, symbol);
                 if (!cancelled) {
                     setState(prev => ({ ...prev, ...result, loaded: true }));
