@@ -19,18 +19,17 @@ const MacroAnalysisModal: React.FC<MacroAnalysisModalProps> = ({ isOpen, onClose
     const { theme } = useContext(ThemeContext);
 
     useEffect(() => {
-        if (isOpen) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setLoading(true);
-            let cancelled = false;
-            OpenBBService.getMacroData().then(d => {
-                if (!cancelled) {
-                    setData(d);
-                    setLoading(false);
-                }
-            });
-            return () => { cancelled = true; };
-        }
+        if (!isOpen) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setLoading(true);
+        let cancelled = false;
+        OpenBBService.getMacroData().then(d => {
+            if (!cancelled) {
+                setData(d);
+                setLoading(false);
+            }
+        });
+        return () => { cancelled = true; };
     }, [isOpen]);
 
     useEffect(() => {

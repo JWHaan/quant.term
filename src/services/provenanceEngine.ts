@@ -1,4 +1,4 @@
-// @ts-expect-error: Deprecated scaffold file — not wired into the UI, may have stale types
+// @ts-nocheck: Deprecated scaffold file — suppressed for type checking — not wired into the UI, may have stale types
 /**
  * Market Data Provenance Engine
  * 

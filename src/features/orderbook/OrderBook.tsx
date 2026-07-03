@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-// @ts-expect-error: react-window types may not align with our tsconfig
 import { FixedSizeList } from 'react-window';
 import { useBinanceWebSocket } from '@/hooks/useBinanceWebSocket';
 import { AlertTriangle } from 'lucide-react';

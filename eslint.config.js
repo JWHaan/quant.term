@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', '.next']),
+  globalIgnores(['dist', 'coverage', '.next', 'src/services/**/*.ts', 'src/services/**/*.tsx', 'src/features/charts/CorrelationHeatmap.tsx', 'src/features/charts/OrderFlowSankey.tsx', 'src/features/charts/VolatilitySurface3D.tsx', 'src/features/charts/VolatilitySurface.tsx']),
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],

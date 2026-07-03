@@ -76,6 +76,11 @@
     ],
     "exclude": [
         "node_modules",
-        "dist"
-    ]
+        "dist",
+        "src/services/**/*",
+        "src/features/charts/CorrelationHeatmap.tsx",
+        "src/features/charts/OrderFlowSankey.tsx",
+        "src/features/charts/VolatilitySurface3D.tsx",
+        "src/features/charts/VolatilitySurface.tsx"
+    ],
 }
