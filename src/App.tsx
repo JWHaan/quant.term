@@ -524,7 +524,9 @@ const App: React.FC = () => {
                         </div>
                         <div className="status-item">
                             <span className="label">STATUS</span>
-                            <span className="value good">CONNECTED</span>
+                            <span className="value" style={{ color: isGlobalConnected ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
+                                {isGlobalConnected ? 'CONNECTED' : 'DISCONNECTED'}
+                            </span>
                         </div>
                         <div className="status-item">
                             <span className="label">EXCHANGE</span>
@@ -556,10 +558,10 @@ const App: React.FC = () => {
                         onClose={() => setShowMacroModal(false)}
                     />
                     <MemoryProfiler />
-                    </div >
+                    </div>
                 </MobileGate>
-            </ErrorBoundary >
-        </ThemeProvider >
+            </ErrorBoundary>
+        </ThemeProvider>
     );
 };
 

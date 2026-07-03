@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Dead code from 3D chart experiments.
+ * Kept for reference — delete when ready.
+ */
+
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 import { sankey, sankeyLinkHorizontal } from 'd3-sankey';

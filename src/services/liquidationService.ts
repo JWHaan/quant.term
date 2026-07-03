@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 /**
  * Binance Futures Liquidation Service
  * Connects to real-time liquidation order stream

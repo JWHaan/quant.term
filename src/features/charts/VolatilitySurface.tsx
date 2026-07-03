@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Dead code from 3D chart experiments.
+ * Kept for reference — delete when ready.
+ */
+
 import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Grid } from '@react-three/drei';

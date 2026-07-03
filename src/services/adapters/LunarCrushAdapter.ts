@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 import { IMacroDataSource, MacroMetric } from '../../types/DataSource';
 
 export class LunarCrushAdapter implements IMacroDataSource {

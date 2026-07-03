@@ -1,3 +1,8 @@
+/**
+ * @deprecated Not wired into the UI. Dead code from 3D chart experiments.
+ * Kept for reference — delete when ready.
+ */
+
 import {
     calculateEMA,
     calculateRSI,

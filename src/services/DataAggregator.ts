@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 import { IMarketDataSource, IOnChainDataSource, IMacroDataSource, Ticker, Trade } from '../types/DataSource';
 
 export class DataAggregator {

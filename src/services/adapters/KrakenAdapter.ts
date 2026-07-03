@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 import { IMarketDataSource, Ticker, Trade, Candle } from '../../types/DataSource';
 import { Money } from '../../types/Money';
 

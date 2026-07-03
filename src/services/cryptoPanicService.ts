@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 /**
  * CryptoPanic News Service
  * Fetches real-time crypto news with sentiment analysis

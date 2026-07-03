@@ -4,10 +4,19 @@ import { useAlertStore } from '@/stores/alertStore';
 import { calculateRSI, calculateBollingerBands, calculateMACD, calculateATR } from '@/utils/indicators';
 import { Activity, TrendingUp, TrendingDown, Zap } from 'lucide-react';
 
+export interface QuantSignal {
+    rsi: number;
+    bbPosition: number;
+    macdSignal: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    atrPercent: number;
+    score: number;
+    price: number;
+}
+
 const QuantSignalEngine = () => {
     const { selectedSymbol } = useMarketStore();
     const { checkMarketConditions } = useAlertStore();
-    const [signals, setSignals] = useState<any>(null); // TODO: Define proper type
+    const [signals, setSignals] = useState<QuantSignal | null>(null);
     const [loading, setLoading] = useState(true);
 
     // Fetch Data & Calculate Signals
@@ -65,7 +74,7 @@ const QuantSignalEngine = () => {
                 if (macdSignal === 'BULLISH') score += 20;
                 else score -= 20;
 
-                const nextSignals = {
+                const nextSignals: QuantSignal = {
                     rsi,
                     bbPosition,
                     macdSignal,

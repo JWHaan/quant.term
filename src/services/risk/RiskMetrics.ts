@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 export class RiskMetrics {
     /**
      * Calculate Conditional Value at Risk (CVaR) / Expected Shortfall

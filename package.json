@@ -13,19 +13,10 @@
     "test:coverage": "vitest --coverage && node scripts/generate-coverage-summary.js"
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "^9.4.0",
-    "@tensorflow/tfjs": "^4.22.0",
-    "@tensorflow/tfjs-backend-webgl": "^4.22.0",
     "@types/d3": "^7.4.3",
-    "@types/d3-sankey": "^0.12.5",
-    "@types/katex": "^0.16.7",
-    "comlink": "^4.4.2",
     "d3": "^7.9.0",
-    "d3-sankey": "^0.12.3",
     "decimal.js": "^10.6.0",
     "idb-keyval": "^6.2.2",
-    "katex": "^0.16.25",
     "lightweight-charts": "^5.0.9",
     "lucide-react": "^0.554.0",
     "react": "^19.2.0",
@@ -33,8 +24,6 @@
     "react-hot-toast": "^2.6.0",
     "react-resizable-panels": "^3.0.6",
     "react-virtuoso": "^4.14.1",
-    "react-window": "^2.2.3",
-    "three": "^0.181.2",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -52,6 +41,7 @@
     "globals": "^16.5.0",
     "happy-dom": "^20.0.10",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.62.1",
     "vite": "^7.2.4",
     "vitest": "^4.0.13",
     "vitest-websocket-mock": "^0.5.0"

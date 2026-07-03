@@ -1,20 +1,18 @@
-declare module '*.jsx' {
-    const content: any;
-    export default content;
+// Type declarations for third-party modules
+// NOTE: This file exists to suppress TS errors for modules that may be
+// conditionally loaded or have imperfect type definitions.
+// If you see an error here being suppressed, fix the actual import instead.
+
+declare module 'lightweight-charts' {
+  export * from 'lightweight-charts';
 }
 
-declare module './components/DashboardPanel';
-declare module './components/LoadingSpinner';
-declare module './components/PanelErrorBoundary';
-declare module './components/ThemeProvider';
-declare module './components/ErrorBoundary';
+declare module '*.svg' {
+  const content: string;
+  export default content;
+}
 
-declare module './components/PerformancePanel';
-declare module './components/QuantSignalEngine';
-
-declare module '*?worker' {
-    const workerConstructor: {
-        new(): Worker;
-    };
-    export default workerConstructor;
+declare module '*.png' {
+  const content: string;
+  export default content;
 }

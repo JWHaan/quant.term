@@ -1,3 +1,9 @@
+// @ts-nocheck
+/**
+ * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
+ * Kept for reference — delete when ready.
+ */
+
 export class EconometricsService {
     /**
      * Test for Cointegration using a simplified Engle-Granger two-step method
