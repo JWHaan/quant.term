@@ -156,7 +156,7 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = 'BTCUSDT', interval = 
                 }));
 
                 // Compute indicators inline (worker removed — see alphaWorker deprecation)
-                // eslint-disable-next-line react-hooks/exhaustive-deps
+                 
                 const result = computeAlphaFactors(data, symbol);
                 if (!cancelled) {
                     setState(prev => ({ ...prev, ...result, loaded: true }));

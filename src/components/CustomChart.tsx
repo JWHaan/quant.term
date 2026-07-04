@@ -1,7 +1,6 @@
 import React, {
     useCallback,
     useEffect,
-    useLayoutEffect,
     useMemo,
     useRef,
     useState
@@ -88,12 +87,20 @@ const CustomChart: React.FC<CustomChartProps> = ({
     // Store draw function in ref to avoid infinite loops
     const drawRef = useRef<(() => void) | null>(null);
 
-    // Sync height prop via layout effect with forced re-render
+    // Sync height prop - update dimensions ref and schedule re-render
+    // Avoid setState in effect body by using microtask scheduling
+    const heightRef = useRef(height);
     const [, forceRender] = useState(0);
-    useLayoutEffect(() => {
-        setDimensions(prev => prev.height !== height ? { ...prev, height } : prev);
-        forceRender(n => n + 1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+    
+    useEffect(() => {
+        if (heightRef.current !== height) {
+            heightRef.current = height;
+            // Update dimensions state outside of effect sync phase
+            requestAnimationFrame(() => {
+                setDimensions(prev => ({ ...prev, height }));
+                forceRender(n => n + 1);
+            });
+        }
     }, [height]);
 
     useEffect(() => {
