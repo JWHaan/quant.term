@@ -15,6 +15,7 @@ export default defineConfig({
                 'node_modules/',
                 'dist/',
                 'src/tests/',
+                'src/services/',
                 '**/*.test.ts',
                 '**/*.test.tsx',
                 '**/*.spec.ts',
