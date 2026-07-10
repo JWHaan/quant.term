@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+const MAX_STAT_ARB_SIGNALS = 50;
+
 /**
  * Quant Store - Manages quantitative analysis state
  * Handles correlations, statistical arbitrage, ML predictions, multi-timeframe data
@@ -57,23 +59,14 @@ export interface ModelMetrics {
 }
 
 interface QuantState {
-    // Correlation data
     correlationMatrix: Map<string, Map<string, number>>;
     correlationLastUpdate: number;
-    
-    // Statistical arbitrage
     statArbSignals: StatArbSignal[];
     pairSpreads: Map<string, SpreadData>;
-    
-    // ML predictions
     mlPredictions: Map<string, MLPrediction>;
     mlModelMetrics: ModelMetrics | null;
     mlLastTraining: number;
-    
-    // Multi-timeframe data
     multiTimeframeData: Map<string, TimeframeData>;
-    
-    // Actions
     updateCorrelation: (symbolA: string, symbolB: string, correlation: number) => void;
     setCorrelationMatrix: (matrix: Map<string, Map<string, number>>) => void;
     addStatArbSignal: (signal: StatArbSignal) => void;
@@ -83,8 +76,6 @@ interface QuantState {
     setMLModelMetrics: (metrics: ModelMetrics) => void;
     updateMultiTimeframe: (symbol: string, data: TimeframeData) => void;
     clearMLPredictions: () => void;
-    
-    // Getters
     getCorrelation: (symbolA: string, symbolB: string) => number;
     getMLPrediction: (symbol: string) => MLPrediction | null;
     getMultiTimeframe: (symbol: string) => TimeframeData | null;
@@ -93,7 +84,6 @@ interface QuantState {
 export const useQuantStore = create<QuantState>()(
     persist(
         (set, get) => ({
-            // State
             correlationMatrix: new Map(),
             correlationLastUpdate: 0,
             statArbSignals: [],
@@ -103,99 +93,70 @@ export const useQuantStore = create<QuantState>()(
             mlLastTraining: 0,
             multiTimeframeData: new Map(),
 
-            // Actions
             updateCorrelation: (symbolA: string, symbolB: string, correlation: number) => {
                 set((state) => {
-                    const newMatrix = new Map(state.correlationMatrix);
-                    
-                    if (!newMatrix.has(symbolA)) {
-                        newMatrix.set(symbolA, new Map());
-                    }
-                    newMatrix.get(symbolA)!.set(symbolB, correlation);
-                    
-                    return {
-                        correlationMatrix: newMatrix,
-                        correlationLastUpdate: Date.now()
-                    };
+                    const next = new Map(state.correlationMatrix);
+                    if (!next.has(symbolA)) next.set(symbolA, new Map());
+                    next.get(symbolA)?.set(symbolB, correlation);
+                    return { correlationMatrix: next, correlationLastUpdate: Date.now() };
                 });
             },
 
             setCorrelationMatrix: (matrix: Map<string, Map<string, number>>) => {
-                set({
-                    correlationMatrix: matrix,
-                    correlationLastUpdate: Date.now()
-                });
+                set({ correlationMatrix: matrix, correlationLastUpdate: Date.now() });
             },
 
             addStatArbSignal: (signal: StatArbSignal) => {
-                set((state) => ({
-                    statArbSignals: [...state.statArbSignals, signal].slice(-50) // Keep last 50
-                }));
+                set((state) => ({ statArbSignals: [...state.statArbSignals, signal].slice(-MAX_STAT_ARB_SIGNALS) }));
             },
 
-            clearStatArbSignals: () => {
-                set({ statArbSignals: [] });
-            },
+            clearStatArbSignals: () => set({ statArbSignals: [] }),
 
             updatePairSpread: (pair: string, spread: SpreadData) => {
                 set((state) => {
-                    const newSpreads = new Map(state.pairSpreads);
-                    newSpreads.set(pair, spread);
-                    return { pairSpreads: newSpreads };
+                    const next = new Map(state.pairSpreads);
+                    next.set(pair, spread);
+                    return { pairSpreads: next };
                 });
             },
 
             updateMLPrediction: (symbol: string, prediction: MLPrediction) => {
                 set((state) => {
-                    const newPredictions = new Map(state.mlPredictions);
-                    newPredictions.set(symbol, prediction);
-                    return { mlPredictions: newPredictions };
+                    const next = new Map(state.mlPredictions);
+                    next.set(symbol, prediction);
+                    return { mlPredictions: next };
                 });
             },
 
-            setMLModelMetrics: (metrics: ModelMetrics) => {
-                set({
-                    mlModelMetrics: metrics,
-                    mlLastTraining: metrics.lastTraining
-                });
-            },
+            setMLModelMetrics: (metrics: ModelMetrics) => set({ mlModelMetrics: metrics, mlLastTraining: metrics.lastTraining }),
 
             updateMultiTimeframe: (symbol: string, data: TimeframeData) => {
                 set((state) => {
-                    const newData = new Map(state.multiTimeframeData);
-                    newData.set(symbol, data);
-                    return { multiTimeframeData: newData };
+                    const next = new Map(state.multiTimeframeData);
+                    next.set(symbol, data);
+                    return { multiTimeframeData: next };
                 });
             },
 
-            clearMLPredictions: () => {
-                set({ mlPredictions: new Map() });
-            },
+            clearMLPredictions: () => set({ mlPredictions: new Map() }),
 
-            // Getters
-            getCorrelation: (symbolA: string, symbolB: string): number => {
-                const { correlationMatrix } = get();
-                return correlationMatrix.get(symbolA)?.get(symbolB) ?? 0;
-            },
-
-            getMLPrediction: (symbol: string): MLPrediction | null => {
-                const { mlPredictions } = get();
-                return mlPredictions.get(symbol) ?? null;
-            },
-
-            getMultiTimeframe: (symbol: string): TimeframeData | null => {
-                const { multiTimeframeData } = get();
-                return multiTimeframeData.get(symbol) ?? null;
-            }
+            getCorrelation: (symbolA: string, symbolB: string): number => get().correlationMatrix.get(symbolA)?.get(symbolB) ?? 0,
+            getMLPrediction: (symbol: string): MLPrediction | null => get().mlPredictions.get(symbol) ?? null,
+            getMultiTimeframe: (symbol: string): TimeframeData | null => get().multiTimeframeData.get(symbol) ?? null,
         }),
         {
             name: 'quant-store',
             partialize: (state) => ({
                 mlModelMetrics: state.mlModelMetrics,
-                mlLastTraining: state.mlLastTraining
-            })
+                mlLastTraining: state.mlLastTraining,
+            }),
         }
     )
 );
+
+export const useStatArbSignals = () => useQuantStore((s) => s.statArbSignals);
+export const useMLModelMetrics = () => useQuantStore((s) => s.mlModelMetrics);
+export const useMLPrediction = (symbol: string) => useQuantStore((s) => s.mlPredictions.get(symbol) ?? null);
+export const useMultiTimeframeData = (symbol: string) => useQuantStore((s) => s.multiTimeframeData.get(symbol) ?? null);
 
 export default useQuantStore;
