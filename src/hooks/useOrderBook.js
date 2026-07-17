@@ -1,70 +1,137 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import {
+    recordLiveMarketEvent,
+    releaseLiveConnection,
+    reportLiveConnection,
+} from '@/services/liveMarketData';
+
+const MAX_RECONNECT_DELAY_MS = 30_000;
+const STALE_AFTER_MS = 10_000;
 
 /**
- * Hook to fetch real-time order book data
- * Uses Binance @depth20 stream for high-speed updates (100ms)
- * @param {string} symbol - Trading pair (e.g., 'BTCUSDT')
+ * Live top-20 Binance order book snapshots. The partial-depth stream already
+ * sends complete sorted snapshots, so no diff-book reconciliation is needed.
  */
 export const useOrderBook = (symbol = 'BTCUSDT') => {
-    const [bids, setBids] = useState([]);
-    const [asks, setAsks] = useState([]);
-    const [isConnected, setIsConnected] = useState(false);
+    const normalizedSymbol = symbol.toUpperCase();
+    const [book, setBook] = useState({ symbol: null, bids: [], asks: [] });
+    const [connection, setConnection] = useState({ symbol: null, connected: false });
     const wsRef = useRef(null);
-    const currentSymbolRef = useRef(symbol);
+    const ownerRef = useRef({});
 
     useEffect(() => {
-        if (!symbol) return;
+        if (!normalizedSymbol) return undefined;
 
-        // Update the current symbol ref
-        currentSymbolRef.current = symbol;
+        let disposed = false;
+        let reconnectAttempts = 0;
+        let reconnectTimer = null;
+        let lastMessageAt = 0;
 
-        const wsSymbol = symbol.toLowerCase();
-        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@depth20@100ms`);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-            // Only update connection status if this is still the current symbol
-            if (currentSymbolRef.current === symbol) {
-                setIsConnected(true);
-            }
+        const scheduleReconnect = (connect) => {
+            if (disposed || reconnectTimer) return;
+            const delay = Math.min(MAX_RECONNECT_DELAY_MS, 1_000 * (2 ** reconnectAttempts));
+            reconnectAttempts += 1;
+            reportLiveConnection('depth', ownerRef.current, 'reconnecting');
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                connect();
+            }, delay);
         };
 
-        ws.onmessage = (event) => {
-            try {
-                // Only update state if this WebSocket is for the current symbol
-                if (currentSymbolRef.current !== symbol) {
-                    return;
+        const connect = () => {
+            if (disposed) return;
+            reportLiveConnection(
+                'depth',
+                ownerRef.current,
+                reconnectAttempts > 0 ? 'reconnecting' : 'connecting',
+            );
+
+            const wsSymbol = normalizedSymbol.toLowerCase();
+            const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@depth20@100ms`);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                if (disposed || wsRef.current !== ws) return;
+                reconnectAttempts = 0;
+                lastMessageAt = Date.now();
+                setConnection({ symbol: normalizedSymbol, connected: true });
+                reportLiveConnection('depth', ownerRef.current, 'connected');
+            };
+
+            ws.onmessage = (event) => {
+                if (disposed || wsRef.current !== ws) return;
+                try {
+                    const data = JSON.parse(event.data);
+                    if (!Array.isArray(data?.bids) || !Array.isArray(data?.asks)) return;
+
+                    lastMessageAt = Date.now();
+                    setBook({
+                        symbol: normalizedSymbol,
+                        bids: data.bids,
+                        asks: data.asks,
+                    });
+                    recordLiveMarketEvent(
+                        'binance',
+                        typeof data.E === 'number' ? data.E : undefined,
+                        normalizedSymbol,
+                    );
+                } catch (error) {
+                    console.error('[Binance depth] Failed to parse snapshot:', error);
                 }
+            };
 
-                const data = JSON.parse(event.data);
-                // Binance @depth20 stream returns arrays of [price, quantity]
-                setBids(data.bids || []);
-                setAsks(data.asks || []);
-            } catch (err) {
-                console.error("OrderBook Parse Error:", err);
-            }
+            ws.onerror = () => {
+                if (disposed || wsRef.current !== ws) return;
+                setConnection({ symbol: normalizedSymbol, connected: false });
+                reportLiveConnection('depth', ownerRef.current, 'error');
+                ws.close();
+            };
+
+            ws.onclose = () => {
+                if (disposed || wsRef.current !== ws) return;
+                setConnection({ symbol: normalizedSymbol, connected: false });
+                scheduleReconnect(connect);
+            };
         };
 
-        ws.onclose = () => {
-            // Only update connection status if this is still the current symbol
-            if (currentSymbolRef.current === symbol) {
-                setIsConnected(false);
-            }
-        };
+        connect();
 
-        ws.onerror = (error) => {
-            console.error("OrderBook WebSocket Error:", error);
-            if (currentSymbolRef.current === symbol) {
-                setIsConnected(false);
-            }
-        };
-
-        return () => {
-            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        const watchdog = setInterval(() => {
+            const ws = wsRef.current;
+            if (
+                !disposed &&
+                ws?.readyState === WebSocket.OPEN &&
+                lastMessageAt > 0 &&
+                Date.now() - lastMessageAt > STALE_AFTER_MS
+            ) {
                 ws.close();
             }
-        };
-    }, [symbol]);
+        }, 1_000);
 
-    return { bids, asks, isConnected };
+        return () => {
+            disposed = true;
+            clearInterval(watchdog);
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+
+            const ws = wsRef.current;
+            if (ws) {
+                ws.onopen = null;
+                ws.onmessage = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                }
+            }
+            if (wsRef.current === ws) wsRef.current = null;
+            releaseLiveConnection('depth', ownerRef.current);
+        };
+    }, [normalizedSymbol]);
+
+    const isCurrentBook = book.symbol === normalizedSymbol;
+    return {
+        bids: isCurrentBook ? book.bids : [],
+        asks: isCurrentBook ? book.asks : [],
+        isConnected: connection.symbol === normalizedSymbol && connection.connected,
+    };
 };

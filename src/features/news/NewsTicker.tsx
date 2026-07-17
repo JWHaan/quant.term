@@ -12,38 +12,38 @@ interface NewsTickerItem {
 
 /**
  * News Ticker - Terminal-style scrolling headlines
- * Real-time crypto news from CryptoPanic API
+ * Public crypto headlines from CryptoCompare.
  */
 const NewsTicker: React.FC = () => {
     const [news, setNews] = useState<NewsTickerItem[]>([]);
     const [isPaused, setIsPaused] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Fetch real news from CryptoPanic
+    // Fetch public news without shipping a secret API key.
     useEffect(() => {
         // Initial fetch
         const loadNews = async () => {
             setIsLoading(true);
-            const articles = await fetchCryptoNews({
-                filter: 'trending',
-                limit: 15
-            });
-
-            if (articles.length > 0) {
-                setNews(articles.map(article => ({
-                    id: String(article.id),
-                    headline: article.headline,
-                    sentiment: article.sentiment as 'positive' | 'negative' | 'neutral',
-                    time: getTimeAgo(article.published),
-                    url: article.url
-                })));
+            try {
+                const articles = await fetchCryptoNews({ filter: 'trending', limit: 15 });
+                if (articles.length > 0) {
+                    setNews(articles.map(article => ({
+                        id: String(article.id),
+                        headline: article.headline,
+                        sentiment: article.sentiment,
+                        time: getTimeAgo(article.published),
+                        url: article.url
+                    })));
+                }
+            } catch (error) {
+                console.warn('[NewsTicker] Public feed unavailable.', error);
             }
             setIsLoading(false);
         };
 
         loadNews();
 
-        // Poll for updates every 2 minutes
+        // Poll for updates every five minutes.
         const cleanup = startNewsPolling((freshNews) => {
             setNews(freshNews.map(article => ({
                 id: String(article.id),
@@ -52,7 +52,7 @@ const NewsTicker: React.FC = () => {
                 time: getTimeAgo(article.published),
                 url: article.url
             })));
-        }, 120000); // 2 minutes
+        }, 300000);
 
         return cleanup;
     }, []);
@@ -75,6 +75,7 @@ const NewsTicker: React.FC = () => {
 
     return (
         <div
+            className="news-ticker"
             style={{
                 width: '100%',
                 height: '28px',
@@ -135,19 +136,22 @@ const NewsTicker: React.FC = () => {
                     <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
                         INITIALIZING NEWS FEED...
                     </div>
-                ) : (
+                ) : news.length ? (
                     [...news, ...news].map((item, index) => (
-                        <div
+                        <a
                             key={`${item.id}-${index}`}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
                                 fontSize: '11px',
                                 color: getSentimentColor(item.sentiment),
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                textDecoration: 'none'
                             }}
-                            onClick={() => item.url && window.open(item.url, '_blank')}
                             title="Click to read full article"
                         >
                             <span style={{ color: 'var(--text-muted)' }}>[</span>
@@ -163,8 +167,10 @@ const NewsTicker: React.FC = () => {
                             }}>
                                 :: {item.time}
                             </span>
-                        </div>
+                        </a>
                     ))
+                ) : (
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>PUBLIC NEWS FEED UNAVAILABLE · MARKET DATA REMAINS LIVE</div>
                 )}
             </div>
 

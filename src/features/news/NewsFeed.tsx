@@ -41,55 +41,28 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
                     const mappedNews: NewsItem[] = newsData.map(article => ({
                         id: String(article.id),
                         title: article.headline,
-                        source: article.source || 'CryptoPanic',
+                        source: article.source || 'CryptoCompare',
                         sentiment: (article.sentiment || 'neutral') as 'bullish' | 'bearish' | 'neutral',
                         timestamp: article.published,
                         url: article.url,
                         currencies: article.currencies
                     }));
                     setNews(mappedNews.slice(0, maxItems));
+                    if (mappedNews.length === 0) setError('No headlines are currently available from the public feed.');
                     setLoading(false);
                 }
             } catch (err) {
                 if (!cancelled) {
                     console.error('Error fetching news:', err);
-                    setError('Failed to load news. Using fallback data.');
-
-                    // Fallback to mock data if API fails
-                    const mockNews: NewsItem[] = [
-                        {
-                            id: '1',
-                            title: `${symbol?.replace('USDT', '') || 'BTC'} sees increased institutional interest`,
-                            source: 'CoinDesk',
-                            sentiment: 'bullish',
-                            timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-                            url: '#'
-                        },
-                        {
-                            id: '2',
-                            title: `Market analysis: ${symbol?.replace('USDT', '') || 'BTC'} consolidates`,
-                            source: 'Bloomberg Crypto',
-                            sentiment: 'neutral',
-                            timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-                            url: '#'
-                        },
-                        {
-                            id: '3',
-                            title: `Technical outlook: Support levels hold for ${symbol?.replace('USDT', '') || 'BTC'}`,
-                            source: 'CryptoQuant',
-                            sentiment: 'bullish',
-                            timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-                            url: '#'
-                        }
-                    ];
-                    setNews(mockNews);
+                    setError('The public news feed is temporarily unavailable.');
+                    setNews([]);
                     setLoading(false);
                 }
             }
         };
 
         fetchNews();
-        const interval = setInterval(fetchNews, 60000); // Refresh every 60 seconds
+        const interval = setInterval(fetchNews, 300000);
 
         return () => {
             cancelled = true;
@@ -162,16 +135,20 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
             )}
 
             {news.map((item) => (
-                <div
+                <a
                     key={item.id}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     style={{
+                        display: 'block',
                         padding: '12px',
                         borderBottom: '1px solid var(--border-subtle)',
                         cursor: 'pointer',
                         background: 'transparent',
-                        transition: 'background 0.2s'
+                        transition: 'background 0.2s',
+                        textDecoration: 'none'
                     }}
-                    onClick={() => window.open(item.url, '_blank')}
                     onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(51, 255, 0, 0.05)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
@@ -209,7 +186,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
                     }}>
                         {item.title.toUpperCase()}
                     </div>
-                </div>
+                </a>
             ))}
 
             {news.length === 0 && !loading && (

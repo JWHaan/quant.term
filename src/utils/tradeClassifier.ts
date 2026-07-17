@@ -73,6 +73,22 @@ export class TradeClassifier {
     }
 
     /**
+     * Binance exposes whether the buyer was the maker. The taker is therefore
+     * the aggressive side and is a better classification source than inferring
+     * direction from price ticks.
+     */
+    classifyFromExchange(trade: Trade): ClassifiedTrade {
+        const classified: ClassifiedTrade = {
+            ...trade,
+            side: trade.isBuyerMaker ? 'sell' : 'buy',
+            classificationMethod: 'exchange',
+        };
+        this.previousPrice = trade.price;
+        this.addToHistory(classified);
+        return classified;
+    }
+
+    /**
      * Classify using Lee-Ready algorithm (requires order book mid-price)
      * If trade price > mid-price → buy
      * If trade price < mid-price → sell

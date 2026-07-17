@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, Activity, BarChart2, Flame, Newspaper, Keyboard } from 'lucide-react';
+import { Activity, BarChart2, Flame, Newspaper, Keyboard } from 'lucide-react';
 
 export interface Command {
     id: string;
@@ -11,7 +11,6 @@ export interface Command {
 }
 
 export interface CommandsConfig {
-    setShowMacroModal: (v: boolean) => void;
     setShowHelp: (v: boolean) => void;
     setSymbol: (s: string) => void;
     scrollToMarket: () => void;
@@ -22,14 +21,6 @@ export interface CommandsConfig {
 
 export function buildCommands(cfg: CommandsConfig): Command[] {
     return [
-        {
-            id: 'open-macro',
-            label: 'Open Macro Analysis',
-            description: 'View GDP, CPI, and Fed Rates (OpenBB)',
-            icon: React.createElement(Globe, { size: 16 }),
-            action: () => cfg.setShowMacroModal(true),
-            category: 'Analysis'
-        },
         {
             id: 'focus-market',
             label: 'Focus Market Watch',

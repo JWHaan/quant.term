@@ -5,7 +5,16 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', '.next', 'src/services/**/*.ts', 'src/services/**/*.tsx', 'src/features/charts/CorrelationHeatmap.tsx', 'src/features/charts/OrderFlowSankey.tsx', 'src/features/charts/VolatilitySurface3D.tsx', 'src/features/charts/VolatilitySurface.tsx']),
+  globalIgnores([
+    'dist',
+    'coverage',
+    '.next',
+    'src/services/mlService.ts',
+    'src/features/charts/CorrelationHeatmap.tsx',
+    'src/features/charts/OrderFlowSankey.tsx',
+    'src/features/charts/VolatilitySurface3D.tsx',
+    'src/features/charts/VolatilitySurface.tsx',
+  ]),
   ...tseslint.configs.recommended,
   {
     files: ['**/*.{ts,tsx}'],
@@ -28,6 +37,14 @@ export default defineConfig([
     files: ['scripts/**/*.js'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: ['src/services/**/*.ts'],
+    rules: {
+      // Active services still contain legacy suppression comments. Keep the
+      // files linted while surfacing those comments as migration warnings.
+      '@typescript-eslint/ban-ts-comment': 'warn',
     },
   },
 ])

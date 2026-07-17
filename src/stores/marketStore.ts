@@ -94,7 +94,7 @@ export const useMarketStore = create<MarketState>()(
         {
             name: 'market-store',
             storage: createJSONStorage(() => {
-                if (process.env.NODE_ENV === 'test') {
+                if (import.meta.env.MODE === 'test') {
                     return {
                         getItem: () => null,
                         setItem: () => {},

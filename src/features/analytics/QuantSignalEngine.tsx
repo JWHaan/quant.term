@@ -7,7 +7,7 @@ import { BINANCE_REST_URL } from '@/constants/config';
 
 const ANALYSIS_INTERVAL = '15m';
 const ANALYSIS_LIMIT = 200;
-const ANALYSIS_POLL_INTERVAL_MS = 5_000;
+const ANALYSIS_POLL_INTERVAL_MS = 30_000;
 const BUY_SIGNAL_THRESHOLD = 10;
 const STRONG_BUY_SIGNAL_THRESHOLD = 40;
 const SELL_SIGNAL_THRESHOLD = -10;
@@ -73,11 +73,14 @@ const QuantSignalEngine = () => {
     const checkMarketConditions = useCheckMarketConditions();
     const [signals, setSignals] = useState<QuantSignal | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
     useEffect(() => {
         const analyzeMarket = async () => {
             try {
                 const response = await fetch(`${BINANCE_REST_URL}/api/v3/klines?symbol=${selectedSymbol}&interval=${ANALYSIS_INTERVAL}&limit=${ANALYSIS_LIMIT}`);
+                if (!response.ok) throw new Error(`Binance returned ${response.status}`);
                 const rawData = await response.json() as CandleRow[];
                 const data = rawData.map(parseCandle);
                 if (data.length < 50) return;
@@ -124,8 +127,11 @@ const QuantSignalEngine = () => {
                     ofi: 0,
                 };
                 checkMarketConditions(alertPayload);
+                setLastUpdated(Date.now());
+                setError(null);
             } catch (error) {
                 console.error('[QuantSignalEngine] Error:', error);
+                setError(error instanceof Error ? error.message : 'Signal data unavailable');
             } finally {
                 setLoading(false);
             }
@@ -140,7 +146,7 @@ const QuantSignalEngine = () => {
     if (loading || !signals) {
         return (
             <div style={{ padding: '16px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
-                INITIALIZING_QUANT_ENGINE...
+                {error ? `SIGNAL_ENGINE_UNAVAILABLE · ${error}` : 'INITIALIZING_QUANT_ENGINE…'}
             </div>
         );
     }
@@ -152,13 +158,13 @@ const QuantSignalEngine = () => {
         <div style={{ height: '100%', padding: '16px', fontFamily: 'var(--font-mono)', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', background: 'var(--bg-panel)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                 <div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>ALGORITHM_SIGNAL</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>HEURISTIC_SIGNAL · 15M</div>
                     <div className={Math.abs(signals.score) > STRONG_BUY_SIGNAL_THRESHOLD ? 'text-glow' : ''} style={{ fontSize: '24px', fontWeight: 'bold', color: signalColor, letterSpacing: '-1px' }}>
                         [{masterSignal}]
                     </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>CONFIDENCE</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>MODEL SCORE</div>
                     <div style={{ fontSize: '18px', color: 'var(--text-primary)' }}>{Math.abs(signals.score)}%</div>
                 </div>
             </div>
@@ -217,13 +223,14 @@ const QuantSignalEngine = () => {
                     <div style={{ fontSize: '10px', color: 'var(--accent-primary)', fontWeight: 'bold', marginBottom: '2px' }}>&gt; QUANT_INSIGHT</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-primary)', lineHeight: '1.4' }}>
                         {masterSignal.includes('BUY')
-                            ? 'MOMENTUM AND MEAN REVERSION INDICATORS ALIGNED BULLISH. VOLATILITY SUPPORTS EXPANSION.'
+                            ? 'RSI, BOLLINGER POSITION, AND MACD INPUTS CURRENTLY LEAN BULLISH.'
                             : masterSignal.includes('SELL')
-                                ? 'OVERBOUGHT CONDITIONS DETECTED WITH BEARISH MOMENTUM DIVERGENCE. RISK OF REVERSAL.'
-                                : 'MARKET IN EQUILIBRIUM. AWAITING VOLATILITY BREAKOUT OR CLEAR TREND CONFIRMATION.'}
+                                ? 'RSI, BOLLINGER POSITION, AND MACD INPUTS CURRENTLY LEAN BEARISH.'
+                                : 'THE INPUTS ARE MIXED. NO DIRECTIONAL EDGE IS IMPLIED BY THIS HEURISTIC.'}
                     </div>
                 </div>
             </div>
+            <div className="freshness-line">BINANCE SPOT · Refresh 30s · {lastUpdated ? `Updated ${new Date(lastUpdated).toLocaleTimeString()}` : 'Waiting'} · Not investment advice</div>
         </div>
     );
 };

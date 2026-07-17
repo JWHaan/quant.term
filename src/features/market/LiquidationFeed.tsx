@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { subscribeLiquidations } from '@/services/liquidationService';
+import { subscribeLiquidations, type Liquidation as StreamLiquidation, type LiquidationSubscription } from '@/services/liquidationService';
 import { TrendingDown, TrendingUp, Droplets } from 'lucide-react';
 
 interface LiquidationFeedProps {
@@ -29,15 +29,15 @@ interface LiquidationStats {
 const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' }) => {
     const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
     const [stats, setStats] = useState<LiquidationStats>({ totalVol: 0, longVol: 0, shortVol: 0 });
-    const wsRef = useRef<WebSocket | null>(null);
+    const subscriptionRef = useRef<LiquidationSubscription | null>(null);
 
     useEffect(() => {
-        const handleLiquidation = (liq: any) => {
+        const handleLiquidation = (liq: StreamLiquidation) => {
             // Filter by selected symbol
             if (liq.symbol !== symbol) return;
 
             const newLiq: Liquidation = {
-                id: `${liq.time}-${Math.random().toString(36).substr(2, 9)}`,
+                id: `${liq.symbol}-${liq.time}-${liq.side}`,
                 time: liq.time,
                 side: liq.isBuy ? 'SHORT' : 'LONG', // BUY order = short squeeze, SELL order = long liquidation
                 price: liq.price,
@@ -55,12 +55,11 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
             }));
         };
 
-        wsRef.current = subscribeLiquidations(handleLiquidation);
+        subscriptionRef.current = subscribeLiquidations(handleLiquidation);
 
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
+            subscriptionRef.current?.close();
+            subscriptionRef.current = null;
         };
     }, [symbol]);
 
@@ -88,11 +87,11 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-danger)' }}>
                     <TrendingDown size={12} />
-                    <span>LONGS_REKT: {formatValue(stats.longVol)}</span>
+                    <span>SESSION LONG LIQS: {formatValue(stats.longVol)}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-success)' }}>
                     <TrendingUp size={12} />
-                    <span>SHORTS_REKT: {formatValue(stats.shortVol)}</span>
+                    <span>SESSION SHORT LIQS: {formatValue(stats.shortVol)}</span>
                 </div>
             </div>
 

@@ -13,7 +13,7 @@ interface ChartContainerProps {
 const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) => {
     const [interval, setInterval] = useState<string>('1m');
 
-    // Data quality tracking (mock – CustomChart does the real work)
+    // Data quality tracking is populated by the shared provenance registry.
     const [dataQuality, setDataQuality] = useState<{
         latency: number;
         feedStatus: FeedStatus;
@@ -54,7 +54,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
         return () => ro.disconnect();
     }, []);
 
-    // Data quality polling (mock)
+    // Data quality polling
     React.useEffect(() => {
         const engine = provenanceRegistry.getEngine(symbol.toUpperCase());
         const intervalId = window.setInterval(() => {
@@ -131,6 +131,8 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
                         <button
                             key={tf}
                             onClick={() => setInterval(tf)}
+                            aria-pressed={interval === tf}
+                            aria-label={`Use ${tf} candles`}
                             style={{
                                 padding: '4px 10px',
                                 background: interval === tf ? 'var(--accent-primary)' : 'transparent',
@@ -176,6 +178,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
                     {/* Heatmap Toggle */}
                     <button
                         onClick={() => setShowHeatmap(prev => !prev)}
+                        aria-pressed={showHeatmap}
                         style={{
                             padding: '4px 10px',
                             background: showHeatmap ? 'var(--accent-primary)' : 'transparent',
@@ -222,6 +225,7 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
                             <button
                                 key={key}
                                 onClick={() => toggleIndicator(key)}
+                                aria-pressed={indicatorToggles[key]}
                                 style={{
                                     padding: '4px 10px',
                                     background: indicatorToggles[key] ? colors[key] : 'transparent',

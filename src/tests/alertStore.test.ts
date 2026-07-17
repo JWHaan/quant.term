@@ -36,17 +36,18 @@ describe('alertStore', () => {
 
     test('triggerAlert moves alert to history and marks triggered', () => {
         const { result } = renderHook(() => useAlertStore());
-        const alertId = result.current.addAlert({
-            symbol: 'BTCUSDT',
-            type: 'price',
-            condition: 'above',
-            value: 1,
-            message: 'test',
-            enabled: true,
-            soundEnabled: false,
-            notificationEnabled: false,
-        });
+        let alertId = '';
         act(() => {
+            alertId = result.current.addAlert({
+                symbol: 'BTCUSDT',
+                type: 'price',
+                condition: 'above',
+                value: 1,
+                message: 'test',
+                enabled: true,
+                soundEnabled: false,
+                notificationEnabled: false,
+            });
             result.current.triggerAlert(alertId);
         });
         expect(result.current.alerts[0]?.triggered).toBe(true);

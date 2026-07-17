@@ -1,224 +1,155 @@
 <div align="center">
 
-<img src="public/favicon.svg" alt="quant.term" width="72" height="72" />
+<img src="public/quant_term_logo.svg" alt="quant.term" width="72" height="72" />
 
 # quant.term
 
-**A professional-grade quantitative trading terminal for crypto markets.**  
-Real-time order flow, institutional analytics, and a Bloomberg-inspired interface — all in the browser, entirely free.
+**A Bloomberg-inspired crypto market dashboard for live research, local alerts, and paper trading.**
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
 [![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)](https://github.com/JWHaan/quant.term/actions)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FJWHaan%2Fquant.term)
 
 **[Live Demo →](https://quant-term.vercel.app)**
 
 </div>
 
----
+## What it is
 
-## Overview
+`quant.term` is a client-side React terminal for monitoring public crypto-market data. Its primary chart is a custom D3-scaled Canvas renderer fed by Binance Spot candles, trades, and depth. Supporting panels add Binance USDⓈ-M perpetual metrics and liquidations, public news, Bitcoin network conditions, browser-local alerts, and simulated positions.
 
-`quant.term` brings institutional-grade market analysis tools to an open-source, browser-based terminal. It connects directly to Binance Futures and Deribit via WebSocket — no intermediary servers, no API keys required — and exposes quantitative signals (OFI, VPIN, CVD) that are typically locked behind Bloomberg Terminal's $2,000/month subscription.
+The main dashboard needs no API keys and has no trade-execution backend.
 
-```
-Stack: React 19 · TypeScript 5.7 · Vite 6 · Zustand · TradingView Lightweight Charts
-Data:  Binance Futures WebSocket · Deribit API · CryptoPanic News Feed
-Deploy: Vercel (one-click) · Docker
-```
+## Current capabilities
 
----
+- Live Binance Spot watchlist, trades, candles, and top-of-book depth
+- Historical Spot candles with 1m, 5m, 15m, 1h, 4h, and 1d chart intervals
+- Custom Canvas chart with D3 scales, zoom/pan, EMA overlays, RSI, MACD, and a depth heatmap
+- Binance USDⓈ-M mark/index price, funding, open interest, long/short accounts, and liquidation stream
+- Public CryptoCompare news with a short in-memory cache
+- Bitcoin block height, mempool backlog, recommended fees, and Fear & Greed from public endpoints
+- Local price alerts with optional browser notifications while the terminal is open
+- Simulated LONG/SHORT paper positions with unrealized and realized P&L
+- Experimental order-flow and statistical analytics: OFI, volume delta/CVD, VPIN, Hurst exponent, ADX, ATR, RSI, MACD, OBV, VWAP, and heuristic factor scores
+- Resizable desktop layout, command palette, keyboard shortcuts, and dark/light themes
 
-## Features
+Experimental analytics are descriptive research aids. They are not a predictive model, execution signal, or investment advice.
 
-### 📊 Real-Time Market Data
-- Sub-50ms tick-to-chart latency via direct WebSocket streams
-- Live order book depth (DOM) with imbalance visualisation
-- Multi-asset watchlist with drag-and-drop reordering
-- Liquidation feed across major exchanges
+## Public data sources
 
-### 📈 Advanced Charting
-- **TradingView Lightweight Charts** — 60fps, 43KB bundle
-- Full indicator suite: RSI, MACD, Bollinger Bands, EMA/SMA, Volume Profile, VWAP
-- 9 timeframes (1m – 1M), keyboard-navigable
-
-### 🧮 Quantitative Analytics
-
-| Signal | Description | Typical source |
+| Source | Used for | Access |
 |---|---|---|
-| **OFI** | Order Flow Imbalance — real-time bid/ask pressure with 2σ alerts | Bloomberg Terminal |
-| **CVD** | Cumulative Volume Delta — Tick Rule & Lee-Ready classification | Institutional platforms |
-| **VPIN** | Volume-Synchronized Probability of Informed Trading | Academic / prop shops |
-| **VaR** | Real-Time Value at Risk — 99%/95%/90% confidence levels | Risk management desks |
-| **Quant Signal Engine** | Multi-indicator composite score for directional bias | Proprietary |
+| Binance Spot REST/WebSocket | Watchlist, candles, trades, depth | Public, read-only |
+| Binance USDⓈ-M REST/WebSocket | Perpetual metrics and liquidations | Public, read-only |
+| CryptoCompare | Market news | Public endpoint |
+| mempool.space | Bitcoin height, mempool, and fees | Public endpoint |
+| Alternative.me | Fear & Greed index | Public endpoint |
 
-### 🛠️ Terminal UX
-- Command palette (`⌘K`) with fuzzy search across all actions and symbols
-- Resizable panel layout with keyboard shortcuts (`Ctrl+1–4`)
-- Dark / light theme toggle
-- Economic calendar and news feed (CryptoPanic)
-- On-chain data panel
-- Mobile-gated (desktop-only, by design)
+Provider availability, browser network policy, regional restrictions, VPNs, and ad blockers can affect individual panels. A failed auxiliary source does not fabricate replacement data.
 
-### 📢 Alert System
-- Price-based alerts (above / below / crosses)
-- Indicator triggers (RSI extremes, MACD crossovers, OFI spikes)
-- Browser notifications with sound
+## Getting started
 
-### 📁 Paper Trading
-- LONG/SHORT position tracking
-- Automated P&L, win rate, profit factor, Sharpe ratio
-- Risk and exposure analytics
+### Requirements
 
----
+- Node.js 20.19+ or 22.12+
+- A current desktop browser
 
-## Getting Started
-
-### Prerequisites
-- Node.js ≥ 20 (see `.nvmrc`)
-- A modern browser (Chrome 120+, Firefox 121+, Safari 17+)
-
-### Local Development
+### Run locally
 
 ```bash
 git clone https://github.com/JWHaan/quant.term.git
 cd quant.term
-npm install
-npm run dev          # → http://localhost:3000
+npm ci
+npm run dev
 ```
 
-No API keys required. The terminal uses public read-only WebSocket streams by default.
+Open [http://localhost:3000](http://localhost:3000). No `.env` file is required for the main dashboard.
 
-Optional: copy `.env.example` to `.env` to configure CryptoPanic, Deribit, or OpenBB endpoints.
-
-### Production Build
+### Verify and build
 
 ```bash
-npm run build        # type-check + bundle
-npm run preview      # preview production build locally
+npm run lint
+npm run type-check
+npm run test -- --run
+npm run build
+npm run preview
 ```
 
-### Deploy on Vercel
-
-Click **Deploy with Vercel** above, or use the CLI:
-
-```bash
-npm i -g vercel
-vercel --prod
-```
-
-The included `vercel.json` configures SPA routing, asset caching, and security headers automatically.
-
----
-
-## Scripts
-
-| Command | Description |
+| Command | Purpose |
 |---|---|
-| `npm run dev` | Start Vite dev server with HMR |
-| `npm run build` | Type-check + production bundle |
-| `npm run preview` | Preview production build locally |
-| `npm run test` | Run unit tests (Vitest) |
-| `npm run test:coverage` | Coverage report (target ≥ 70%) |
-| `npm run type-check` | TypeScript type check only |
-| `npm run lint` | ESLint |
+| `npm run dev` | Start Vite with hot reload |
+| `npm run lint` | Run ESLint |
+| `npm run type-check` | Run strict TypeScript checks |
+| `npm run test -- --run` | Run the Vitest suite once |
+| `npm run test:coverage` | Run tests and enforce configured coverage thresholds |
+| `npm run build` | Type-check and create the production bundle |
+| `npm run preview` | Serve the production bundle locally |
 
----
+## Local state and privacy
 
-## Architecture
+All application state stays in the browser. The following values persist in `localStorage`:
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a full breakdown. The short version:
+- selected symbol and watchlist
+- theme preference
+- alert definitions; triggered state and alert history are session-only
+- paper starting balance, realized P&L, open positions, and up to 250 closed trades
+- experimental model metadata if the dormant quant store is used
 
-```
+Live market data, chart buffers, depth history, connection status, news cache, and network snapshots remain in memory and are cleared on reload.
+
+Paper trades are simulations. No exchange credentials are accepted, no orders are sent, and no real funds are involved.
+
+## Project layout
+
+```text
 src/
-├── features/        # Feature-sliced modules (market, analytics, news, charts …)
-├── services/        # WebSocket clients, data services, ML, risk engine
-├── stores/          # Zustand stores with typed selectors
-├── ui/              # Shared UI primitives (panels, modals, theme)
-├── utils/           # Pure utility functions (formatting, math)
-├── constants/       # App-wide constants and configuration
-└── types/           # TypeScript type definitions
+├── components/      # Custom D3/Canvas chart
+├── features/        # Market, research, news, alerts, and paper-trading panels
+├── hooks/           # Live feeds, chart orchestration, telemetry, shortcuts
+├── services/        # Active public clients plus isolated experimental scaffolds
+├── stores/          # Zustand state and bounded market buffers
+├── ui/              # Terminal layout and reusable UI
+├── utils/           # Indicators and order-flow calculations
+└── tests/           # Vitest unit and regression tests
 ```
 
-**Key decisions:**
-- **Zustand over Redux** — eliminates unnecessary re-renders for high-frequency data; typed selectors prevent whole-store subscriptions
-- **Direct WebSocket** — no proxy server; latency is browser ↔ exchange only
-- **Web Workers** — heavy quant calculations run off the main thread
-- **React.lazy** — secondary analytics panels are code-split for faster initial load
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the runtime data flow and persistence model.
 
----
+## Scope boundaries
 
-## Security
+The current site does not provide:
 
-> **⚠️ Read-only terminal.** No trade execution. No real funds at risk.
+- live order placement, exchange accounts, wallets, or custody
+- an economic calendar or authenticated on-chain analytics API
+- Deribit or multi-exchange aggregation in the active dashboard
+- production ML forecasts, portfolio VaR/Greeks, or backtesting
+- guaranteed institutional latency, uptime, or data completeness
 
-- No API keys required for core functionality
-- All data processing is client-side; nothing is sent to any backend
-- Only `selectedSymbol` and `watchlist` are persisted to `localStorage`
+Some repository files explore these directions but are intentionally excluded from the active product until their dependencies, data contracts, and tests are ready.
 
-See [SECURITY.md](./SECURITY.md) for the full security model and CSP configuration.
+## Deployment
 
----
-
-## Roadmap
-
-| Phase | Status | Focus |
-|---|---|---|
-| 1 — Foundation | ✅ Complete | Memory safety, WebSocket hardening, CI/CD, error boundaries |
-| 2 — Quant Core | 🔄 In progress | OFI, CVD, VPIN, VaR, Portfolio Greeks |
-| 3 — Intelligence | ⏳ Planned | Volatility surface, ML signal layer, backtesting UI |
-| 4 — Platform | ⏳ Planned | Plugin system, multi-exchange, community governance |
-
-Full details in [ROADMAP.md](./ROADMAP.md) and [QUANT_ROADMAP.md](./QUANT_ROADMAP.md).
-
----
+The repository includes Vercel and Docker configuration. Vercel serves the static Vite bundle and SPA fallback; all market requests still originate from each visitor's browser.
 
 ## Contributing
 
-Pull requests are welcome. Before opening one, please read [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-```bash
-# Branch naming
-git checkout -b feat/volatility-smile
-git checkout -b fix/ofi-memory-leak
-git checkout -b docs/update-indicators
-
-# Before committing
-npm run lint && npm run type-check && npm run test
-```
-
-All PRs must pass CI. Indicator logic changes require test coverage.
-
----
-
-## Troubleshooting
-
-**OFFLINE status / no data**  
-Check browser console for WebSocket errors. Ad blockers and some VPNs block `wss://` connections — try incognito mode.
-
-**Chart frozen / memory warning**  
-Open Chrome Task Manager. Memory usage should stay below 500MB for normal sessions. Refresh to clear buffers.
-
-**429 rate limit errors**  
-Binance limits: 5 msg/s, 300 connections/5min. Reconnection with exponential backoff is automatic. Reduce watchlist size if persistent.
-
----
+Pull requests are welcome. Run lint, type-check, tests, and the production build before submitting. Financial-calculation changes should include focused regression tests.
 
 ## Acknowledgements
 
-- [TradingView Lightweight Charts](https://github.com/tradingview/lightweight-charts) — charting engine
-- [Binance](https://binance-docs.github.io/apidocs/) — public WebSocket API
-- [Deribit](https://docs.deribit.com/) — options data
-- [CryptoPanic](https://cryptopanic.com/developers/api/) — news feed
-- Bloomberg Terminal — design reference
+- [D3](https://d3js.org/) — chart scales and interaction utilities
+- [Binance](https://developers.binance.com/) — public Spot and USDⓈ-M market data
+- [CryptoCompare](https://www.cryptocompare.com/) — public crypto news
+- [mempool.space](https://mempool.space/) — Bitcoin network data
+- [Alternative.me](https://alternative.me/crypto/fear-and-greed-index/) — Fear & Greed index
+- Bloomberg Terminal — interface inspiration
 
 ---
 
 <div align="center">
 
-MIT License · Built for the quant community · **Not financial advice**
+MIT License · Public market data · Simulated trading · **Not financial advice**
 
 </div>

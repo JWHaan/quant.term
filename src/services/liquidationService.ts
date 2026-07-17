@@ -1,18 +1,8 @@
-// @ts-nocheck: Deprecated scaffold file — suppressed for type checking — not wired into the UI, may have stale types
-/**
- * @deprecated Not wired into the UI. Scaffold for future roadmap phases.
- * Kept for reference — delete when ready.
- */
-
-/**
- * Binance Futures Liquidation Service
- * Connects to real-time liquidation order stream
- * Source: wss://fstream.binance.com/ws/!forceOrder@arr
- */
+import { useConnectionStore } from '@/stores/connectionStore';
 
 export interface Liquidation {
     symbol: string;
-    side: string;
+    side: 'BUY' | 'SELL';
     price: number;
     quantity: number;
     value: number;
@@ -20,88 +10,85 @@ export interface Liquidation {
     isBuy: boolean;
 }
 
-export interface LiquidationStats {
-    totalLiquidations: number;
-    buyLiquidations: number;
-    sellLiquidations: number;
-    largestLiquidation: number;
-    note: string;
-}
-
-interface BinanceLiquidationOrder {
-    s: string; // Symbol
-    S: string; // Side
-    p: string; // Price
-    q: string; // Quantity
-    T: number; // Timestamp
-}
-
 interface BinanceLiquidationMessage {
-    e: string;
-    o: BinanceLiquidationOrder;
+    e: 'forceOrder';
+    o: {
+        s: string;
+        S: 'BUY' | 'SELL';
+        p: string;
+        ap: string;
+        q: string;
+        l: string;
+        z: string;
+        T: number;
+    };
 }
 
-/**
- * Subscribe to real-time liquidation orders
- * @param onLiquidation - Callback for liquidation events
- * @returns WebSocket connection
- */
-export const subscribeLiquidations = (onLiquidation: (liquidation: Liquidation) => void): WebSocket => {
-    const ws = new WebSocket('wss://fstream.binance.com/ws/!forceOrder@arr');
+export interface LiquidationSubscription {
+    close: () => void;
+}
 
-    ws.onopen = () => {
-        console.log('[LiquidationService] Connected to Binance Futures liquidation stream');
-    };
+export const subscribeLiquidations = (onLiquidation: (liquidation: Liquidation) => void): LiquidationSubscription => {
+    let socket: WebSocket | null = null;
+    let retryTimer: number | null = null;
+    let retryCount = 0;
+    let active = true;
+    const connection = useConnectionStore.getState();
 
-    ws.onmessage = (event: MessageEvent) => {
-        try {
-            const msg: BinanceLiquidationMessage = JSON.parse(event.data);
+    const connect = () => {
+        if (!active) return;
+        connection.setConnectionStatus('futures', retryCount ? 'reconnecting' : 'connecting');
+        socket = new WebSocket('wss://fstream.binance.com/ws/!forceOrder@arr');
 
-            // Binance liquidation format: { e: "forceOrder", o: { ... } }
-            if (msg.e === 'forceOrder' && msg.o) {
-                const order = msg.o;
+        socket.onopen = () => {
+            retryCount = 0;
+            useConnectionStore.getState().setConnectionStatus('futures', 'connected');
+        };
 
-                // Transform to our format
-                const liquidation: Liquidation = {
-                    symbol: order.s,              // Symbol (e.g., BTCUSDT)
-                    side: order.S,                // SELL = Long liquidation, BUY = Short liquidation
-                    price: parseFloat(order.p),   // Liquidation price
-                    quantity: parseFloat(order.q), // Quantity
-                    value: parseFloat(order.p) * parseFloat(order.q), // USD value
-                    time: order.T,                // Timestamp
-                    isBuy: order.S === 'BUY'      // true = short squeeze, false = long liquidation
-                };
-
-                onLiquidation(liquidation);
+        socket.onmessage = (event: MessageEvent<string>) => {
+            try {
+                const message = JSON.parse(event.data) as BinanceLiquidationMessage;
+                if (message.e !== 'forceOrder' || !message.o) return;
+                const order = message.o;
+                const price = Number(order.ap) || Number(order.p);
+                const quantity = Number(order.z) || Number(order.l) || Number(order.q);
+                if (!Number.isFinite(price) || !Number.isFinite(quantity)) return;
+                onLiquidation({
+                    symbol: order.s,
+                    side: order.S,
+                    price,
+                    quantity,
+                    value: price * quantity,
+                    time: order.T,
+                    isBuy: order.S === 'BUY',
+                });
+            } catch (error) {
+                console.warn('[Liquidations] Ignored malformed exchange message.', error);
             }
-        } catch (error) {
-            console.error('[LiquidationService] Parse error:', error);
-        }
+        };
+
+        socket.onerror = () => socket?.close();
+        socket.onclose = () => {
+            socket = null;
+            if (!active) return;
+            useConnectionStore.getState().setConnectionStatus('futures', 'reconnecting');
+            const delay = Math.min(30_000, 1_000 * (2 ** retryCount)) + Math.floor(Math.random() * 500);
+            retryCount += 1;
+            retryTimer = window.setTimeout(connect, delay);
+        };
     };
 
-    ws.onerror = (error: Event) => {
-        console.error('[LiquidationService] WebSocket error:', error);
-    };
-
-    ws.onclose = () => {
-        console.log('[LiquidationService] Connection closed');
-    };
-
-    return ws;
-};
-
-/**
- * Fetch liquidation statistics (aggregated)
- * Note: Binance does not provide historical aggregates via free API
- * This returns a placeholder - consider using Coinglass API with authentication
- */
-export const fetchLiquidationStats = async (): Promise<LiquidationStats> => {
-    console.warn('[LiquidationService] Aggregated stats not available without paid API');
+    connect();
     return {
-        totalLiquidations: 0,
-        buyLiquidations: 0,
-        sellLiquidations: 0,
-        largestLiquidation: 0,
-        note: 'Real-time stream only - no historical aggregates from Binance free tier'
+        close: () => {
+            active = false;
+            if (retryTimer !== null) window.clearTimeout(retryTimer);
+            if (socket) {
+                socket.onclose = null;
+                socket.close();
+                socket = null;
+            }
+            useConnectionStore.getState().setConnectionStatus('futures', 'disconnected');
+        },
     };
 };

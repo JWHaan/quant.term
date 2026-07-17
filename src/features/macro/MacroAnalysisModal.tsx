@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState, useContext } from 'react';
 import { ThemeContext } from '../../ui/ThemeProvider';
-// @ts-expect-error: lightweight-charts v5 ESM conditional exports don't resolve in tsc but work at runtime via Vite
-import { createChart, ColorType, IChartApi } from 'lightweight-charts';
+import { createChart, ColorType, LineSeries, type IChartApi } from 'lightweight-charts';
 import { X, Globe } from 'lucide-react';
-import { OpenBBService, MacroData } from '../../services/OpenBBService';
+import { OpenBBService, type MacroData } from '../../services/OpenBBService';
 
 interface MacroAnalysisModalProps {
     isOpen: boolean;
@@ -38,6 +37,7 @@ const MacroAnalysisModal: React.FC<MacroAnalysisModalProps> = ({ isOpen, onClose
         // Cleanup previous chart
         if (chartRef.current) {
             chartRef.current.remove();
+            chartRef.current = null;
         }
 
         const chart = createChart(chartContainerRef.current, {
@@ -62,16 +62,17 @@ const MacroAnalysisModal: React.FC<MacroAnalysisModalProps> = ({ isOpen, onClose
 
         chartRef.current = chart;
 
-        const series = chart.addSeries('line', {
+        const series = chart.addSeries(LineSeries, {
             color: 'var(--accent-primary)',
             lineWidth: 2,
             title: activeTab,
         });
 
-        let seriesData: any[] = [];
-        if (activeTab === 'CPI') seriesData = data.cpi;
-        if (activeTab === 'GDP') seriesData = data.gdp;
-        if (activeTab === 'RATES') seriesData = data.fedRate;
+        const seriesData = activeTab === 'CPI'
+            ? data.cpi
+            : activeTab === 'GDP'
+                ? data.gdp
+                : data.fedRate;
 
         series.setData(seriesData.map(d => ({ time: d.date, value: d.value })));
 
@@ -86,6 +87,9 @@ const MacroAnalysisModal: React.FC<MacroAnalysisModalProps> = ({ isOpen, onClose
 
         return () => {
             window.removeEventListener('resize', handleResize);
+            if (chartRef.current === chart) {
+                chartRef.current = null;
+            }
             chart.remove();
         };
     }, [isOpen, data, activeTab, theme]);

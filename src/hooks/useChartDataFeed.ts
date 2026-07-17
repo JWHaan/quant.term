@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { BINANCE_REST_URL } from '@/constants/config';
 import { useBinanceWebSocket } from '@/hooks/useBinanceWebSocket';
 import { useChartDataStore } from '@/stores/chartDataStore';
 import { orderBookToSnapshot, useOrderBookHistoryStore } from '@/stores/orderBookHistoryStore';
 import type { OHLCV } from '@/types/common';
 import type { HeatmapAggregationResult, HeatmapBinConfig } from '@/utils/heatmap';
 
-const BINANCE_REST_URL = 'https://api.binance.com';
 const EMPTY_CANDLES: OHLCV[] = [];
+const MAX_BINANCE_KLINES = 1_000;
+const HISTORICAL_FETCH_TIMEOUT_MS = 8_000;
 
 interface UseChartDataFeedOptions {
     heatmapEnabled?: boolean;
@@ -26,54 +28,73 @@ interface UseChartDataFeedResult {
     heatmap: HeatmapAggregationResult | null;
 }
 
+const parseHistoricalCandle = (row: unknown): OHLCV | null => {
+    if (!Array.isArray(row) || row.length < 6) return null;
+    const values = row.slice(0, 6).map(Number);
+    if (values.some((value) => !Number.isFinite(value))) return null;
+
+    return {
+        time: values[0]! / 1000,
+        open: values[1]!,
+        high: values[2]!,
+        low: values[3]!,
+        close: values[4]!,
+        volume: values[5]!,
+    };
+};
+
 const fetchHistoricalCandles = async (
     symbol: string,
     interval: string,
-    limit: number
+    limit: number,
+    signal: AbortSignal,
 ): Promise<OHLCV[]> => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(
+        `${BINANCE_REST_URL}/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${limit}`,
+        { signal },
+    );
 
-    try {
-        const response = await fetch(
-            `${BINANCE_REST_URL}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`,
-            { signal: controller.signal }
-        );
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch candles (${response.status})`);
-        }
-
-        const rawData = await response.json();
-        if (!Array.isArray(rawData)) {
-            throw new Error('Unexpected kline response format');
-        }
-
-        return rawData.map((row: any) => ({
-            time: Number(row[0]) / 1000,
-            open: Number(row[1]),
-            high: Number(row[2]),
-            low: Number(row[3]),
-            close: Number(row[4]),
-            volume: Number(row[5]),
-        }));
-    } finally {
-        clearTimeout(timeout);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch candles (${response.status})`);
     }
+
+    const rawData: unknown = await response.json();
+    if (!Array.isArray(rawData)) {
+        throw new Error('Unexpected kline response format');
+    }
+
+    const candles = rawData
+        .map(parseHistoricalCandle)
+        .filter((candle): candle is OHLCV => candle !== null);
+
+    if (candles.length === 0) {
+        throw new Error('Binance returned no valid candles');
+    }
+    return candles;
+};
+
+const normalizeFetchLimit = (requested: number | undefined): number => {
+    if (requested === undefined || !Number.isFinite(requested)) return MAX_BINANCE_KLINES;
+    return Math.min(MAX_BINANCE_KLINES, Math.max(1, Math.floor(requested)));
 };
 
 export const useChartDataFeed = (
     symbol: string,
     interval: string,
-    options: UseChartDataFeedOptions = {}
+    options: UseChartDataFeedOptions = {},
 ): UseChartDataFeedResult => {
     const normalizedSymbol = useMemo(() => symbol.toUpperCase(), [symbol]);
-    const fetchLimit = options.fetchLimit ?? 1200;
+    const seriesKey = `${normalizedSymbol}:${interval}`;
+    const fetchLimit = normalizeFetchLimit(options.fetchLimit);
+
     const setHeatmapCapture = useOrderBookHistoryStore((state) => state.addSnapshot);
     const snapshots = useOrderBookHistoryStore((state) => state.snapshots);
-
-    const isFetchingRef = useRef(false);
-    const [error, setError] = useState<string | null>(null);
+    const [errorState, setErrorState] = useState<{ key: string; message: string | null }>({
+        key: '',
+        message: null,
+    });
+    const requestIdRef = useRef(0);
+    const latestLiveCandleRef = useRef<{ key: string; candle: OHLCV } | null>(null);
 
     const setSeriesLoading = useChartDataStore((state) => state.setSeriesLoading);
     const setHistoricalCandles = useChartDataStore((state) => state.setHistoricalCandles);
@@ -82,50 +103,18 @@ export const useChartDataFeed = (
     const setHeatmapConfig = useChartDataStore((state) => state.setHeatmapConfig);
 
     const { candle, orderBook, isConnected, lastUpdate, reconnectCount } = useBinanceWebSocket(
-        normalizedSymbol.toLowerCase(),
-        interval
+        normalizedSymbol,
+        interval,
     );
 
     const candles = useChartDataStore(
-        (state) => state.candles[normalizedSymbol]?.[interval] ?? EMPTY_CANDLES
+        (state) => state.candles[normalizedSymbol]?.[interval] ?? EMPTY_CANDLES,
     );
 
     const isLoading = useChartDataStore((state) => {
         const meta = state.seriesMeta[normalizedSymbol]?.[interval];
         return meta?.isLoading ?? false;
     });
-
-    useEffect(() => {
-        let cancelled = false;
-        if (isFetchingRef.current) return;
-
-        isFetchingRef.current = true;
-        setSeriesLoading(normalizedSymbol, interval, true);
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setError(null);
-
-        fetchHistoricalCandles(normalizedSymbol, interval, fetchLimit)
-            .then((candles) => {
-                if (cancelled) return;
-                setHistoricalCandles(normalizedSymbol, interval, candles);
-            })
-            .catch((err: any) => {
-                if (cancelled) return;
-                const message = err?.message ?? 'Failed to fetch historical candles';
-                setError(message);
-                setSeriesLoading(normalizedSymbol, interval, false);
-            })
-            .finally(() => {
-                isFetchingRef.current = false;
-                if (cancelled) {
-                    setSeriesLoading(normalizedSymbol, interval, false);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [normalizedSymbol, interval, fetchLimit, setSeriesLoading, setHistoricalCandles]);
 
     useEffect(() => {
         if (!candle) return;
@@ -138,8 +127,59 @@ export const useChartDataFeed = (
             volume: candle.volume,
         };
 
+        latestLiveCandleRef.current = { key: seriesKey, candle: seriesCandle };
         upsertCandle(normalizedSymbol, interval, seriesCandle);
-    }, [candle, interval, normalizedSymbol, upsertCandle]);
+    }, [candle, interval, normalizedSymbol, seriesKey, upsertCandle]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        const requestId = ++requestIdRef.current;
+        let timedOut = false;
+
+        setSeriesLoading(normalizedSymbol, interval, true);
+
+        const timeout = setTimeout(() => {
+            timedOut = true;
+            controller.abort();
+        }, HISTORICAL_FETCH_TIMEOUT_MS);
+
+        fetchHistoricalCandles(normalizedSymbol, interval, fetchLimit, controller.signal)
+            .then((historicalCandles) => {
+                if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+                setErrorState({ key: seriesKey, message: null });
+                setHistoricalCandles(normalizedSymbol, interval, historicalCandles);
+
+                // A live update may have arrived while history was in flight.
+                // Reapply it so the REST response cannot roll the chart backward.
+                const latestLive = latestLiveCandleRef.current;
+                if (latestLive?.key === seriesKey) {
+                    upsertCandle(normalizedSymbol, interval, latestLive.candle);
+                }
+            })
+            .catch((caught: unknown) => {
+                if (requestId !== requestIdRef.current) return;
+                if (controller.signal.aborted && !timedOut) return;
+
+                const message = timedOut
+                    ? 'Historical candle request timed out'
+                    : caught instanceof Error
+                        ? caught.message
+                        : 'Failed to fetch historical candles';
+                setErrorState({ key: seriesKey, message });
+            })
+            .finally(() => {
+                clearTimeout(timeout);
+                if (requestId === requestIdRef.current) {
+                    setSeriesLoading(normalizedSymbol, interval, false);
+                }
+            });
+
+        return () => {
+            clearTimeout(timeout);
+            controller.abort();
+            setSeriesLoading(normalizedSymbol, interval, false);
+        };
+    }, [fetchLimit, interval, normalizedSymbol, seriesKey, setHistoricalCandles, setSeriesLoading, upsertCandle]);
 
     useEffect(() => {
         if (!options.heatmapEnabled || !orderBook) return;
@@ -147,22 +187,16 @@ export const useChartDataFeed = (
         const snapshotSymbol = options.orderBookSnapshotSymbol
             ? options.orderBookSnapshotSymbol.toUpperCase()
             : normalizedSymbol;
-
         setHeatmapCapture(orderBookToSnapshot(orderBook, snapshotSymbol));
     }, [orderBook, options.heatmapEnabled, options.orderBookSnapshotSymbol, normalizedSymbol, setHeatmapCapture]);
 
     useEffect(() => {
-        if (!options.heatmapEnabled || !options.heatmapOverrides) {
-            return;
-        }
+        if (!options.heatmapEnabled || !options.heatmapOverrides) return;
         setHeatmapConfig(normalizedSymbol, options.heatmapOverrides);
     }, [normalizedSymbol, options.heatmapEnabled, options.heatmapOverrides, setHeatmapConfig]);
 
     const heatmap = useMemo(() => {
-        if (!options.heatmapEnabled) {
-            return null;
-        }
-
+        if (!options.heatmapEnabled) return null;
         return buildHeatmap(normalizedSymbol, snapshots, options.heatmapOverrides);
     }, [buildHeatmap, normalizedSymbol, options.heatmapEnabled, options.heatmapOverrides, snapshots]);
 
@@ -173,7 +207,7 @@ export const useChartDataFeed = (
         latestCandle: candles[candles.length - 1] ?? null,
         candles,
         isLoading,
-        error,
+        error: errorState.key === seriesKey ? errorState.message : null,
         heatmap,
     };
 };

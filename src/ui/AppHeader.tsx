@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wifi, WifiOff, Search, Sun, Moon, Maximize2, Github } from 'lucide-react';
+import { Github, Maximize2, Minimize2, Moon, Search, Sun, Wifi, WifiOff } from 'lucide-react';
 import { ThemeContext } from './ThemeProvider';
 
 interface AppHeaderProps {
@@ -9,30 +9,6 @@ interface AppHeaderProps {
     onOpenCommandPalette: () => void;
 }
 
-const iconButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '32px',
-    height: '32px',
-    background: 'var(--bg-panel)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    color: 'var(--text-secondary)',
-    transition: 'all 0.2s',
-};
-
-function onHoverEnter(e: React.MouseEvent<HTMLElement>) {
-    e.currentTarget.style.borderColor = 'var(--accent-primary)';
-    e.currentTarget.style.color = 'var(--accent-primary)';
-}
-
-function onHoverLeave(e: React.MouseEvent<HTMLElement>) {
-    e.currentTarget.style.borderColor = 'var(--border-color)';
-    e.currentTarget.style.color = 'var(--text-secondary)';
-}
-
 const AppHeader: React.FC<AppHeaderProps> = ({
     isGlobalConnected,
     isFullscreen,
@@ -40,118 +16,86 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     onOpenCommandPalette
 }) => {
     const { theme, toggleTheme } = React.useContext(ThemeContext);
+    const connectionState = isGlobalConnected ? 'connected' : 'offline';
 
     return (
-        <header className="app-header">
+        <header className="app-header" aria-label="Application command bar">
             <div className="logo-section">
+                <div className="brand-mark" aria-hidden="true">QT</div>
                 <div className="logo-text">
-                    <h1>quant.term</h1>
-                    <span className="version">Quantitative Terminal</span>
+                    <h1>quant<span>.term</span></h1>
+                    <span className="version">Crypto market intelligence</span>
                 </div>
             </div>
 
             <div className="header-controls">
-                {/* Command Palette Trigger */}
-                <div
+                <button
+                    type="button"
                     className="command-trigger"
                     onClick={onOpenCommandPalette}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '6px 12px',
-                        background: 'var(--bg-panel)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        marginRight: '8px',
-                        transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={onHoverEnter}
-                    onMouseLeave={onHoverLeave}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Open command palette"
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onOpenCommandPalette();
-                        }
-                    }}
+                    aria-label="Search markets and open the command palette"
+                    aria-keyshortcuts="Meta+K Control+K"
                 >
-                    <Search size={14} color="var(--text-muted)" />
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'var(--font-ui)' }}>
-                        Search...
-                    </span>
-                    <kbd style={{
-                        fontSize: '10px',
-                        padding: '2px 6px',
-                        background: 'var(--bg-app)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-secondary)',
-                        fontFamily: 'var(--font-mono)'
-                    }}>⌘K</kbd>
-                </div>
+                    <Search size={14} aria-hidden="true" />
+                    <span className="command-trigger__label">Search markets &amp; commands</span>
+                    <kbd aria-hidden="true">⌘K</kbd>
+                </button>
 
-                {/* Icon Button Group */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginRight: '12px' }}>
+                <div className="header-tool-group" aria-label="Display controls">
                     <button
+                        type="button"
+                        className="header-icon-button"
                         onClick={toggleTheme}
                         aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
                         title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
-                        style={iconButtonStyle}
-                        onMouseEnter={onHoverEnter}
-                        onMouseLeave={onHoverLeave}
                     >
-                        {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+                        {theme === 'dark'
+                            ? <Sun size={14} aria-hidden="true" />
+                            : <Moon size={14} aria-hidden="true" />}
                     </button>
 
                     <button
+                        type="button"
+                        className="header-icon-button"
                         onClick={onToggleFullscreen}
                         aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                        aria-pressed={isFullscreen}
                         title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-                        style={iconButtonStyle}
-                        onMouseEnter={onHoverEnter}
-                        onMouseLeave={onHoverLeave}
                     >
-                        <Maximize2 size={14} />
+                        {isFullscreen
+                            ? <Minimize2 size={14} aria-hidden="true" />
+                            : <Maximize2 size={14} aria-hidden="true" />}
                     </button>
 
                     <a
+                        className="header-icon-button"
                         href="https://github.com/JWHaan/quant.term"
                         target="_blank"
                         rel="noopener noreferrer"
-                        aria-label="View source on GitHub"
+                        aria-label="View quant.term source on GitHub (opens in a new tab)"
                         title="GitHub"
-                        style={{ ...iconButtonStyle, textDecoration: 'none' }}
-                        onMouseEnter={onHoverEnter}
-                        onMouseLeave={onHoverLeave}
                     >
-                        <Github size={14} />
+                        <Github size={14} aria-hidden="true" />
                     </a>
                 </div>
 
-                {/* Connection Status */}
-                <div className="connection-status" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 12px',
-                    height: '32px',
-                    background: isGlobalConnected ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                    border: `1px solid ${isGlobalConnected ? 'var(--accent-primary)' : 'var(--accent-danger)'}`,
-                    borderRadius: '8px',
-                    color: isGlobalConnected ? 'var(--accent-primary)' : 'var(--accent-danger)'
-                }}>
-                    {isGlobalConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
-                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-ui)', fontWeight: 500 }}>
-                        {isGlobalConnected ? 'LIVE' : 'OFFLINE'}
-                    </span>
+                <div
+                    className="connection-status"
+                    data-state={connectionState}
+                    role="status"
+                    aria-live="polite"
+                    aria-label={isGlobalConnected ? 'At least one live market data feed is connected' : 'Live market data feeds are offline'}
+                    title={isGlobalConnected ? 'Live market data available' : 'Live market data unavailable'}
+                >
+                    <span className="status-dot" aria-hidden="true" />
+                    {isGlobalConnected
+                        ? <Wifi size={12} aria-hidden="true" />
+                        : <WifiOff size={12} aria-hidden="true" />}
+                    <span>{isGlobalConnected ? 'LIVE' : 'OFFLINE'}</span>
                 </div>
 
-                <div className="user-profile">
-                    <div className="avatar">TRADER</div>
+                <div className="user-profile" aria-label="Read-only market data terminal">
+                    <div className="avatar">READ ONLY</div>
                 </div>
             </div>
         </header>

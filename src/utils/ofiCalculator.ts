@@ -1,8 +1,8 @@
 /**
  * Order Flow Imbalance (OFI) Calculator
  * 
- * Computes real-time order flow imbalance to detect aggressive buying/selling
- * Formula: OFI = (BidVolume↑ - AskVolume↓) / TotalVolume
+ * Computes a normalized depth-flow imbalance between consecutive snapshots.
+ * It measures displayed-liquidity changes, not executed aggressive order flow.
  * 
  * References:
  * - Cartea, Á., Jaimungal, S., & Penalva, J. (2015). Algorithmic and High-Frequency Trading
@@ -17,8 +17,8 @@ export interface OrderBookSnapshot {
 
 export interface OFIResult {
     ofi: number;           // Order flow imbalance (-1 to 1)
-    bidPressure: number;   // Bid volume increase
-    askPressure: number;   // Ask volume decrease
+    bidPressure: number;   // Signed bid-liquidity change
+    askPressure: number;   // Signed ask-liquidity change
     totalVolume: number;   // Total volume change
     timestamp: number;
 }
@@ -85,16 +85,9 @@ export class OFICalculator {
         });
 
         let pressure = 0;
-        currentBids.forEach(([price, qty]) => {
-            const currentQty = parseFloat(qty);
-            const previousQty = prevMap.get(price) || 0;
-            const delta = currentQty - previousQty;
-
-            // Only count increases (new liquidity added)
-            if (delta > 0) {
-                pressure += delta;
-            }
-        });
+        const currentMap = new Map(currentBids.map(([price, qty]) => [price, parseFloat(qty)]));
+        const prices = new Set([...prevMap.keys(), ...currentMap.keys()]);
+        prices.forEach((price) => { pressure += (currentMap.get(price) ?? 0) - (prevMap.get(price) ?? 0); });
 
         return pressure;
     }
@@ -112,16 +105,9 @@ export class OFICalculator {
         });
 
         let pressure = 0;
-        currentAsks.forEach(([price, qty]) => {
-            const currentQty = parseFloat(qty);
-            const previousQty = prevMap.get(price) || 0;
-            const delta = previousQty - currentQty;
-
-            // Only count decreases (liquidity removed by aggressive buyers)
-            if (delta > 0) {
-                pressure += delta;
-            }
-        });
+        const currentMap = new Map(currentAsks.map(([price, qty]) => [price, parseFloat(qty)]));
+        const prices = new Set([...prevMap.keys(), ...currentMap.keys()]);
+        prices.forEach((price) => { pressure += (currentMap.get(price) ?? 0) - (prevMap.get(price) ?? 0); });
 
         return pressure;
     }

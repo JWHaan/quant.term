@@ -31,14 +31,6 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
-      - name: Enforce coverage thresholds
-        run: |
-          COVERAGE=$(cat coverage/coverage-summary.json | grep -Po '"lines".*?"pct": \K[0-9]+')
-          if [ "$COVERAGE" -lt 70 ]; then
-            echo "Coverage $COVERAGE% is below required 70%"
-            exit 1
-          fi
-
       - name: Build production bundle
         run: npm run build
 

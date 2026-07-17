@@ -75,7 +75,7 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
                 marginBottom: '8px'
             }}>
                 <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    &gt; ORDER_FLOW_IMBALANCE
+                    DEPTH_FLOW_IMBALANCE · EXPERIMENTAL
                 </span>
                 <span style={{
                     fontSize: '8px',
@@ -178,7 +178,7 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
                     color: significantEvent.type === 'buy' ? 'var(--accent-success)' : 'var(--accent-danger)',
                     textAlign: 'center'
                 }}>
-                    &gt;&gt; {significantEvent.type.toUpperCase()}_SIGNAL ({significantEvent.magnitude.toFixed(1)}σ)
+                    {significantEvent.type.toUpperCase()}_IMBALANCE ({significantEvent.magnitude.toFixed(1)}σ)
                 </div>
             )}
         </div>

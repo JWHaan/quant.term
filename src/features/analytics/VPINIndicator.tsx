@@ -11,7 +11,7 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
     const [vpinResult, setVpinResult] = useState<VPINResult | null>(null);
     const [trend, setTrend] = useState<'increasing' | 'decreasing' | 'stable'>('stable');
     const [bucketProgress, setBucketProgress] = useState<number>(0);
-    const vpinCalculatorRef = useRef<VPINCalculator>(new VPINCalculator(100, 50)); // 100 BTC buckets, 50 bucket window
+    const vpinCalculatorRef = useRef<VPINCalculator>(new VPINCalculator(500_000, 20));
     const classifierRef = useRef<TradeClassifier>(new TradeClassifier());
     const wsRef = useRef<WebSocket | null>(null);
 
@@ -32,8 +32,12 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                     isBuyerMaker: data.m
                 };
 
-                // Classify trade
-                const classifiedTrade = classifierRef.current.classifyByTickRule(trade);
+                // Use Binance's maker flag to identify the aggressive/taker side,
+                // then normalize bucket volume to quote USD for cross-asset use.
+                const classifiedTrade = classifierRef.current.classifyFromExchange({
+                    ...trade,
+                    quantity: trade.quantity * trade.price,
+                });
 
                 // Add to VPIN calculator
                 const result = vpinCalculatorRef.current.addTrade(classifiedTrade);
@@ -45,8 +49,10 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 }
 
                 // Update bucket progress
-                const progress = vpinCalculatorRef.current.getCurrentBucketProgress();
-                setBucketProgress(progress);
+                if (data.a % 20 === 0) {
+                    const progress = vpinCalculatorRef.current.getCurrentBucketProgress();
+                    setBucketProgress(progress);
+                }
 
             } catch (err) {
                 console.error('[VPIN] Parse error:', err);
@@ -58,7 +64,7 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
         };
 
         return () => {
-            if (ws.readyState === WebSocket.OPEN) {
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
                 ws.close();
             }
         };
@@ -236,7 +242,7 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
                 color: 'var(--text-muted)',
                 textAlign: 'center'
             }}>
-                VOL_BUCKETED • 50_BUCKET_WINDOW
+                $500K QUOTE BUCKETS · 20-BUCKET ROLLING ESTIMATE · EXPERIMENTAL
             </div>
         </div>
     );

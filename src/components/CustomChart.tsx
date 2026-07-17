@@ -1,7 +1,6 @@
 import React, {
     useCallback,
     useEffect,
-    useLayoutEffect,
     useMemo,
     useRef,
     useState
@@ -69,7 +68,8 @@ const CustomChart: React.FC<CustomChartProps> = ({
     const containerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    const [dimensions, setDimensions] = useState<ChartDimensions>({ width: 0, height });
+    const [width, setWidth] = useState(0);
+    const dimensions = useMemo<ChartDimensions>(() => ({ width, height }), [height, width]);
 
     // Use external indicator toggles if provided, otherwise use defaults
     const indicatorToggles = useMemo(() => externalIndicatorToggles || {
@@ -85,23 +85,11 @@ const CustomChart: React.FC<CustomChartProps> = ({
     const transformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
     const [transformState, setTransformState] = useState<d3.ZoomTransform>(d3.zoomIdentity);
 
-    // Store draw function in ref to avoid infinite loops
-    const drawRef = useRef<(() => void) | null>(null);
-
-    // Sync height prop via layout effect with forced re-render
-    const [, forceRender] = useState(0);
-    useLayoutEffect(() => {
-        setDimensions(prev => prev.height !== height ? { ...prev, height } : prev);
-        forceRender(n => n + 1);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [height]);
-
     useEffect(() => {
         if (!containerRef.current) return;
         const observer = new ResizeObserver((entries) => {
             entries.forEach(entry => {
-                const { width } = entry.contentRect;
-                setDimensions(prev => ({ ...prev, width }));
+                setWidth(entry.contentRect.width);
             });
         });
         observer.observe(containerRef.current);
@@ -118,7 +106,7 @@ const CustomChart: React.FC<CustomChartProps> = ({
         return next;
     }, [heatmapConfig, showHeatmap]);
 
-    const { candles, heatmap } = useChartDataFeed(
+    const { candles, heatmap, isConnected, isLoading, error } = useChartDataFeed(
         symbol,
         interval,
         feedOptions
@@ -250,7 +238,7 @@ const CustomChart: React.FC<CustomChartProps> = ({
             startIndex,
             endIndex
         };
-    }, [layout, sortedCandles, transformState, indicatorToggles, macdData, rsiData]);
+    }, [layout, sortedCandles, transformState, indicatorToggles, macdData]);
 
     // Zoom Behavior
     useEffect(() => {
@@ -534,25 +522,13 @@ const CustomChart: React.FC<CustomChartProps> = ({
 
     }, [layout, scales, sortedCandles, heatmap, showHeatmap, effectiveHeatmapConfig, indicatorToggles, ema9, ema21, macdData, rsiData]);
 
-    // Update draw ref whenever draw changes
-    useEffect(() => {
-        drawRef.current = draw;
-    }, [draw]);
-
-    // Animation Loop - use ref to avoid infinite loops
+    // Draw only when chart inputs change. A continuous 60fps loop consumed CPU
+    // even when the market and viewport were idle.
     useEffect(() => {
         if (sortedCandles.length === 0) return;
-
-        let frameId: number;
-        const render = () => {
-            if (drawRef.current) {
-                drawRef.current();
-            }
-            frameId = requestAnimationFrame(render);
-        };
-        render();
+        const frameId = requestAnimationFrame(draw);
         return () => cancelAnimationFrame(frameId);
-    }, [sortedCandles.length]);
+    }, [draw, sortedCandles.length]);
 
     // Interaction (Crosshair)
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -601,8 +577,8 @@ const CustomChart: React.FC<CustomChartProps> = ({
                     fontFamily: 'var(--font-mono)',
                     fontSize: '12px'
                 }}>
-                    <div style={{ marginBottom: '8px', fontSize: '14px' }}>Loading chart data...</div>
-                    <div style={{ opacity: 0.6 }}>Connecting to {symbol} {interval}</div>
+                    <div style={{ marginBottom: '8px', fontSize: '14px' }}>{error ? 'Chart data unavailable' : isLoading ? 'Loading chart data…' : 'Awaiting live candles…'}</div>
+                    <div style={{ opacity: 0.7 }}>{error ?? `Connecting to Binance Spot · ${symbol} · ${interval}`}</div>
                 </div>
             </div>
         );
@@ -624,7 +600,17 @@ const CustomChart: React.FC<CustomChartProps> = ({
                 style={{ display: 'block', cursor: 'crosshair' }}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={() => setHoverInfo(null)}
+                role="img"
+                tabIndex={0}
+                aria-label={`${symbol} ${interval} candlestick chart with ${sortedCandles.length} candles`}
             />
+
+            <div className={`chart-feed-state ${isConnected ? 'chart-feed-state--live' : ''}`} role="status">
+                <span /> {isConnected ? 'LIVE' : 'RECONNECTING'}
+            </div>
+            <p className="sr-only">
+                Latest close {formatNumber(sortedCandles.at(-1)?.close)}. High {formatNumber(sortedCandles.at(-1)?.high)}. Low {formatNumber(sortedCandles.at(-1)?.low)}. Volume {formatNumber(sortedCandles.at(-1)?.volume)}.
+            </p>
 
             {/* Tooltip / Crosshair Overlay */}
             {hoverInfo && (

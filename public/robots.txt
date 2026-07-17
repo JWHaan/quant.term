@@ -1,4 +1,2 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://quant-term.vercel.app/sitemap.xml

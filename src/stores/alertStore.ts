@@ -59,7 +59,7 @@ class AlertEngine {
         if (alert.notificationEnabled && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             new Notification(`Alert: ${alert.symbol}`, {
                 body: alert.message,
-                icon: '/favicon.ico',
+                icon: '/quant_term_logo.svg',
             });
         }
 
@@ -163,7 +163,7 @@ class AlertEngine {
 const alertEngine = new AlertEngine();
 
 const alertStorage = createJSONStorage(() => {
-    if (process.env.NODE_ENV === 'test') return STORAGE_FALLBACK;
+    if (import.meta.env.MODE === 'test') return STORAGE_FALLBACK;
     if (typeof window !== 'undefined' && window.localStorage) return window.localStorage;
     return STORAGE_FALLBACK;
 });
@@ -236,14 +236,15 @@ export const useAlertStore = create<AlertState>()(
             },
             checkMarketConditions: (marketData: MarketConditionPayload) => {
                 if (!marketData.symbol || !marketData.price) return;
-                get().checkAlerts(marketData.symbol, marketData.price, {
-                    rsi: marketData.rsi,
-                    macd: marketData.macd,
-                    volumeRatio: marketData.volumeRatio,
-                    signal: marketData.signal,
-                    ofi: marketData.ofi,
-                    liquidation: marketData.liquidation,
-                });
+                const conditions: Omit<MarketConditionPayload, 'symbol' | 'price'> = {
+                    ...(marketData.rsi !== undefined ? { rsi: marketData.rsi } : {}),
+                    ...(marketData.macd !== undefined ? { macd: marketData.macd } : {}),
+                    ...(marketData.volumeRatio !== undefined ? { volumeRatio: marketData.volumeRatio } : {}),
+                    ...(marketData.signal !== undefined ? { signal: marketData.signal } : {}),
+                    ...(marketData.ofi !== undefined ? { ofi: marketData.ofi } : {}),
+                    ...(marketData.liquidation !== undefined ? { liquidation: marketData.liquidation } : {}),
+                };
+                get().checkAlerts(marketData.symbol, marketData.price, conditions);
             },
         }),
         {

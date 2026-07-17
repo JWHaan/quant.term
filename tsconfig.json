@@ -8,6 +8,10 @@
             "DOM.Iterable"
         ],
         "jsx": "react-jsx",
+        "types": [
+            "vite/client",
+            "node"
+        ],
         // Modules
         "module": "ESNext",
         "moduleResolution": "bundler",
@@ -77,7 +81,14 @@
     "exclude": [
         "node_modules",
         "dist",
-        "src/services/**/*",
+        "src/services/mlService.ts",
+        "src/services/dataQualityMonitor.ts",
+        "src/services/deribitService.ts",
+        "src/services/multiAssetWebSocket.ts",
+        "src/services/risk/**/*",
+        "src/services/sentimentService.ts",
+        "src/services/statarb/**/*",
+        "src/services/timeseries/**/*",
         "src/features/charts/CorrelationHeatmap.tsx",
         "src/features/charts/OrderFlowSankey.tsx",
         "src/features/charts/VolatilitySurface3D.tsx",

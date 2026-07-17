@@ -172,6 +172,7 @@ function computeAlphaFactors(data: CandlePoint[]): Omit<AlphaState, 'loaded'> {
 
 const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interval = '15m' }) => {
     const [state, setState] = useState<AlphaState>(INITIAL_STATE);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -179,13 +180,19 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
         const fetchData = async () => {
             try {
                 const res = await fetch(`${BINANCE_REST_URL}/api/v3/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=500`);
-                const raw = await res.json() as [number, string, string, string, string, string][];
-                if (!Array.isArray(raw) || raw.length < 200) return;
+                if (!res.ok) throw new Error(`Binance returned ${res.status}`);
+                const payload: unknown = await res.json();
+                if (!Array.isArray(payload) || payload.length < 200) throw new Error('Insufficient kline history');
+                const raw = payload as [number, string, string, string, string, string][];
 
                 const result = computeAlphaFactors(raw.map(parseKlineRow));
-                if (!cancelled) setState({ ...result, loaded: true });
-            } catch (error) {
-                console.error('[AlphaPanel] Failed to fetch data:', error);
+                if (!cancelled) {
+                    setState({ ...result, loaded: true });
+                    setError(null);
+                }
+            } catch (caught) {
+                console.error('[AlphaPanel] Failed to fetch data:', caught);
+                if (!cancelled) setError(caught instanceof Error ? caught.message : 'Factor data unavailable');
             }
         };
 
@@ -200,8 +207,7 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
     if (!state.loaded) {
         return (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
-                <Activity size={16} className="spin" style={{ marginRight: '8px' }} />
-                [CALCULATING_ALPHA_FACTORS]...
+                {error ? `[FACTOR_FEED_UNAVAILABLE] · ${error} · RETRYING` : <><Activity size={16} className="spin" style={{ marginRight: '8px' }} />[CALCULATING_ALPHA_FACTORS]…</>}
             </div>
         );
     }

@@ -1,11 +1,11 @@
 {
-  "name": "quant.term — Professional Cryptocurrency Trading Terminal",
+  "name": "quant.term — Live Crypto Market Intelligence",
   "short_name": "quant.term",
-  "description": "A Bloomberg Terminal-inspired crypto trading interface with real-time data, advanced technical analysis, and institutional-grade quantitative features.",
+  "description": "A Bloomberg-inspired read-only crypto dashboard with live market data, derivatives intelligence, alerts, and paper trading.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#07090c",
+  "theme_color": "#07090c",
   "orientation": "landscape",
   "categories": ["finance", "productivity", "utilities"],
   "icons": [

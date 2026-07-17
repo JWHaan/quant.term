@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 interface Tab {
     id: string;
@@ -10,71 +10,108 @@ interface Tab {
 interface TabPanelProps {
     tabs: Tab[];
     defaultTab?: string;
+    ariaLabel?: string;
 }
 
-const TabPanel: React.FC<TabPanelProps> = ({ tabs, defaultTab }) => {
-    const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id || '');
+const TabPanel: React.FC<TabPanelProps> = ({
+    tabs,
+    defaultTab,
+    ariaLabel = 'Panel views'
+}) => {
+    const baseId = React.useId();
+    const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+    const fallbackTab = tabs.some(tab => tab.id === defaultTab)
+        ? defaultTab ?? ''
+        : tabs[0]?.id ?? '';
+    const [activeTabId, setActiveTabId] = useState(fallbackTab);
+    const resolvedActiveTab = tabs.some(tab => tab.id === activeTabId)
+        ? activeTabId
+        : fallbackTab;
+    const activeTab = tabs.find((tab) => tab.id === resolvedActiveTab);
+
+    const activateTab = (index: number) => {
+        const tab = tabs[index];
+        if (!tab) return;
+        setActiveTabId(tab.id);
+        tabRefs.current[index]?.focus();
+    };
+
+    const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+        if (tabs.length === 0) return;
+
+        let nextIndex: number | null = null;
+        switch (event.key) {
+            case 'ArrowRight':
+                nextIndex = (index + 1) % tabs.length;
+                break;
+            case 'ArrowLeft':
+                nextIndex = (index - 1 + tabs.length) % tabs.length;
+                break;
+            case 'Home':
+                nextIndex = 0;
+                break;
+            case 'End':
+                nextIndex = tabs.length - 1;
+                break;
+            default:
+                return;
+        }
+
+        event.preventDefault();
+        activateTab(nextIndex);
+    };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Tab Headers */}
-            <div style={{
-                display: 'flex',
-                borderBottom: '1px solid var(--border-color)',
-                background: 'var(--bg-panel)',
-                paddingTop: '4px'
-            }}>
-                {tabs.map((tab) => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        style={{
-                            padding: '4px 12px',
-                            background: activeTab === tab.id ? 'var(--accent-primary)' : 'transparent',
-                            border: '1px solid transparent',
-                            borderBottom: 'none',
-                            color: activeTab === tab.id ? '#000' : 'var(--text-secondary)',
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            textTransform: 'uppercase',
-                            cursor: 'pointer',
-                            fontFamily: 'var(--font-mono)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            marginRight: '2px',
-                            position: 'relative',
-                            top: '1px' // Overlap border
-                        }}
-                    >
-                        {activeTab === tab.id && <span style={{ marginRight: '4px' }}>&gt;</span>}
-                        {tab.icon}
-                        {tab.label}
-                        {activeTab === tab.id && <span style={{ marginLeft: '4px' }}>_</span>}
-                    </button>
-                ))}
-                <div style={{ flex: 1, borderBottom: '1px solid var(--border-color)' }}></div>
+        <div className="tab-panel">
+            <div
+                className="tab-panel__list"
+                role="tablist"
+                aria-label={ariaLabel}
+                aria-orientation="horizontal"
+            >
+                {tabs.map((tab, index) => {
+                    const isActive = resolvedActiveTab === tab.id;
+                    const tabId = `${baseId}-tab-${tab.id}`;
+                    const panelId = `${baseId}-panel-${tab.id}`;
+
+                    return (
+                        <button
+                            key={tab.id}
+                            ref={(node) => { tabRefs.current[index] = node; }}
+                            id={tabId}
+                            type="button"
+                            className="tab-panel__tab"
+                            role="tab"
+                            aria-selected={isActive}
+                            aria-controls={panelId}
+                            tabIndex={isActive ? 0 : -1}
+                            onClick={() => setActiveTabId(tab.id)}
+                            onKeyDown={(event) => handleTabKeyDown(event, index)}
+                        >
+                            {tab.icon && (
+                                <span className="tab-panel__icon" aria-hidden="true">
+                                    {tab.icon}
+                                </span>
+                            )}
+                            <span>{tab.label}</span>
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Tab Content - Keep all tabs mounted to prevent remounting */}
-            <div style={{
-                flex: 1,
-                overflow: 'hidden',
-                position: 'relative',
-                borderTop: 'none' // Handled by headers
-            }}>
-                {tabs.map(tab => (
+            <div className="tab-panel__content">
+                {activeTab && (
                     <div
-                        key={tab.id}
-                        style={{
-                            display: activeTab === tab.id ? 'block' : 'none',
-                            height: '100%',
-                            overflow: 'hidden'
-                        }}
+                        key={activeTab.id}
+                        id={`${baseId}-panel-${activeTab.id}`}
+                        className="tab-panel__panel"
+                        role="tabpanel"
+                        aria-labelledby={`${baseId}-tab-${activeTab.id}`}
+                        tabIndex={0}
                     >
-                        {tab.content}
+                        {activeTab.content}
                     </div>
-                ))}
+                )}
             </div>
         </div>
     );

@@ -31,8 +31,7 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                     isBuyerMaker: data.m
                 };
 
-                // Classify trade using tick rule
-                classifierRef.current.classifyByTickRule(trade);
+                classifierRef.current.classifyFromExchange(trade);
 
                 // Update price history for divergence detection
                 priceHistoryRef.current.push({ timestamp: trade.timestamp, price: trade.price });
@@ -61,7 +60,7 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
         };
 
         return () => {
-            if (ws.readyState === WebSocket.OPEN) {
+            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
                 ws.close();
             }
         };
@@ -216,7 +215,7 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                 color: 'var(--text-muted)',
                 textAlign: 'center'
             }}>
-                1-MIN_WINDOW • TICK_RULE_CLASSIFICATION
+                1-MIN WINDOW · BINANCE TAKER-SIDE CLASSIFICATION
             </div>
         </div>
     );

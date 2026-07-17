@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-
-// HTTP endpoint for market data
-const BINANCE_REST_URL = 'https://api.binance.com';
-const BINANCE_WS_URL = 'wss://stream.binance.com:9443/ws';
+import { useEffect, useRef, useState } from 'react';
+import { BINANCE_WS_URL } from '@/constants/config';
+import {
+    recordLiveMarketEvent,
+    releaseLiveConnection,
+    reportLiveConnection,
+} from '@/services/liveMarketData';
+import { provenanceRegistry } from '@/services/provenanceEngine';
+import { useMarketStore } from '@/stores/marketStore';
 
 export interface Candle {
     time: number;
@@ -25,7 +29,7 @@ export interface Trade {
 export interface OrderBookLevel {
     price: number;
     size: number;
-    total?: number; // Cumulative size
+    total?: number;
 }
 
 export interface OrderBook {
@@ -33,7 +37,7 @@ export interface OrderBook {
     asks: OrderBookLevel[];
     lastUpdateId: number;
     timestamp: number;
-    isStale: boolean; // Data older than 2 seconds
+    isStale: boolean;
 }
 
 interface UseBinanceWebSocketReturn {
@@ -41,255 +45,316 @@ interface UseBinanceWebSocketReturn {
     candle: Candle | null;
     orderBook: OrderBook | null;
     isConnected: boolean;
-    lastUpdate: number; // Timestamp of last successful update
+    lastUpdate: number;
     reconnectCount: number;
 }
 
-// Aggregate order book levels by tick size to reduce noise
-const aggregateOrderBook = (levels: [string, string][], tickSize: number = 0.01): OrderBookLevel[] => {
-    const aggregated = new Map<number, number>();
+interface KeyedValue<T> {
+    key: string;
+    value: T;
+}
 
-    levels.forEach(([price, size]) => {
-        const p = parseFloat(price);
-        const s = parseFloat(size);
+type JsonRecord = Record<string, unknown>;
 
-        // Round to tick size
-        const roundedPrice = Math.round(p / tickSize) * tickSize;
+const MAX_RECONNECT_DELAY_MS = 30_000;
+const STALE_BOOK_AFTER_MS = 2_000;
+const STALE_SOCKET_AFTER_MS = 15_000;
 
-        aggregated.set(roundedPrice, (aggregated.get(roundedPrice) || 0) + s);
-    });
-
-    // Convert to array and calculate cumulative totals
-    const result: OrderBookLevel[] = [];
-    let cumulative = 0;
-
-    Array.from(aggregated.entries())
-        .sort((a, b) => b[0] - a[0]) // Sort descending for bids, will reverse for asks
-        .forEach(([price, size]) => {
-            cumulative += size;
-            result.push({ price, size, total: cumulative });
-        });
-
-    return result;
+const asRecord = (value: unknown): JsonRecord | null => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return value as JsonRecord;
 };
 
-// Filter outliers (potential spoofing)
-const filterOutliers = (levels: OrderBookLevel[], threshold: number = 10): OrderBookLevel[] => {
-    if (levels.length === 0) return levels;
+const asFiniteNumber = (value: unknown): number | null => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+};
 
-    const avgSize = levels.reduce((sum, l) => sum + l.size, 0) / levels.length;
-    const maxSize = avgSize * threshold;
+const parsePriceLevels = (value: unknown, side: 'bid' | 'ask'): OrderBookLevel[] => {
+    if (!Array.isArray(value)) return [];
 
-    return levels.filter(l => l.size <= maxSize);
+    const levels: Array<{ price: number; size: number }> = [];
+    value.forEach((row) => {
+        if (!Array.isArray(row) || row.length < 2) return;
+        const price = asFiniteNumber(row[0]);
+        const size = asFiniteNumber(row[1]);
+        if (price === null || size === null || price <= 0 || size <= 0) return;
+        levels.push({ price, size });
+    });
+
+    levels.sort((a, b) => side === 'bid' ? b.price - a.price : a.price - b.price);
+
+    let cumulative = 0;
+    return levels.slice(0, 20).map((level) => {
+        cumulative += level.size;
+        return { ...level, total: cumulative };
+    });
+};
+
+const extractPayload = (raw: unknown): { stream: string | null; data: JsonRecord | null } => {
+    const envelope = asRecord(raw);
+    if (!envelope) return { stream: null, data: null };
+
+    // Combined streams wrap payloads in { stream, data }. Accepting a raw
+    // object as well keeps the parser resilient to server-side subscriptions.
+    const wrappedData = asRecord(envelope['data']);
+    return {
+        stream: typeof envelope['stream'] === 'string' ? envelope['stream'] : null,
+        data: wrappedData ?? envelope,
+    };
 };
 
 export const useBinanceWebSocket = (
     symbol: string = 'btcusdt',
-    interval: string = '1m'
+    interval: string = '1m',
 ): UseBinanceWebSocketReturn => {
-    const [trades, setTrades] = useState<Trade[]>([]);
-    const [candle, setCandle] = useState<Candle | null>(null);
-    const [orderBook, setOrderBook] = useState<OrderBook | null>(null);
-    const [isConnected, setIsConnected] = useState<boolean>(false);
-    const [lastUpdate, setLastUpdate] = useState<number>(() => Date.now());
-    const [reconnectCount, setReconnectCount] = useState<number>(0);
+    const normalizedSymbol = symbol.toUpperCase();
+    const streamSymbol = normalizedSymbol.toLowerCase();
+    const feedKey = `${normalizedSymbol}:${interval}`;
+
+    const [tradesState, setTradesState] = useState<KeyedValue<Trade[]>>({ key: '', value: [] });
+    const [candleState, setCandleState] = useState<KeyedValue<Candle | null>>({ key: '', value: null });
+    const [orderBookState, setOrderBookState] = useState<KeyedValue<OrderBook | null>>({ key: '', value: null });
+    const [connectionState, setConnectionState] = useState<KeyedValue<boolean>>({ key: '', value: false });
+    const [lastUpdateState, setLastUpdateState] = useState<KeyedValue<number>>({ key: '', value: 0 });
+    const [reconnectState, setReconnectState] = useState<KeyedValue<number>>({ key: '', value: 0 });
 
     const wsRef = useRef<WebSocket | null>(null);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const pollRef = useRef<NodeJS.Timeout | null>(null);
-    const reconcileRef = useRef<NodeJS.Timeout | null>(null);
-    const orderBookBufferRef = useRef<any[]>([]);
-    const lastUpdateIdRef = useRef<number>(0);
-
-    // Fetch full order book snapshot for reconciliation
-    const fetchOrderBookSnapshot = useCallback(async (sym: string) => {
-        try {
-            const res = await fetch(
-                `${BINANCE_REST_URL}/api/v3/depth?symbol=${sym.toUpperCase()}&limit=100`
-            );
-            const data = await res.json();
-
-            if (data.lastUpdateId) {
-                const bids = aggregateOrderBook(data.bids);
-                const asks = aggregateOrderBook(data.asks);
-
-                // Filter outliers
-                const filteredBids = filterOutliers(bids);
-                const filteredAsks = filterOutliers(asks);
-
-                setOrderBook({
-                    bids: filteredBids.slice(0, 20), // Top 20 levels
-                    asks: filteredAsks.slice(0, 20),
-                    lastUpdateId: data.lastUpdateId,
-                    timestamp: Date.now(),
-                    isStale: false
-                });
-
-                lastUpdateIdRef.current = data.lastUpdateId;
-                setLastUpdate(Date.now());
-            }
-        } catch (e) {
-            console.error('Failed to fetch order book snapshot:', e);
-        }
-    }, []);
-
-    // Process buffered order book updates
-    const processOrderBookBuffer = useCallback(() => {
-        if (orderBookBufferRef.current.length === 0) return;
-
-        const updates = orderBookBufferRef.current;
-        orderBookBufferRef.current = [];
-
-        // Apply updates (simplified - in production, merge with existing book)
-        const latestUpdate = updates[updates.length - 1];
-
-        if (latestUpdate && latestUpdate.u > lastUpdateIdRef.current) {
-            const bids = aggregateOrderBook(latestUpdate.b || []);
-            const asks = aggregateOrderBook(latestUpdate.a || []);
-
-            const filteredBids = filterOutliers(bids);
-            const filteredAsks = filterOutliers(asks);
-
-            setOrderBook(prev => ({
-                bids: filteredBids.slice(0, 20),
-                asks: filteredAsks.slice(0, 20),
-                lastUpdateId: latestUpdate.u,
-                timestamp: Date.now(),
-                isStale: prev ? (Date.now() - prev.timestamp > 2000) : false
-            }));
-
-            lastUpdateIdRef.current = latestUpdate.u;
-            setLastUpdate(Date.now());
-        }
-    }, []);
+    const ownerRef = useRef<object>({});
+    const lastStoredTradeAtRef = useRef(0);
 
     useEffect(() => {
-        const sym = symbol.toLowerCase();
+        let disposed = false;
+        let reconnectAttempts = 0;
+        let hasOpened = false;
+        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+        let lastMessageAt = 0;
+        const owner = ownerRef.current;
 
-        // Establish WebSocket connection
-        const connectWebSocket = () => {
-            try {
-                const ws = new WebSocket(
-                    `${BINANCE_WS_URL}/${sym}@kline_${interval}/${sym}@trade/${sym}@depth@100ms`
-                );
-
-                ws.onopen = () => {
-                    console.log('WebSocket connected');
-                    setIsConnected(true);
-                    setReconnectCount(prev => prev + 1);
-
-                    // Fetch initial snapshot
-                    fetchOrderBookSnapshot(sym);
-                };
-
-                ws.onmessage = (event) => {
-                    try {
-                        const data = JSON.parse(event.data);
-
-                        // Handle kline updates
-                        if (data.e === 'kline') {
-                            const k = data.k;
-                            setCandle({
-                                time: k.t / 1000,
-                                open: parseFloat(k.o),
-                                high: parseFloat(k.h),
-                                low: parseFloat(k.l),
-                                close: parseFloat(k.c),
-                                volume: parseFloat(k.v),
-                            });
-                            setLastUpdate(Date.now());
-                        }
-
-                        // Handle trade updates
-                        if (data.e === 'trade') {
-                            const newTrade: Trade = {
-                                id: data.t,
-                                time: new Date(data.T).toLocaleTimeString(),
-                                price: parseFloat(data.p),
-                                size: parseFloat(data.q),
-                                side: data.m ? 'SELL' : 'BUY',
-                                symbol: data.s,
-                            };
-
-                            setTrades(prev => [newTrade, ...prev].slice(0, 50));
-                            setLastUpdate(Date.now());
-                        }
-
-                        // Handle order book depth updates
-                        if (data.e === 'depthUpdate') {
-                            orderBookBufferRef.current.push(data);
-                        }
-                    } catch (e) {
-                        console.error('Failed to parse WebSocket message:', e);
-                    }
-                };
-
-                ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    setIsConnected(false);
-                };
-
-                ws.onclose = () => {
-                    console.log('WebSocket closed, reconnecting...');
-                    setIsConnected(false);
-
-                    // Mark data as stale
-                    setOrderBook(prev => prev ? { ...prev, isStale: true } : null);
-
-                    // Attempt reconnection after 3 seconds
-                    if (reconnectTimeoutRef.current) {
-                        clearTimeout(reconnectTimeoutRef.current);
-                    }
-                    reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
-                };
-
-                wsRef.current = ws;
-            } catch (e) {
-                console.error('Failed to connect WebSocket:', e);
-                setIsConnected(false);
-            }
+        const sources = ['binance', 'depth', 'trades'] as const;
+        const reportAll = (status: 'connecting' | 'connected' | 'error' | 'reconnecting') => {
+            sources.forEach((source) => reportLiveConnection(source, owner, status));
         };
 
-        // Start WebSocket connection
-        connectWebSocket();
+        const scheduleReconnect = (connect: () => void) => {
+            if (disposed || reconnectTimer) return;
+            const delay = Math.min(MAX_RECONNECT_DELAY_MS, 1_000 * (2 ** reconnectAttempts));
+            reconnectAttempts += 1;
+            reportAll('reconnecting');
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                connect();
+            }, delay);
+        };
 
-        // Periodic snapshot reconciliation (every 10 seconds)
-        reconcileRef.current = setInterval(() => {
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                fetchOrderBookSnapshot(sym);
+        const connect = () => {
+            if (disposed) return;
+
+            reportAll(reconnectAttempts > 0 ? 'reconnecting' : 'connecting');
+            const streams = [
+                `${streamSymbol}@kline_${interval}`,
+                `${streamSymbol}@trade`,
+                `${streamSymbol}@depth20@100ms`,
+            ].join('/');
+            const ws = new WebSocket(`${BINANCE_WS_URL}/stream?streams=${streams}`);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                if (disposed || wsRef.current !== ws) return;
+                lastMessageAt = Date.now();
+                reconnectAttempts = 0;
+                setConnectionState({ key: feedKey, value: true });
+                reportAll('connected');
+
+                if (hasOpened) {
+                    setReconnectState((previous) => ({
+                        key: feedKey,
+                        value: previous.key === feedKey ? previous.value + 1 : 1,
+                    }));
+                } else {
+                    hasOpened = true;
+                    setReconnectState({ key: feedKey, value: 0 });
+                }
+            };
+
+            ws.onmessage = (event: MessageEvent<string>) => {
+                if (disposed || wsRef.current !== ws) return;
+
+                try {
+                    const parsed: unknown = JSON.parse(event.data);
+                    const { stream, data } = extractPayload(parsed);
+                    if (!data) return;
+
+                    const receivedAt = Date.now();
+                    lastMessageAt = receivedAt;
+                    setLastUpdateState({ key: feedKey, value: receivedAt });
+
+                    const eventTimestamp =
+                        asFiniteNumber(data['E']) ??
+                        asFiniteNumber(data['T']) ??
+                        undefined;
+                    recordLiveMarketEvent('binance', eventTimestamp, normalizedSymbol);
+
+                    if (data['e'] === 'kline' || stream?.includes('@kline_')) {
+                        const kline = asRecord(data['k']);
+                        if (!kline) return;
+                        const time = asFiniteNumber(kline['t']);
+                        const open = asFiniteNumber(kline['o']);
+                        const high = asFiniteNumber(kline['h']);
+                        const low = asFiniteNumber(kline['l']);
+                        const close = asFiniteNumber(kline['c']);
+                        const volume = asFiniteNumber(kline['v']);
+                        if ([time, open, high, low, close, volume].some((value) => value === null)) return;
+
+                        const nextCandle: Candle = {
+                            time: time! / 1000,
+                            open: open!,
+                            high: high!,
+                            low: low!,
+                            close: close!,
+                            volume: volume!,
+                        };
+                        setCandleState({ key: feedKey, value: nextCandle });
+                        provenanceRegistry
+                            .getEngine(normalizedSymbol)
+                            .augment(nextCandle, eventTimestamp ?? receivedAt);
+
+                        if (kline['x'] === true) {
+                            useMarketStore.getState().addCandle(normalizedSymbol, nextCandle);
+                        }
+                        return;
+                    }
+
+                    if (data['e'] === 'trade' || stream?.endsWith('@trade')) {
+                        const id = asFiniteNumber(data['t']);
+                        const tradeTime = asFiniteNumber(data['T']);
+                        const price = asFiniteNumber(data['p']);
+                        const size = asFiniteNumber(data['q']);
+                        const tradeSymbol = typeof data['s'] === 'string' ? data['s'] : normalizedSymbol;
+                        if (id === null || tradeTime === null || price === null || size === null) return;
+
+                        const nextTrade: Trade = {
+                            id,
+                            time: new Date(tradeTime).toLocaleTimeString(),
+                            price,
+                            size,
+                            side: data['m'] === true ? 'SELL' : 'BUY',
+                            symbol: tradeSymbol,
+                        };
+                        setTradesState((previous) => ({
+                            key: feedKey,
+                            value: previous.key === feedKey
+                                ? [nextTrade, ...previous.value].slice(0, 50)
+                                : [nextTrade],
+                        }));
+
+                        // Keep the legacy global cache useful without copying its
+                        // 10k-item buffer for every high-frequency trade message.
+                        if (receivedAt - lastStoredTradeAtRef.current >= 250) {
+                            lastStoredTradeAtRef.current = receivedAt;
+                            useMarketStore.getState().addTrade(normalizedSymbol, nextTrade);
+                        }
+                        return;
+                    }
+
+                    const isPartialDepth =
+                        stream?.includes('@depth20') ||
+                        (Array.isArray(data['bids']) && Array.isArray(data['asks']));
+                    if (isPartialDepth) {
+                        const bids = parsePriceLevels(data['bids'], 'bid');
+                        const asks = parsePriceLevels(data['asks'], 'ask');
+                        if (bids.length === 0 || asks.length === 0) return;
+
+                        setOrderBookState({
+                            key: feedKey,
+                            value: {
+                                bids,
+                                asks,
+                                lastUpdateId: asFiniteNumber(data['lastUpdateId']) ?? 0,
+                                timestamp: receivedAt,
+                                isStale: false,
+                            },
+                        });
+                    }
+                } catch (error) {
+                    console.error('[Binance] Failed to parse market message:', error);
+                }
+            };
+
+            ws.onerror = () => {
+                if (disposed || wsRef.current !== ws) return;
+                setConnectionState({ key: feedKey, value: false });
+                reportAll('error');
+                ws.close();
+            };
+
+            ws.onclose = () => {
+                if (disposed || wsRef.current !== ws) return;
+                setConnectionState({ key: feedKey, value: false });
+                setOrderBookState((previous) => (
+                    previous.key === feedKey && previous.value
+                        ? { key: feedKey, value: { ...previous.value, isStale: true } }
+                        : previous
+                ));
+                provenanceRegistry.getEngine(normalizedSymbol).markDisconnected();
+                scheduleReconnect(connect);
+            };
+        };
+
+        connect();
+
+        const watchdog = setInterval(() => {
+            if (disposed) return;
+            const now = Date.now();
+            setOrderBookState((previous) => {
+                if (
+                    previous.key !== feedKey ||
+                    !previous.value ||
+                    previous.value.isStale ||
+                    now - previous.value.timestamp <= STALE_BOOK_AFTER_MS
+                ) {
+                    return previous;
+                }
+                return { key: feedKey, value: { ...previous.value, isStale: true } };
+            });
+
+            const ws = wsRef.current;
+            if (
+                ws?.readyState === WebSocket.OPEN &&
+                lastMessageAt > 0 &&
+                now - lastMessageAt > STALE_SOCKET_AFTER_MS
+            ) {
+                ws.close();
             }
-        }, 10000);
+        }, 1_000);
 
-        // Batch process order book updates (every 100ms)
-        pollRef.current = setInterval(processOrderBookBuffer, 100);
-
-        // Cleanup
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-                wsRef.current = null;
+            disposed = true;
+            clearInterval(watchdog);
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+
+            const ws = wsRef.current;
+            if (ws) {
+                ws.onopen = null;
+                ws.onmessage = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                }
             }
-            if (reconnectTimeoutRef.current) {
-                clearTimeout(reconnectTimeoutRef.current);
-                reconnectTimeoutRef.current = null;
-            }
-            if (pollRef.current) {
-                clearInterval(pollRef.current);
-                pollRef.current = null;
-            }
-            if (reconcileRef.current) {
-                clearInterval(reconcileRef.current);
-                reconcileRef.current = null;
-            }
+            if (wsRef.current === ws) wsRef.current = null;
+            provenanceRegistry.getEngine(normalizedSymbol).markDisconnected();
+            sources.forEach((source) => releaseLiveConnection(source, owner));
         };
-    }, [symbol, interval, fetchOrderBookSnapshot, processOrderBookBuffer]);
+    }, [feedKey, interval, normalizedSymbol, streamSymbol]);
 
     return {
-        trades,
-        candle,
-        orderBook,
-        isConnected,
-        lastUpdate,
-        reconnectCount
+        trades: tradesState.key === feedKey ? tradesState.value : [],
+        candle: candleState.key === feedKey ? candleState.value : null,
+        orderBook: orderBookState.key === feedKey ? orderBookState.value : null,
+        isConnected: connectionState.key === feedKey && connectionState.value,
+        lastUpdate: lastUpdateState.key === feedKey ? lastUpdateState.value : 0,
+        reconnectCount: reconnectState.key === feedKey ? reconnectState.value : 0,
     };
 };
