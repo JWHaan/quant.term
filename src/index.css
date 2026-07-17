@@ -1190,13 +1190,15 @@ code,
   content: '';
 }
 
-[data-panel-group-direction='vertical'] .resize-handle {
+/* Match the handle itself. An ancestor selector also matches the outer
+   horizontal group and collapses nested vertical panels to zero height. */
+.resize-handle[data-panel-group-direction='vertical'] {
   width: 100%;
   height: 3px;
   cursor: row-resize;
 }
 
-[data-panel-group-direction='horizontal'] .resize-handle {
+.resize-handle[data-panel-group-direction='horizontal'] {
   width: 3px;
   height: 100%;
   cursor: col-resize;
