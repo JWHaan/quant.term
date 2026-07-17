@@ -11,7 +11,17 @@ interface Env {
  * this fallback preserves the same SPA behavior for requests reaching Worker.
  */
 export default {
-  fetch(request: Request, env: Env): Promise<Response> {
-    return env.ASSETS.fetch(request)
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const response = await env.ASSETS.fetch(request)
+    const acceptsHtml = request.headers.get('accept')?.includes('text/html') ?? false
+    const isNavigation = request.headers.get('sec-fetch-mode') === 'navigate'
+
+    if (request.method === 'GET' && response.status === 404 && (acceptsHtml || isNavigation)) {
+      const indexUrl = new URL(request.url)
+      indexUrl.pathname = '/index.html'
+      return env.ASSETS.fetch(new Request(indexUrl, request))
+    }
+
+    return response
   },
 }
