@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
 [![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)](https://github.com/JWHaan/quant.term/actions)
 
-**[Live Demo →](https://quant-term.vercel.app)**
+**[Live Site →](https://quant-term-market-intel.crafty-pig-9131.chatgpt.site)** *(private; sign-in required)*
 
 </div>
 
