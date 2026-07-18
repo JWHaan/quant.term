@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import vercelNews from '../../api/vercel-news';
 import sitesWorker from '../../worker/index';
 import vercelConfig from '../../vercel.json';
@@ -42,6 +43,12 @@ describe('deployment adapters', () => {
             { source: '/api/news', destination: '/api/vercel-news' },
             { source: '/(.*)', destination: '/index.html' },
         ]);
+    });
+
+    it('uses a runtime-resolvable ESM import in the Vercel Function', () => {
+        const adapterSource = readFileSync('api/vercel-news.ts', 'utf8');
+
+        expect(adapterSource).toContain("from '../worker/news.js'");
     });
 
     it('falls back to the SPA shell for Sites navigation requests', async () => {
