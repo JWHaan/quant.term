@@ -175,32 +175,51 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        let cancelled = false;
+        let disposed = false;
+        let activeController: AbortController | null = null;
 
         const fetchData = async () => {
+            activeController?.abort();
+            const controller = new AbortController();
+            activeController = controller;
+            let timedOut = false;
+            const timeout = window.setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, 8_000);
+
             try {
-                const res = await fetch(`${BINANCE_REST_URL}/api/v3/klines?symbol=${symbol.toUpperCase()}&interval=${interval}&limit=500`);
+                const res = await fetch(
+                    `${BINANCE_REST_URL}/api/v3/klines?symbol=${encodeURIComponent(symbol.toUpperCase())}&interval=${encodeURIComponent(interval)}&limit=500`,
+                    { signal: controller.signal },
+                );
                 if (!res.ok) throw new Error(`Binance returned ${res.status}`);
                 const payload: unknown = await res.json();
                 if (!Array.isArray(payload) || payload.length < 200) throw new Error('Insufficient kline history');
                 const raw = payload as [number, string, string, string, string, string][];
 
                 const result = computeAlphaFactors(raw.map(parseKlineRow));
-                if (!cancelled) {
+                if (!disposed && !controller.signal.aborted && activeController === controller) {
                     setState({ ...result, loaded: true });
                     setError(null);
                 }
             } catch (caught) {
+                if (disposed || (controller.signal.aborted && !timedOut) || activeController !== controller) return;
                 console.error('[AlphaPanel] Failed to fetch data:', caught);
-                if (!cancelled) setError(caught instanceof Error ? caught.message : 'Factor data unavailable');
+                setError(timedOut ? 'Factor request timed out' : caught instanceof Error ? caught.message : 'Factor data unavailable');
+            } finally {
+                window.clearTimeout(timeout);
             }
         };
 
+        setState(INITIAL_STATE);
+        setError(null);
         fetchData();
         const id = setInterval(fetchData, MARKET_POLL_INTERVAL_MS);
         return () => {
-            cancelled = true;
+            disposed = true;
             clearInterval(id);
+            activeController?.abort();
         };
     }, [symbol, interval]);
 
@@ -221,6 +240,11 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
 
     return (
         <div style={{ padding: '12px', height: '100%', overflowY: 'auto', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
+            {error && (
+                <div className="freshness-line" style={{ color: 'var(--accent-warning)', marginBottom: '8px' }}>
+                    DEGRADED · Latest factors retained · {error}
+                </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                 <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-color)' }}>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>MARKET_REGIME</div>

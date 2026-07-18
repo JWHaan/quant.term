@@ -1,3 +1,4 @@
+import { BINANCE_FUTURES_WS_URL } from '@/constants/config';
 import { useConnectionStore } from '@/stores/connectionStore';
 
 export interface Liquidation {
@@ -10,23 +11,57 @@ export interface Liquidation {
     isBuy: boolean;
 }
 
-interface BinanceLiquidationMessage {
-    e: 'forceOrder';
-    o: {
-        s: string;
-        S: 'BUY' | 'SELL';
-        p: string;
-        ap: string;
-        q: string;
-        l: string;
-        z: string;
-        T: number;
-    };
-}
-
 export interface LiquidationSubscription {
     close: () => void;
 }
+
+type JsonRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): JsonRecord | null =>
+    value && typeof value === 'object' && !Array.isArray(value)
+        ? value as JsonRecord
+        : null;
+
+const firstPositiveNumber = (...values: unknown[]): number | null => {
+    for (const value of values) {
+        if (value === null || value === undefined || value === '') continue;
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    }
+    return null;
+};
+
+export const parseBinanceLiquidation = (value: unknown): Liquidation | null => {
+    const message = asRecord(value);
+    const order = asRecord(message?.['o']);
+    if (message?.['e'] !== 'forceOrder' || !order) return null;
+
+    const symbol = order['s'];
+    const side = order['S'];
+    const price = firstPositiveNumber(order['ap'], order['p']);
+    const quantity = firstPositiveNumber(order['z'], order['l'], order['q']);
+    const time = Number(order['T']);
+    if (
+        typeof symbol !== 'string' ||
+        (side !== 'BUY' && side !== 'SELL') ||
+        price === null ||
+        quantity === null ||
+        !Number.isFinite(time) ||
+        time <= 0
+    ) {
+        return null;
+    }
+
+    return {
+        symbol: symbol.toUpperCase(),
+        side,
+        price,
+        quantity,
+        value: price * quantity,
+        time,
+        isBuy: side === 'BUY',
+    };
+};
 
 export const subscribeLiquidations = (onLiquidation: (liquidation: Liquidation) => void): LiquidationSubscription => {
     let socket: WebSocket | null = null;
@@ -38,7 +73,7 @@ export const subscribeLiquidations = (onLiquidation: (liquidation: Liquidation) 
     const connect = () => {
         if (!active) return;
         connection.setConnectionStatus('futures', retryCount ? 'reconnecting' : 'connecting');
-        socket = new WebSocket('wss://fstream.binance.com/ws/!forceOrder@arr');
+        socket = new WebSocket(`${BINANCE_FUTURES_WS_URL}/!forceOrder@arr`);
 
         socket.onopen = () => {
             retryCount = 0;
@@ -47,21 +82,8 @@ export const subscribeLiquidations = (onLiquidation: (liquidation: Liquidation) 
 
         socket.onmessage = (event: MessageEvent<string>) => {
             try {
-                const message = JSON.parse(event.data) as BinanceLiquidationMessage;
-                if (message.e !== 'forceOrder' || !message.o) return;
-                const order = message.o;
-                const price = Number(order.ap) || Number(order.p);
-                const quantity = Number(order.z) || Number(order.l) || Number(order.q);
-                if (!Number.isFinite(price) || !Number.isFinite(quantity)) return;
-                onLiquidation({
-                    symbol: order.s,
-                    side: order.S,
-                    price,
-                    quantity,
-                    value: price * quantity,
-                    time: order.T,
-                    isBuy: order.S === 'BUY',
-                });
+                const liquidation = parseBinanceLiquidation(JSON.parse(event.data) as unknown);
+                if (liquidation) onLiquidation(liquidation);
             } catch (error) {
                 console.warn('[Liquidations] Ignored malformed exchange message.', error);
             }

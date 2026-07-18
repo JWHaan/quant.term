@@ -1,5 +1,5 @@
 // Top 40 cryptocurrencies by market cap
-// Updated for 2025 market landscape
+// Current Binance Spot markets used by the live watchlist.
 
 export interface CryptoAsset {
     symbol: string;
@@ -17,7 +17,7 @@ export const TOP_CRYPTOS: CryptoAsset[] = [
     { symbol: 'AVAXUSDT', name: 'Avalanche', category: 'Layer 1' },
     { symbol: 'DOGEUSDT', name: 'Dogecoin', category: 'Meme' },
     { symbol: 'DOTUSDT', name: 'Polkadot', category: 'Layer 0' },
-    { symbol: 'MATICUSDT', name: 'Polygon', category: 'Layer 2' },
+    { symbol: 'POLUSDT', name: 'Polygon', category: 'Layer 2' },
     { symbol: 'LINKUSDT', name: 'Chainlink', category: 'Oracle' },
     { symbol: 'TRXUSDT', name: 'TRON', category: 'Layer 1' },
     { symbol: 'ATOMUSDT', name: 'Cosmos', category: 'Layer 0' },
@@ -35,12 +35,12 @@ export const TOP_CRYPTOS: CryptoAsset[] = [
     { symbol: 'INJUSDT', name: 'Injective', category: 'DeFi' },
     { symbol: 'AAVEUSDT', name: 'Aave', category: 'DeFi' },
     { symbol: 'LDOUSDT', name: 'Lido DAO', category: 'DeFi' },
-    { symbol: 'RNDRUSDT', name: 'Render', category: 'AI/GPU' },
-    { symbol: 'MKRUSDT', name: 'Maker', category: 'DeFi' },
+    { symbol: 'RENDERUSDT', name: 'Render', category: 'AI/GPU' },
+    { symbol: 'SKYUSDT', name: 'Sky', category: 'DeFi' },
     { symbol: 'GRTUSDT', name: 'The Graph', category: 'Indexing' },
     { symbol: 'VETUSDT', name: 'VeChain', category: 'Supply Chain' },
     { symbol: 'ALGOUSDT', name: 'Algorand', category: 'Layer 1' },
-    { symbol: 'FTMUSDT', name: 'Fantom', category: 'Layer 1' },
+    { symbol: 'SUSDT', name: 'Sonic', category: 'Layer 1' },
     { symbol: 'MANAUSDT', name: 'Decentraland', category: 'Metaverse' },
     { symbol: 'SANDUSDT', name: 'The Sandbox', category: 'Metaverse' },
     { symbol: 'AXSUSDT', name: 'Axie Infinity', category: 'Gaming' },
@@ -51,12 +51,12 @@ export const TOP_CRYPTOS: CryptoAsset[] = [
 ];
 
 export const CRYPTO_CATEGORIES: Record<string, string[]> = {
-    'Layer 1': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'TRXUSDT', 'LTCUSDT', 'ETCUSDT', 'APTUSDT', 'NEARUSDT', 'SUIUSDT', 'ICPUSDT', 'ALGOUSDT', 'FTMUSDT', 'EGLDUSDT', 'FLOWUSDT', 'XTZUSDT'],
-    'Layer 2': ['MATICUSDT', 'ARBUSDT', 'OPUSDT'],
+    'Layer 1': ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'TRXUSDT', 'LTCUSDT', 'ETCUSDT', 'APTUSDT', 'NEARUSDT', 'SUIUSDT', 'ICPUSDT', 'ALGOUSDT', 'SUSDT', 'EGLDUSDT', 'FLOWUSDT', 'XTZUSDT'],
+    'Layer 2': ['POLUSDT', 'ARBUSDT', 'OPUSDT'],
     'Layer 0': ['DOTUSDT', 'ATOMUSDT'],
-    'DeFi': ['UNIUSDT', 'AAVEUSDT', 'INJUSDT', 'LDOUSDT', 'MKRUSDT'],
+    'DeFi': ['UNIUSDT', 'AAVEUSDT', 'INJUSDT', 'LDOUSDT', 'SKYUSDT'],
     'Meme': ['DOGEUSDT', 'SHIBUSDT'],
-    'Infrastructure': ['LINKUSDT', 'GRTUSDT', 'FILUSDT', 'RNDRUSDT'],
+    'Infrastructure': ['LINKUSDT', 'GRTUSDT', 'FILUSDT', 'RENDERUSDT'],
     'Gaming/Metaverse': ['MANAUSDT', 'SANDUSDT', 'AXSUSDT', 'THETAUSDT'],
     'Other': ['BNBUSDT', 'XRPUSDT', 'VETUSDT']
 };

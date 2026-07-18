@@ -17,15 +17,6 @@ export interface Candle {
     volume: number;
 }
 
-export interface Trade {
-    id: number;
-    time: string;
-    price: number;
-    size: number;
-    side: 'BUY' | 'SELL';
-    symbol: string;
-}
-
 export interface OrderBookLevel {
     price: number;
     size: number;
@@ -41,7 +32,6 @@ export interface OrderBook {
 }
 
 interface UseBinanceWebSocketReturn {
-    trades: Trade[];
     candle: Candle | null;
     orderBook: OrderBook | null;
     isConnected: boolean;
@@ -112,7 +102,6 @@ export const useBinanceWebSocket = (
     const streamSymbol = normalizedSymbol.toLowerCase();
     const feedKey = `${normalizedSymbol}:${interval}`;
 
-    const [tradesState, setTradesState] = useState<KeyedValue<Trade[]>>({ key: '', value: [] });
     const [candleState, setCandleState] = useState<KeyedValue<Candle | null>>({ key: '', value: null });
     const [orderBookState, setOrderBookState] = useState<KeyedValue<OrderBook | null>>({ key: '', value: null });
     const [connectionState, setConnectionState] = useState<KeyedValue<boolean>>({ key: '', value: false });
@@ -121,7 +110,6 @@ export const useBinanceWebSocket = (
 
     const wsRef = useRef<WebSocket | null>(null);
     const ownerRef = useRef<object>({});
-    const lastStoredTradeAtRef = useRef(0);
 
     useEffect(() => {
         let disposed = false;
@@ -131,7 +119,7 @@ export const useBinanceWebSocket = (
         let lastMessageAt = 0;
         const owner = ownerRef.current;
 
-        const sources = ['binance', 'depth', 'trades'] as const;
+        const sources = ['binance', 'depth'] as const;
         const reportAll = (status: 'connecting' | 'connected' | 'error' | 'reconnecting') => {
             sources.forEach((source) => reportLiveConnection(source, owner, status));
         };
@@ -153,7 +141,6 @@ export const useBinanceWebSocket = (
             reportAll(reconnectAttempts > 0 ? 'reconnecting' : 'connecting');
             const streams = [
                 `${streamSymbol}@kline_${interval}`,
-                `${streamSymbol}@trade`,
                 `${streamSymbol}@depth20@100ms`,
             ].join('/');
             const ws = new WebSocket(`${BINANCE_WS_URL}/stream?streams=${streams}`);
@@ -221,38 +208,6 @@ export const useBinanceWebSocket = (
 
                         if (kline['x'] === true) {
                             useMarketStore.getState().addCandle(normalizedSymbol, nextCandle);
-                        }
-                        return;
-                    }
-
-                    if (data['e'] === 'trade' || stream?.endsWith('@trade')) {
-                        const id = asFiniteNumber(data['t']);
-                        const tradeTime = asFiniteNumber(data['T']);
-                        const price = asFiniteNumber(data['p']);
-                        const size = asFiniteNumber(data['q']);
-                        const tradeSymbol = typeof data['s'] === 'string' ? data['s'] : normalizedSymbol;
-                        if (id === null || tradeTime === null || price === null || size === null) return;
-
-                        const nextTrade: Trade = {
-                            id,
-                            time: new Date(tradeTime).toLocaleTimeString(),
-                            price,
-                            size,
-                            side: data['m'] === true ? 'SELL' : 'BUY',
-                            symbol: tradeSymbol,
-                        };
-                        setTradesState((previous) => ({
-                            key: feedKey,
-                            value: previous.key === feedKey
-                                ? [nextTrade, ...previous.value].slice(0, 50)
-                                : [nextTrade],
-                        }));
-
-                        // Keep the legacy global cache useful without copying its
-                        // 10k-item buffer for every high-frequency trade message.
-                        if (receivedAt - lastStoredTradeAtRef.current >= 250) {
-                            lastStoredTradeAtRef.current = receivedAt;
-                            useMarketStore.getState().addTrade(normalizedSymbol, nextTrade);
                         }
                         return;
                     }
@@ -350,7 +305,6 @@ export const useBinanceWebSocket = (
     }, [feedKey, interval, normalizedSymbol, streamSymbol]);
 
     return {
-        trades: tradesState.key === feedKey ? tradesState.value : [],
         candle: candleState.key === feedKey ? candleState.value : null,
         orderBook: orderBookState.key === feedKey ? orderBookState.value : null,
         isConnected: connectionState.key === feedKey && connectionState.value,

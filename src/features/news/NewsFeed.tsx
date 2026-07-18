@@ -41,7 +41,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
                     const mappedNews: NewsItem[] = newsData.map(article => ({
                         id: String(article.id),
                         title: article.headline,
-                        source: article.source || 'CryptoCompare',
+                        source: article.source || 'News wire',
                         sentiment: (article.sentiment || 'neutral') as 'bullish' | 'bearish' | 'neutral',
                         timestamp: article.published,
                         url: article.url,
@@ -54,7 +54,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
             } catch (err) {
                 if (!cancelled) {
                     console.error('Error fetching news:', err);
-                    setError('The public news feed is temporarily unavailable.');
+                    setError('The CoinDesk / Cointelegraph news wire is temporarily unavailable.');
                     setNews([]);
                     setLoading(false);
                 }

@@ -4,6 +4,7 @@ import {
     releaseLiveConnection,
     reportLiveConnection,
 } from '@/services/liveMarketData';
+import { BINANCE_WS_URL } from '@/constants/config';
 
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const STALE_AFTER_MS = 10_000;
@@ -47,7 +48,7 @@ export const useOrderBook = (symbol = 'BTCUSDT') => {
             );
 
             const wsSymbol = normalizedSymbol.toLowerCase();
-            const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@depth20@100ms`);
+            const ws = new WebSocket(`${BINANCE_WS_URL}/ws/${wsSymbol}@depth20@100ms`);
             wsRef.current = ws;
 
             ws.onopen = () => {

@@ -28,7 +28,7 @@ The main dashboard needs no API keys and has no trade-execution backend.
 - Historical Spot candles with 1m, 5m, 15m, 1h, 4h, and 1d chart intervals
 - Custom Canvas chart with D3 scales, zoom/pan, EMA overlays, RSI, MACD, and a depth heatmap
 - Binance USDⓈ-M mark/index price, funding, open interest, long/short accounts, and liquidation stream
-- Public CryptoCompare news with a short in-memory cache
+- CoinDesk and Cointelegraph news through a cached same-origin Worker route
 - Bitcoin block height, mempool backlog, recommended fees, and Fear & Greed from public endpoints
 - Local price alerts with optional browser notifications while the terminal is open
 - Simulated LONG/SHORT paper positions with unrealized and realized P&L
@@ -43,7 +43,7 @@ Experimental analytics are descriptive research aids. They are not a predictive 
 |---|---|---|
 | Binance Spot REST/WebSocket | Watchlist, candles, trades, depth | Public, read-only |
 | Binance USDⓈ-M REST/WebSocket | Perpetual metrics and liquidations | Public, read-only |
-| CryptoCompare | Market news | Public endpoint |
+| CoinDesk + Cointelegraph | Market news | Public RSS through same-origin Worker |
 | mempool.space | Bitcoin height, mempool, and fees | Public endpoint |
 | Alternative.me | Fear & Greed index | Public endpoint |
 
@@ -131,7 +131,7 @@ Some repository files explore these directions but are intentionally excluded fr
 
 ## Deployment
 
-The repository includes Vercel and Docker configuration. Vercel serves the static Vite bundle and SPA fallback; all market requests still originate from each visitor's browser.
+The production site is packaged for OpenAI Sites. Its edge Worker serves the SPA fallback and `/api/news`; market and network requests still originate from each visitor's browser.
 
 ## Contributing
 
@@ -141,7 +141,7 @@ Pull requests are welcome. Run lint, type-check, tests, and the production build
 
 - [D3](https://d3js.org/) — chart scales and interaction utilities
 - [Binance](https://developers.binance.com/) — public Spot and USDⓈ-M market data
-- [CryptoCompare](https://www.cryptocompare.com/) — public crypto news
+- [CoinDesk](https://www.coindesk.com/) and [Cointelegraph](https://cointelegraph.com/) — public crypto news RSS
 - [mempool.space](https://mempool.space/) — Bitcoin network data
 - [Alternative.me](https://alternative.me/crypto/fear-and-greed-index/) — Fear & Greed index
 - Bloomberg Terminal — interface inspiration

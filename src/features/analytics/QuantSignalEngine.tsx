@@ -77,13 +77,30 @@ const QuantSignalEngine = () => {
     const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
     useEffect(() => {
+        let disposed = false;
+        let activeController: AbortController | null = null;
+
         const analyzeMarket = async () => {
+            activeController?.abort();
+            const controller = new AbortController();
+            activeController = controller;
+            let timedOut = false;
+            const timeout = window.setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+            }, 8_000);
+
             try {
-                const response = await fetch(`${BINANCE_REST_URL}/api/v3/klines?symbol=${selectedSymbol}&interval=${ANALYSIS_INTERVAL}&limit=${ANALYSIS_LIMIT}`);
+                const response = await fetch(
+                    `${BINANCE_REST_URL}/api/v3/klines?symbol=${encodeURIComponent(selectedSymbol)}&interval=${ANALYSIS_INTERVAL}&limit=${ANALYSIS_LIMIT}`,
+                    { signal: controller.signal },
+                );
                 if (!response.ok) throw new Error(`Binance returned ${response.status}`);
-                const rawData = await response.json() as CandleRow[];
+                const payload: unknown = await response.json();
+                if (!Array.isArray(payload)) throw new Error('Unexpected kline response');
+                const rawData = payload as CandleRow[];
                 const data = rawData.map(parseCandle);
-                if (data.length < 50) return;
+                if (data.length < 50) throw new Error('Insufficient kline history');
 
                 const lastClose = data.at(-1)?.close ?? 0;
                 const rsi = calculateRSI(data, 14).at(-1)?.value ?? 50;
@@ -106,6 +123,7 @@ const QuantSignalEngine = () => {
                 else if (macdSignal === 'BEARISH') score -= 20;
 
                 const nextSignals: QuantSignal = { rsi, bbPosition, macdSignal, atrPercent, score, price: lastClose };
+                if (disposed || controller.signal.aborted || activeController !== controller) return;
 
                 setSignals((prev) => {
                     if (!prev) return nextSignals;
@@ -129,18 +147,27 @@ const QuantSignalEngine = () => {
                 checkMarketConditions(alertPayload);
                 setLastUpdated(Date.now());
                 setError(null);
-            } catch (error) {
-                console.error('[QuantSignalEngine] Error:', error);
-                setError(error instanceof Error ? error.message : 'Signal data unavailable');
+            } catch (caught) {
+                if (disposed || (controller.signal.aborted && !timedOut) || activeController !== controller) return;
+                console.error('[QuantSignalEngine] Error:', caught);
+                setError(timedOut ? 'Signal request timed out' : caught instanceof Error ? caught.message : 'Signal data unavailable');
             } finally {
-                setLoading(false);
+                window.clearTimeout(timeout);
+                if (!disposed && activeController === controller) setLoading(false);
             }
         };
 
+        setSignals(null);
+        setLastUpdated(null);
+        setError(null);
         setLoading(true);
         analyzeMarket();
         const interval = setInterval(analyzeMarket, ANALYSIS_POLL_INTERVAL_MS);
-        return () => clearInterval(interval);
+        return () => {
+            disposed = true;
+            clearInterval(interval);
+            activeController?.abort();
+        };
     }, [selectedSymbol, checkMarketConditions]);
 
     if (loading || !signals) {
@@ -156,6 +183,11 @@ const QuantSignalEngine = () => {
 
     return (
         <div style={{ height: '100%', padding: '16px', fontFamily: 'var(--font-mono)', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', background: 'var(--bg-panel)' }}>
+            {error && (
+                <div className="freshness-line" style={{ color: 'var(--accent-warning)' }}>
+                    DEGRADED · Latest signal retained · {error}
+                </div>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                 <div>
                     <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>HEURISTIC_SIGNAL · 15M</div>

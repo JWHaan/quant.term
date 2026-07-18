@@ -2,16 +2,21 @@
 
 ## System overview
 
-`quant.term` is a static, client-side React application. It reads public market and network endpoints directly from the browser, renders a desktop terminal, and stores user preferences, alerts, and paper-trading state locally. There is no application backend, authentication layer, or order-routing service.
+`quant.term` is a React application with a small edge Worker. The browser reads public market and network endpoints, while the Worker normalizes public RSS news behind `/api/news`. User preferences, alerts, and paper-trading state remain local. There is no exchange-account backend or order-routing service.
 
 ```mermaid
 flowchart LR
     subgraph Sources["Public data sources"]
         BS["Binance Spot"]
         BF["Binance USDⓈ-M"]
-        CC["CryptoCompare news"]
+        CD["CoinDesk RSS"]
+        CT["Cointelegraph RSS"]
         MP["mempool.space"]
         FG["Alternative.me"]
+    end
+
+    subgraph Edge["Sites Worker"]
+        News["/api/news normalization + cache"]
     end
 
     subgraph Browser["Browser application"]
@@ -25,7 +30,9 @@ flowchart LR
 
     BS --> Feeds
     BF --> Feeds
-    CC --> Feeds
+    CD --> News
+    CT --> News
+    News --> Feeds
     MP --> Feeds
     FG --> Feeds
     Feeds --> Stores
@@ -82,11 +89,11 @@ Global and per-panel error boundaries keep one failed data panel from replacing 
 
 | Consumer | Transport | Data |
 |---|---|---|
-| `MarketGrid` | REST seed + `!ticker@arr` WebSocket | Last price, 24h change, volume |
+| `MarketGrid` | Targeted MINI REST seed + combined per-symbol mini-ticker WebSocket | Last price, 24h change, volume |
 | `useChartDataFeed` | REST klines | Historical candles, capped at Binance's request limit |
-| `useBinanceWebSocket` | Combined WebSocket | Selected-symbol kline, trade, and top-20 depth snapshots |
+| `useBinanceWebSocket` | Combined WebSocket | Selected-symbol kline and top-20 depth snapshots |
 | `OrderBookDOM` / OFI | Separate partial-depth WebSocket | Selected-symbol top-20 bids and asks |
-| Volume delta / VPIN | Aggregate-trade WebSockets | Exchange taker-side volume classification |
+| Volume delta / VPIN | Shared reconnecting aggregate-trade WebSocket | Exchange taker-side volume classification |
 | Research panels | REST klines | Heuristic indicators and factor calculations |
 
 The active feed model is decentralized: panels own subscriptions appropriate to their update rate. Shared connection telemetry aggregates owner status so one unmounted subscriber does not incorrectly mark a healthy source offline.
@@ -100,7 +107,7 @@ These feeds are market observations only. They do not use an account or submit o
 
 ### News and network data
 
-- CryptoCompare supplies public English-language news. A 90-second in-memory cache and a shared in-flight request prevent duplicate refreshes.
+- The Worker merges CoinDesk and Cointelegraph RSS, validates and deduplicates stories, and serves partial results if one publisher is unavailable. The browser adds a 90-second in-memory cache.
 - mempool.space supplies Bitcoin height, mempool statistics, and recommended fees.
 - Alternative.me supplies the current Fear & Greed reading.
 

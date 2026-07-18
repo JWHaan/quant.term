@@ -116,14 +116,14 @@ Content-Security-Policy:
   style-src 'self' 'unsafe-inline'; 
   img-src 'self' data: https:; 
   font-src 'self' data:; 
-  connect-src 'self' wss://stream.binance.com wss://www.deribit.com;
+  connect-src 'self' https://data-api.binance.vision https://fapi.binance.com https://mempool.space https://api.alternative.me wss://data-stream.binance.vision wss://fstream.binance.com;
   frame-ancestors 'none';
   base-uri 'self';
   form-action 'self';
 ```
 
 **Explanation**:
-- `connect-src`: Allows WebSocket connections only to Binance and Deribit
+- `connect-src`: Allows only the active public Binance, mempool.space, and Alternative.me data hosts; news is same-origin
 - `script-src 'self'`: No external scripts (prevents CDN injection)
 - `frame-ancestors 'none'`: Prevent clickjacking
 - `unsafe-inline` for styles: Required for dynamic theming (consider removing in favor of CSS-in-JS)
@@ -147,8 +147,8 @@ quant.term requests the following browser permissions:
 
 | Service | URL | Purpose | Security |
 |---------|-----|---------|----------|
-| **Binance Futures** | `wss://fstream.binance.com` | Market data, order books | WSS with TLS 1.2+ |
-| **Deribit** | `wss://www.deribit.com/ws/api/v2` | Options data, Greeks | WSS with TLS 1.2+ |
+| **Binance Spot** | `wss://data-stream.binance.vision` | Tickers, candles, trades, order books | WSS with TLS |
+| **Binance Futures** | `wss://fstream.binance.com` | Liquidations | WSS with TLS |
 
 **Data Sent**:
 - subscription requests (symbols only)
@@ -158,11 +158,7 @@ quant.term requests the following browser permissions:
 
 ### External API Calls
 
-Currently **NONE**. All data comes from WebSocket streams.
-
-Future integrations may include:
-- CoinGecko API (fallback price data) - public endpoints only
-- Economic calendar data (optional feature)
+The active browser makes read-only calls to Binance Spot/Futures, mempool.space, and Alternative.me. The same-origin Worker fetches CoinDesk and Cointelegraph RSS. No exchange credentials or user portfolio data are sent to these providers.
 
 ## Privacy Considerations
 

@@ -5,9 +5,33 @@
  */
 
 // ─── Binance ──────────────────────────────────────────────────────────────────
-export const BINANCE_REST_URL = 'https://api.binance.com' as const;
-export const BINANCE_WS_URL = 'wss://stream.binance.com:9443' as const;
+export const BINANCE_REST_URL = 'https://data-api.binance.vision' as const;
+export const BINANCE_WS_URL = 'wss://data-stream.binance.vision' as const;
+export const BINANCE_FUTURES_REST_URL = 'https://fapi.binance.com' as const;
 export const BINANCE_FUTURES_WS_URL = 'wss://fstream.binance.com/ws' as const;
+
+/** Renamed spot markets retained here so persisted user preferences migrate. */
+export const BINANCE_SPOT_SYMBOL_ALIASES: Readonly<Record<string, string>> = {
+    MATICUSDT: 'POLUSDT',
+    RNDRUSDT: 'RENDERUSDT',
+    MKRUSDT: 'SKYUSDT',
+    FTMUSDT: 'SUSDT',
+};
+
+/** Binance USDⓈ-M uses a 1,000-token contract for SHIB. */
+export const BINANCE_FUTURES_SYMBOL_ALIASES: Readonly<Record<string, string>> = {
+    SHIBUSDT: '1000SHIBUSDT',
+};
+
+export const normalizeBinanceSpotSymbol = (symbol: string): string => {
+    const normalized = symbol.toUpperCase();
+    return BINANCE_SPOT_SYMBOL_ALIASES[normalized] ?? normalized;
+};
+
+export const toBinanceFuturesSymbol = (symbol: string): string => {
+    const spotSymbol = normalizeBinanceSpotSymbol(symbol);
+    return BINANCE_FUTURES_SYMBOL_ALIASES[spotSymbol] ?? spotSymbol;
+};
 
 // ─── WebSocket ────────────────────────────────────────────────────────────────
 export const WS_HEARTBEAT_INTERVAL_MS = 30_000;

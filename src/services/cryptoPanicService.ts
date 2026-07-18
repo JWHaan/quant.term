@@ -1,12 +1,12 @@
 /**
  * Public crypto-news client.
  *
- * The original implementation embedded a CryptoPanic API key in the browser and
- * exceeded the free quota. This replacement uses CryptoCompare's public news
- * endpoint, shares a short in-memory cache, and never fabricates headlines.
+ * Headlines are normalized by the same-origin Worker from CoinDesk and
+ * Cointelegraph RSS. The browser shares a short in-memory cache and never ships
+ * provider credentials or calls third-party news hosts directly.
  */
 
-const NEWS_ENDPOINT = 'https://min-api.cryptocompare.com/data/v2/news/';
+const NEWS_ENDPOINT = '/api/news';
 const CACHE_TTL_MS = 90_000;
 
 interface NewsOptions {
@@ -17,21 +17,18 @@ interface NewsOptions {
     limit?: number;
 }
 
-interface CryptoCompareArticle {
+interface NewsWireApiArticle {
     id: string;
-    published_on: number;
-    title: string;
+    headline: string;
     url: string;
     source: string;
-    categories?: string;
-    upvotes?: string;
-    downvotes?: string;
+    published: string;
+    currencies?: string[];
 }
 
-interface CryptoCompareResponse {
-    Type?: number;
-    Message?: string;
-    Data?: CryptoCompareArticle[];
+interface NewsWireApiResponse {
+    articles?: NewsWireApiArticle[];
+    error?: string;
 }
 
 export interface NewsArticle {
@@ -52,42 +49,45 @@ let cachedArticles: NewsArticle[] = [];
 let cacheTimestamp = 0;
 let inFlight: Promise<NewsArticle[]> | null = null;
 
-const inferSentiment = (article: CryptoCompareArticle): NewsArticle['sentiment'] => {
-    const positiveVotes = Number(article.upvotes ?? 0);
-    const negativeVotes = Number(article.downvotes ?? 0);
-    if (positiveVotes > negativeVotes * 1.5 && positiveVotes >= 2) return 'positive';
-    if (negativeVotes > positiveVotes * 1.5 && negativeVotes >= 2) return 'negative';
-    return 'neutral';
-};
-
 const loadNews = async (): Promise<NewsArticle[]> => {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 8_000);
     try {
-        const response = await fetch(`${NEWS_ENDPOINT}?lang=EN&sortOrder=latest`, { signal: controller.signal });
+        const response = await fetch(`${NEWS_ENDPOINT}?limit=50`, {
+            headers: { accept: 'application/json' },
+            signal: controller.signal,
+        });
         if (!response.ok) throw new Error(`News provider returned ${response.status}`);
-        const payload = await response.json() as CryptoCompareResponse;
-        if (!Array.isArray(payload.Data)) throw new Error(payload.Message || 'Unexpected news response');
+        const payload = await response.json() as NewsWireApiResponse;
+        if (!Array.isArray(payload.articles)) throw new Error(payload.error || 'Unexpected news response');
 
-        const articles = payload.Data.map((article) => {
-            const url = new URL(article.url);
-            const categories = article.categories?.split('|').filter(Boolean) ?? [];
-            return {
+        const articles = payload.articles.flatMap((article) => {
+            if (!article.id || !article.headline || !article.url || !article.source || !article.published) return [];
+
+            let url: URL;
+            try {
+                url = new URL(article.url);
+            } catch {
+                return [];
+            }
+            if (url.protocol !== 'https:' && url.protocol !== 'http:') return [];
+
+            const published = new Date(article.published);
+            if (!Number.isFinite(published.getTime())) return [];
+
+            return [{
                 id: article.id,
-                headline: article.title,
+                headline: article.headline,
                 url: article.url,
-                source: article.source || url.hostname,
-                published: new Date(article.published_on * 1_000).toISOString(),
-                sentiment: inferSentiment(article),
-                currencies: categories,
+                source: article.source,
+                published: published.toISOString(),
+                sentiment: 'neutral' as const,
+                currencies: Array.isArray(article.currencies) ? article.currencies : [],
                 metadata: {
                     domain: url.hostname,
-                    votes: {
-                        positive: Number(article.upvotes ?? 0),
-                        negative: Number(article.downvotes ?? 0),
-                    },
+                    votes: { positive: 0, negative: 0 },
                 },
-            } satisfies NewsArticle;
+            } satisfies NewsArticle];
         });
         cachedArticles = articles;
         cacheTimestamp = Date.now();
@@ -99,7 +99,7 @@ const loadNews = async (): Promise<NewsArticle[]> => {
 
 export async function fetchCryptoNews(options: NewsOptions = {}): Promise<NewsArticle[]> {
     const limit = Math.max(1, Math.min(options.limit ?? 20, 50));
-    const isFresh = cachedArticles.length > 0 && Date.now() - cacheTimestamp < CACHE_TTL_MS;
+    const isFresh = cacheTimestamp > 0 && Date.now() - cacheTimestamp < CACHE_TTL_MS;
     if (!isFresh) {
         inFlight ??= loadNews().finally(() => { inFlight = null; });
         await inFlight;

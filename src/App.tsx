@@ -43,9 +43,11 @@ const App: React.FC = () => {
     // Modal state
     const [showCommandPalette, setShowCommandPalette] = React.useState(false);
 
-    // Memoized connection status — avoids recomputing every render
+    // The terminal is only globally live when both the selected chart and the
+    // market-watch price feed are receiving data. An auxiliary socket alone
+    // must never make the whole application appear healthy.
     const isGlobalConnected = useMemo(
-        () => Object.values(connections).some(status => status === 'connected'),
+        () => connections.binance === 'connected' && connections.marketData === 'connected',
         [connections]
     );
 

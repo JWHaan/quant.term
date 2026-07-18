@@ -5,6 +5,7 @@ import { fetchCryptoNews, getTimeAgo, startNewsPolling } from '@/services/crypto
 interface NewsTickerItem {
     id: string;
     headline: string;
+    source: string;
     sentiment: 'positive' | 'negative' | 'neutral';
     time: string;
     url: string;
@@ -12,7 +13,7 @@ interface NewsTickerItem {
 
 /**
  * News Ticker - Terminal-style scrolling headlines
- * Public crypto headlines from CryptoCompare.
+ * Public crypto headlines from the CoinDesk and Cointelegraph news wire.
  */
 const NewsTicker: React.FC = () => {
     const [news, setNews] = useState<NewsTickerItem[]>([]);
@@ -30,6 +31,7 @@ const NewsTicker: React.FC = () => {
                     setNews(articles.map(article => ({
                         id: String(article.id),
                         headline: article.headline,
+                        source: article.source,
                         sentiment: article.sentiment,
                         time: getTimeAgo(article.published),
                         url: article.url
@@ -48,6 +50,7 @@ const NewsTicker: React.FC = () => {
             setNews(freshNews.map(article => ({
                 id: String(article.id),
                 headline: article.headline,
+                source: article.source,
                 sentiment: article.sentiment as 'positive' | 'negative' | 'neutral',
                 time: getTimeAgo(article.published),
                 url: article.url
@@ -90,7 +93,7 @@ const NewsTicker: React.FC = () => {
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
         >
-            {/* "LIVE" indicator */}
+            {/* News-wire indicator */}
             <div style={{
                 position: 'absolute',
                 left: 0,
@@ -116,7 +119,7 @@ const NewsTicker: React.FC = () => {
                     color: 'var(--accent-danger)',
                     letterSpacing: '1px'
                 }}>
-                    STREAM
+                    NEWSWIRE
                 </span>
                 <span style={{ color: 'var(--border-color)' }}>&gt;&gt;</span>
             </div>
@@ -157,6 +160,9 @@ const NewsTicker: React.FC = () => {
                             <span style={{ color: 'var(--text-muted)' }}>[</span>
                             {getSentimentIcon(item.sentiment)}
                             <span style={{ color: 'var(--text-muted)' }}>]</span>
+                            <span style={{ color: 'var(--accent-secondary)', fontWeight: 'bold' }}>
+                                {item.source.toUpperCase()}
+                            </span>
                             <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>
                                 {item.headline.toUpperCase()}
                             </span>
@@ -170,7 +176,7 @@ const NewsTicker: React.FC = () => {
                         </a>
                     ))
                 ) : (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>PUBLIC NEWS FEED UNAVAILABLE · MARKET DATA REMAINS LIVE</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>NEWS WIRE UNAVAILABLE · MARKET DATA REMAINS LIVE</div>
                 )}
             </div>
 

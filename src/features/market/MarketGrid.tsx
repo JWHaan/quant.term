@@ -1,83 +1,29 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, X } from 'lucide-react';
-import { TOP_CRYPTOS } from '@/data/cryptoAssets';
 import { formatPrice, formatVolume, formatPercent } from '@/utils/format';
-import { BINANCE_REST_URL, BINANCE_WS_URL } from '@/constants/config';
 import {
     recordLiveMarketEvent,
     releaseLiveConnection,
     reportLiveConnection,
 } from '@/services/liveMarketData';
+import {
+    buildWatchlistSeedUrl,
+    buildWatchlistStreamUrl,
+    extractTickerValues,
+    parseTicker,
+    type WatchlistMarketData,
+} from '@/services/binanceWatchlist';
 import { useMarketStore } from '@/stores/marketStore';
-import type { MarketData as StoreMarketData } from '@/types/binance';
 
 interface MarketGridProps {
     onSelectSymbol?: (symbol: string) => void;
 }
 
-interface MarketData {
-    symbol: string;
-    name: string;
-    category: string;
-    price: number;
-    priceChangePercent: number;
-    quoteVolume: number;
-}
+type MarketData = WatchlistMarketData;
 
 type SortKey = keyof MarketData;
 
 type TickerRecord = Record<string, unknown>;
-
-const ASSET_META = new Map(TOP_CRYPTOS.map((asset) => [asset.symbol, asset]));
-
-const readNumber = (ticker: TickerRecord, longKey: string, shortKey: string): number => {
-    const value = ticker[longKey] ?? ticker[shortKey];
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const parseTicker = (value: unknown): { display: MarketData; store: StoreMarketData } | null => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-    const ticker = value as TickerRecord;
-    const rawSymbol = ticker['symbol'] ?? ticker['s'];
-    if (typeof rawSymbol !== 'string') return null;
-
-    const symbol = rawSymbol.toUpperCase();
-    const meta = ASSET_META.get(symbol);
-    if (!meta) return null;
-
-    const price = readNumber(ticker, 'lastPrice', 'c');
-    const priceChange = readNumber(ticker, 'priceChange', 'p');
-    let priceChangePercent = readNumber(ticker, 'priceChangePercent', 'P');
-    const open = readNumber(ticker, 'openPrice', 'o');
-    if (!priceChangePercent && open > 0 && price > 0) {
-        priceChangePercent = ((price - open) / open) * 100;
-    }
-    const quoteVolume = readNumber(ticker, 'quoteVolume', 'q');
-    if (price <= 0) return null;
-
-    return {
-        display: {
-            symbol,
-            name: meta.name,
-            category: meta.category,
-            price,
-            priceChangePercent,
-            quoteVolume,
-        },
-        store: {
-            symbol,
-            price,
-            priceChange,
-            priceChangePercent,
-            volume: readNumber(ticker, 'volume', 'v'),
-            quoteVolume,
-            high: readNumber(ticker, 'highPrice', 'h'),
-            low: readNumber(ticker, 'lowPrice', 'l'),
-            timestamp: Date.now(),
-        },
-    };
-};
 
 const renderSortIndicator = (sortBy: SortKey, sortDir: 'asc' | 'desc', column: SortKey) =>
     sortBy === column
@@ -95,7 +41,7 @@ const getAriaSort = (
 
 /**
  * MarketGrid — Terminal-style live watchlist.
- * Seeds from one all-market REST request, then consumes one all-market stream.
+ * Seeds only the configured markets, then consumes their mini-ticker streams.
  */
 const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
     const [marketData, setMarketData] = useState<Map<string, MarketData>>(new Map());
@@ -122,11 +68,11 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
             controller.abort();
         }, 8_000);
 
-        const applyTickers = (values: unknown[]) => {
+        const applyTickers = (values: unknown[]): boolean => {
             const parsed = values
                 .map(parseTicker)
                 .filter((ticker): ticker is NonNullable<ReturnType<typeof parseTicker>> => ticker !== null);
-            if (disposed || parsed.length === 0) return;
+            if (disposed || parsed.length === 0) return false;
 
             setMarketData((previous) => {
                 const next = new Map(previous);
@@ -140,18 +86,18 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
                 lastUpdate: Date.now(),
             }));
             setLoading(false);
-            setError(null);
+            return true;
         };
 
         const fetchInitialTickers = async () => {
             try {
-                const response = await fetch(`${BINANCE_REST_URL}/api/v3/ticker/24hr`, {
+                const response = await fetch(buildWatchlistSeedUrl(), {
                     signal: controller.signal,
                 });
                 if (!response.ok) throw new Error(`Watchlist seed failed (${response.status})`);
                 const data: unknown = await response.json();
                 if (!Array.isArray(data)) throw new Error('Unexpected watchlist response');
-                applyTickers(data);
+                if (!applyTickers(data)) throw new Error('No current watchlist markets returned');
             } catch (caught: unknown) {
                 if (disposed || (controller.signal.aborted && !seedTimedOut)) return;
                 setLoading(false);
@@ -184,23 +130,23 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
                 connectionOwner,
                 reconnectAttempts > 0 ? 'reconnecting' : 'connecting',
             );
-            ws = new WebSocket(`${BINANCE_WS_URL}/ws/!ticker@arr`);
+            ws = new WebSocket(buildWatchlistStreamUrl());
             const currentSocket = ws;
 
             currentSocket.onopen = () => {
                 if (disposed || ws !== currentSocket) return;
-                reconnectAttempts = 0;
                 lastMessageAt = Date.now();
-                reportLiveConnection('marketData', connectionOwner, 'connected');
-                setError(null);
             };
             currentSocket.onmessage = (event: MessageEvent<string>) => {
                 if (disposed || ws !== currentSocket) return;
                 try {
-                    const data: unknown = JSON.parse(event.data);
-                    if (!Array.isArray(data)) return;
+                    const payload: unknown = JSON.parse(event.data);
+                    const data = extractTickerValues(payload);
+                    if (!applyTickers(data)) return;
                     lastMessageAt = Date.now();
-                    applyTickers(data);
+                    reconnectAttempts = 0;
+                    reportLiveConnection('marketData', connectionOwner, 'connected');
+                    setError(null);
                     const firstEvent = data.find((item) => item && typeof item === 'object') as TickerRecord | undefined;
                     const timestamp = firstEvent ? Number(firstEvent['E']) : Number.NaN;
                     recordLiveMarketEvent(

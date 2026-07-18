@@ -1,3 +1,5 @@
+import { handleNewsRequest } from './news'
+
 interface AssetsBinding {
   fetch(request: Request): Promise<Response>
 }
@@ -12,6 +14,11 @@ interface Env {
  */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url)
+    if (url.pathname === '/api/news') {
+      return handleNewsRequest(request)
+    }
+
     const response = await env.ASSETS.fetch(request)
     const acceptsHtml = request.headers.get('accept')?.includes('text/html') ?? false
     const isNavigation = request.headers.get('sec-fetch-mode') === 'navigate'

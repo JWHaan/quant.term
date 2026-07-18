@@ -2,7 +2,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { MarketState, Candle, Trade } from '@/types/stores';
 import type { MarketData } from '@/types/binance';
-import { DEFAULT_SYMBOL, DEFAULT_WATCHLIST, CANDLE_BUFFER_SIZE, TRADE_BUFFER_SIZE } from '@/constants/config';
+import {
+    DEFAULT_SYMBOL,
+    DEFAULT_WATCHLIST,
+    CANDLE_BUFFER_SIZE,
+    TRADE_BUFFER_SIZE,
+    normalizeBinanceSpotSymbol,
+} from '@/constants/config';
 
 /**
  * Market Store — global state for market data and symbol selection.
@@ -21,10 +27,10 @@ export const useMarketStore = create<MarketState>()(
 
             // ─── Actions ─────────────────────────────────────────────────────
             setSymbol: (symbol: string) =>
-                set({ selectedSymbol: symbol.toUpperCase() }),
+                set({ selectedSymbol: normalizeBinanceSpotSymbol(symbol) }),
 
             addToWatchlist: (symbol: string) => {
-                const normalized = symbol.toUpperCase();
+                const normalized = normalizeBinanceSpotSymbol(symbol);
                 set((state) => ({
                     watchlist: [...new Set([...state.watchlist, normalized])]
                 }));
@@ -32,7 +38,7 @@ export const useMarketStore = create<MarketState>()(
 
             removeFromWatchlist: (symbol: string) =>
                 set((state) => ({
-                    watchlist: state.watchlist.filter(s => s !== symbol.toUpperCase())
+                    watchlist: state.watchlist.filter(s => s !== normalizeBinanceSpotSymbol(symbol))
                 })),
 
             reorderWatchlist: (fromIndex: number, toIndex: number) =>
@@ -43,18 +49,23 @@ export const useMarketStore = create<MarketState>()(
                     return { watchlist: next };
                 }),
 
-            updateMarketData: (symbol: string, data: Partial<MarketData>) =>
+            updateMarketData: (symbol: string, data: Partial<MarketData>) => {
+                const normalized = normalizeBinanceSpotSymbol(symbol);
                 set((state) => ({
                     marketData: {
                         ...state.marketData,
-                        [symbol]: {
-                            ...state.marketData[symbol],
+                        [normalized]: {
+                            ...state.marketData[normalized],
                             ...data,
-                            timestamp: Date.now()
+                            symbol: normalized,
+                            timestamp: typeof data.timestamp === 'number' && data.timestamp > 0
+                                ? data.timestamp
+                                : Date.now()
                         } as MarketData
                     },
                     lastUpdate: Date.now()
-                })),
+                }));
+            },
 
             addCandle: (symbol: string, candle: Candle) =>
                 set((state) => {
@@ -80,10 +91,10 @@ export const useMarketStore = create<MarketState>()(
 
             // ─── Getters ─────────────────────────────────────────────────────
             getMarketData: (symbol: string): MarketData | null =>
-                get().marketData[symbol] ?? null,
+                get().marketData[normalizeBinanceSpotSymbol(symbol)] ?? null,
 
             isInWatchlist: (symbol: string): boolean =>
-                get().watchlist.includes(symbol.toUpperCase()),
+                get().watchlist.includes(normalizeBinanceSpotSymbol(symbol)),
 
             getCandles: (symbol: string) =>
                 get().candles[symbol] ?? [],
@@ -106,7 +117,16 @@ export const useMarketStore = create<MarketState>()(
             partialize: (state) => ({
                 selectedSymbol: state.selectedSymbol,
                 watchlist: state.watchlist
-            })
+            }),
+            merge: (persistedState, currentState) => {
+                const persisted = persistedState as Partial<Pick<MarketState, 'selectedSymbol' | 'watchlist'>>;
+                return {
+                    ...currentState,
+                    ...persisted,
+                    selectedSymbol: normalizeBinanceSpotSymbol(persisted.selectedSymbol ?? currentState.selectedSymbol),
+                    watchlist: [...new Set((persisted.watchlist ?? currentState.watchlist).map(normalizeBinanceSpotSymbol))],
+                };
+            },
         }
     )
 );

@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { TradeClassifier, VolumeDelta } from '@/utils/tradeClassifier';
 import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { useAggTradeStream } from '@/hooks/useAggTradeStream';
 
 interface VolumeDeltaIndicatorProps {
     symbol: string;
@@ -11,66 +12,19 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
     const [buySellRatio, setBuySellRatio] = useState<number>(1);
     const [divergence, setDivergence] = useState<{ type: 'bullish' | 'bearish' | null; strength: number }>({ type: null, strength: 0 });
     const classifierRef = useRef<TradeClassifier>(new TradeClassifier());
-    const wsRef = useRef<WebSocket | null>(null);
     const priceHistoryRef = useRef<Array<{ timestamp: number; price: number }>>([]);
 
-    useEffect(() => {
-        // Connect to Binance trade stream
-        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@aggTrade`);
-        wsRef.current = ws;
+    const isConnected = useAggTradeStream(symbol, (trade) => {
+        classifierRef.current.classifyFromExchange(trade);
+        priceHistoryRef.current.push({ timestamp: trade.timestamp, price: trade.price });
+        if (priceHistoryRef.current.length > 100) priceHistoryRef.current.shift();
 
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-
-                const trade = {
-                    id: data.a,
-                    price: parseFloat(data.p),
-                    quantity: parseFloat(data.q),
-                    timestamp: data.T,
-                    isBuyerMaker: data.m
-                };
-
-                classifierRef.current.classifyFromExchange(trade);
-
-                // Update price history for divergence detection
-                priceHistoryRef.current.push({ timestamp: trade.timestamp, price: trade.price });
-                if (priceHistoryRef.current.length > 100) {
-                    priceHistoryRef.current.shift();
-                }
-
-                // Calculate metrics every 10 trades (to reduce CPU usage)
-                if (data.a % 10 === 0) {
-                    const delta = classifierRef.current.calculateVolumeDelta(60000); // 1-minute window
-                    setVolumeDelta(delta);
-
-                    const ratio = classifierRef.current.getBuySellRatio(60000);
-                    setBuySellRatio(ratio);
-
-                    const div = classifierRef.current.detectDivergence(priceHistoryRef.current);
-                    setDivergence(div);
-                }
-            } catch (err) {
-                console.error('[VolumeDelta] Parse error:', err);
-            }
-        };
-
-        ws.onerror = (error) => {
-            console.error('[VolumeDelta] WebSocket error:', error);
-        };
-
-        return () => {
-            if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-                ws.close();
-            }
-        };
-    }, [symbol]);
-
-    useEffect(() => {
-        // Reset classifier when symbol changes
-        classifierRef.current.reset();
-        priceHistoryRef.current = [];
-    }, [symbol]);
+        if (trade.id % 10 === 0) {
+            setVolumeDelta(classifierRef.current.calculateVolumeDelta(60_000));
+            setBuySellRatio(classifierRef.current.getBuySellRatio(60_000));
+            setDivergence(classifierRef.current.detectDivergence(priceHistoryRef.current));
+        }
+    });
 
     if (!volumeDelta) {
         return (
@@ -81,7 +35,7 @@ export const VolumeDeltaIndicator: React.FC<VolumeDeltaIndicatorProps> = ({ symb
                 color: 'var(--text-muted)',
                 fontFamily: 'var(--font-mono)'
             }}>
-                [INITIALIZING_CVD]...
+                [{isConnected ? 'INITIALIZING_CVD' : 'CONNECTING_TRADE_FEED'}]...
             </div>
         );
     }

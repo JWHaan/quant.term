@@ -1,5 +1,7 @@
 import React, { useMemo, memo } from 'react';
 import { useOrderBook } from '@/hooks/useOrderBook';
+import { formatPrice } from '@/utils/format';
+import { getAdaptiveBookStep } from '@/utils/orderBookFormatting';
 
 interface OrderBookDOMProps {
     symbol?: string;
@@ -12,7 +14,18 @@ interface OrderBookRow {
 }
 
 // Memoized Row Component
-const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: number; precision: number }) => {
+const formatBookSize = (value: number): string => {
+    if (value >= 1_000) return value.toFixed(0);
+    if (value >= 1) return value.toFixed(3);
+    return value.toFixed(6);
+};
+
+const formatAggregationStep = (step: number): string => {
+    const decimals = Math.min(8, Math.max(0, Math.ceil(-Math.log10(step))));
+    return step.toFixed(decimals);
+};
+
+const RowItem = memo(({ row, maxVol }: { row: OrderBookRow; maxVol: number }) => {
     const { price, vol, type } = row;
     const isBid = type === 'bid';
     const width = (vol / maxVol) * 100;
@@ -43,7 +56,7 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
                             borderLeft: `2px solid ${barColor}`
                         }} />
                         <span style={{ position: 'relative', zIndex: 1, color: 'var(--text-primary)' }}>
-                            {vol.toFixed(precision > 1 ? 2 : 4)}
+                            {formatBookSize(vol)}
                         </span>
                     </>
                 )}
@@ -62,7 +75,7 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
                 borderLeft: '1px solid var(--border-subtle)',
                 borderRight: '1px solid var(--border-subtle)'
             }}>
-                {price.toFixed(precision >= 1 ? 0 : 2)}
+                {formatPrice(price)}
             </div>
 
             {/* Ask Side (Right) */}
@@ -78,7 +91,7 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
                             borderRight: `2px solid ${barColor}`
                         }} />
                         <span style={{ position: 'relative', zIndex: 1, color: 'var(--text-primary)' }}>
-                            {vol.toFixed(precision > 1 ? 2 : 4)}
+                            {formatBookSize(vol)}
                         </span>
                     </>
                 )}
@@ -93,19 +106,35 @@ const RowItem = memo(({ row, maxVol, precision }: { row: OrderBookRow; maxVol: n
  */
 const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
     const { bids, asks, isConnected } = useOrderBook(symbol);
-    const [precision, setPrecision] = React.useState(0.01);
+    const [aggregationState, setAggregationState] = React.useState<{
+        symbol: string;
+        level: 0 | 1 | 2;
+    }>({ symbol, level: 0 });
+    const aggregationLevel = aggregationState.symbol === symbol ? aggregationState.level : 0;
+    const referencePrice = useMemo(() => {
+        const bestBid = Number(bids[0]?.[0]);
+        const bestAsk = Number(asks[0]?.[0]);
+        if (Number.isFinite(bestBid) && Number.isFinite(bestAsk) && bestBid > 0 && bestAsk > 0) {
+            return (bestBid + bestAsk) / 2;
+        }
+        return Number.isFinite(bestBid) && bestBid > 0 ? bestBid : bestAsk;
+    }, [asks, bids]);
+    const baseAggregationStep = getAdaptiveBookStep(referencePrice);
+    const aggregationStep = aggregationLevel === 0
+        ? null
+        : baseAggregationStep * (10 ** (aggregationLevel - 1));
 
     // Process data for visualization
     const { rows, maxVol, spread } = useMemo(() => {
         if (!bids.length || !asks.length) return { rows: [], maxVol: 0, spread: 0 };
 
         // Helper to aggregate levels
-        const aggregate = (levels: [string, string][], prec: number) => {
+        const aggregate = (levels: [string, string][], prec: number, side: 'bid' | 'ask') => {
             const map = new Map<number, number>();
             levels.forEach(([p, v]) => {
                 const price = parseFloat(p);
                 const vol = parseFloat(v);
-                const bucket = Math.floor(price / prec) * prec;
+                const bucket = (side === 'ask' ? Math.ceil(price / prec) : Math.floor(price / prec)) * prec;
                 map.set(bucket, (map.get(bucket) || 0) + vol);
             });
             return Array.from(map.entries()).sort((a, b) => b[0] - a[0]); // Descending price
@@ -114,10 +143,10 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
         let processedAsks: OrderBookRow[], processedBids: OrderBookRow[];
         const DEPTH = 50; // Reduced for terminal look
 
-        if (precision > 0.01) {
+        if (aggregationStep !== null) {
             // Aggregate
-            const aggAsks = aggregate(asks, precision);
-            const aggBids = aggregate(bids, precision);
+            const aggAsks = aggregate(asks, aggregationStep, 'ask');
+            const aggBids = aggregate(bids, aggregationStep, 'bid');
 
             processedAsks = aggAsks.slice(-DEPTH).map(([p, v]) => ({ price: p, vol: v, type: 'ask' as const }));
             processedBids = aggBids.slice(0, DEPTH).map(([p, v]) => ({ price: p, vol: v, type: 'bid' as const }));
@@ -141,7 +170,7 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
             maxVol: max,
             spread: spreadVal
         };
-    }, [bids, asks, precision]);
+    }, [aggregationStep, bids, asks]);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
@@ -159,27 +188,32 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
                     <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>&gt; DOM_LADDER</span>
                     {/* Precision Toggles */}
                     <div style={{ display: 'flex', border: '1px solid var(--border-subtle)' }}>
-                        {[0.01, 1, 10].map(p => (
+                        {([0, 1, 2] as const).map((level) => {
+                            const step = level === 0
+                                ? null
+                                : baseAggregationStep * (10 ** (level - 1));
+                            return (
                             <button
-                                key={p}
-                                onClick={() => setPrecision(p)}
+                                key={level}
+                                onClick={() => setAggregationState({ symbol, level })}
                                 style={{
                                     padding: '2px 6px',
-                                    background: precision === p ? 'var(--accent-primary)' : 'transparent',
-                                    color: precision === p ? '#000' : 'var(--text-secondary)',
+                                    background: aggregationLevel === level ? 'var(--accent-primary)' : 'transparent',
+                                    color: aggregationLevel === level ? '#000' : 'var(--text-secondary)',
                                     border: 'none',
                                     fontSize: '9px',
                                     cursor: 'pointer',
                                     fontFamily: 'var(--font-mono)'
                                 }}
                             >
-                                {p === 0.01 ? 'RAW' : p}
+                                {step === null ? 'RAW' : formatAggregationStep(step)}
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>SPREAD: <span style={{ color: '#fff' }}>{spread.toFixed(2)}</span></span>
+                    <span style={{ color: 'var(--text-muted)' }}>SPREAD: <span style={{ color: '#fff' }}>{spread > 0 ? formatPrice(spread) : '—'}</span></span>
                     <span className={isConnected ? "text-glow" : ""} style={{ color: isConnected ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
                         {isConnected ? '[LINK_OK]' : '[NO_LINK]'}
                     </span>
@@ -207,7 +241,6 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
                         key={`${row.type}-${row.price}-${i}`}
                         row={row}
                         maxVol={maxVol}
-                        precision={precision}
                     />
                 ))}
                 {rows.length === 0 && (

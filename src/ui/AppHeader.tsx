@@ -84,8 +84,8 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     data-state={connectionState}
                     role="status"
                     aria-live="polite"
-                    aria-label={isGlobalConnected ? 'At least one live market data feed is connected' : 'Live market data feeds are offline'}
-                    title={isGlobalConnected ? 'Live market data available' : 'Live market data unavailable'}
+                    aria-label={isGlobalConnected ? 'Primary market data feeds are live' : 'A primary market data feed is unavailable'}
+                    title={isGlobalConnected ? 'Watchlist and chart feeds are live' : 'Watchlist or chart feed unavailable'}
                 >
                     <span className="status-dot" aria-hidden="true" />
                     {isGlobalConnected

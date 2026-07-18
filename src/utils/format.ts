@@ -5,14 +5,16 @@
 
 /**
  * Format a price value based on its magnitude.
- * - > 1000: 1 decimal place  (e.g. 65432.1)
+ * - > 1000: 2 decimal places (e.g. 65432.10)
  * - > 1:    3 decimal places (e.g. 3.456)
- * - <= 1:   6 decimal places (e.g. 0.000123)
+ * - >= 0.0001: 6 decimal places (e.g. 0.000123)
+ * - < 0.0001:  8 decimal places (e.g. 0.00001234)
  */
 export function formatPrice(price: number): string {
     if (!price || isNaN(price)) return '—';
-    if (price > 1_000) return price.toFixed(1);
+    if (price > 1_000) return price.toFixed(2);
     if (price > 1) return price.toFixed(3);
+    if (price < 0.0001) return price.toFixed(8);
     return price.toFixed(6);
 }
 

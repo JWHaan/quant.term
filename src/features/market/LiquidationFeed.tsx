@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { subscribeLiquidations, type Liquidation as StreamLiquidation, type LiquidationSubscription } from '@/services/liquidationService';
 import { TrendingDown, TrendingUp, Droplets } from 'lucide-react';
+import { formatPrice } from '@/utils/format';
+import {
+    getBinanceFuturesContract,
+    normalizeBinanceFuturesPrice,
+    normalizeBinanceFuturesQuantity,
+} from '@/utils/binanceFutures';
 
 interface LiquidationFeedProps {
     symbol?: string;
@@ -27,23 +33,26 @@ interface LiquidationStats {
  * Terminal-style liquidation feed
  */
 const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' }) => {
+    const contract = getBinanceFuturesContract(symbol);
     const [liquidations, setLiquidations] = useState<Liquidation[]>([]);
     const [stats, setStats] = useState<LiquidationStats>({ totalVol: 0, longVol: 0, shortVol: 0 });
     const subscriptionRef = useRef<LiquidationSubscription | null>(null);
 
     useEffect(() => {
         const handleLiquidation = (liq: StreamLiquidation) => {
-            // Filter by selected symbol
-            if (liq.symbol !== symbol) return;
+            if (liq.symbol !== contract.futuresSymbol) return;
+
+            const normalizedPrice = normalizeBinanceFuturesPrice(liq.price, contract.multiplier);
+            const normalizedQuantity = normalizeBinanceFuturesQuantity(liq.quantity, contract.multiplier);
 
             const newLiq: Liquidation = {
                 id: `${liq.symbol}-${liq.time}-${liq.side}`,
                 time: liq.time,
                 side: liq.isBuy ? 'SHORT' : 'LONG', // BUY order = short squeeze, SELL order = long liquidation
-                price: liq.price,
-                amount: liq.quantity,
+                price: normalizedPrice,
+                amount: normalizedQuantity,
                 value: liq.value,
-                symbol: liq.symbol
+                symbol: contract.spotSymbol,
             };
 
             setLiquidations(prev => [newLiq, ...prev].slice(0, 50));
@@ -61,7 +70,7 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
             subscriptionRef.current?.close();
             subscriptionRef.current = null;
         };
-    }, [symbol]);
+    }, [contract.futuresSymbol, contract.multiplier, contract.spotSymbol]);
 
     const formatValue = (val: number) => {
         if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
@@ -128,7 +137,7 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
                     }}>
                         <Droplets size={24} />
                         <span>SCANNING_FOR_LIQUIDATIONS...</span>
-                        <span style={{ fontSize: '9px' }}>[TARGET: !forceOrder@arr]</span>
+                        <span style={{ fontSize: '9px' }}>[TARGET: {contract.futuresSymbol} · !forceOrder@arr]</span>
                     </div>
                 ) : (
                     liquidations.map(liq => (
@@ -146,7 +155,7 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
                             }}
                         >
                             <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{formatTime(liq.time)}</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{liq.price.toFixed(2)}</div>
+                            <div style={{ color: 'var(--text-primary)' }}>{formatPrice(liq.price)}</div>
                             <div style={{ fontWeight: liq.value > 10000 ? 'bold' : 'normal' }}>
                                 {formatValue(liq.value)}
                             </div>
