@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import CustomChart from '@/components/CustomChart';
+import CustomChart from '@/features/charts/CustomChart';
 import DataQualityBadge from '@/ui/DataQualityBadge';
 import { provenanceRegistry } from '@/services/provenanceEngine';
 import type { FeedStatus } from '@/types/common';

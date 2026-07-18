@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateATR } from '../../utils/indicators';
+import type { OHLCV } from '../../types/common';
 
 describe('ATR Indicator', () => {
     it('should calculate ATR correctly', () => {
@@ -37,10 +38,10 @@ describe('ATR Indicator', () => {
         // If implementation uses Wilder's smoothing, it needs more data.
         // Let's stick to a longer sequence where the gap repeats.
 
-        const gapData: any[] = [{ time: 0, open: 100, high: 100, low: 100, close: 100, volume: 100 }];
+        const gapData: OHLCV[] = [{ time: 0, open: 100, high: 100, low: 100, close: 100, volume: 100 }];
 
         for (let i = 1; i < 20; i++) {
-            const prevClose = gapData[i - 1].close;
+            const prevClose = gapData[i - 1]!.close;
             // We want TR to be 30.
             // Let's make H-L = 5.
             // We need |High - PrevClose| = 30.

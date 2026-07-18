@@ -9,11 +9,6 @@ export default defineConfig([
     'dist',
     'coverage',
     '.next',
-    'src/services/mlService.ts',
-    'src/features/charts/CorrelationHeatmap.tsx',
-    'src/features/charts/OrderFlowSankey.tsx',
-    'src/features/charts/VolatilitySurface3D.tsx',
-    'src/features/charts/VolatilitySurface.tsx',
   ]),
   ...tseslint.configs.recommended,
   {
@@ -29,22 +24,14 @@ export default defineConfig([
     rules: {
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
   {
-    files: ['scripts/**/*.js'],
+    files: ['build/**/*.{ts,js}', 'scripts/**/*.{ts,js}', 'vite.config.ts', 'vitest.config.ts'],
     languageOptions: {
       globals: globals.node,
-    },
-  },
-  {
-    files: ['src/services/**/*.ts'],
-    rules: {
-      // Active services still contain legacy suppression comments. Keep the
-      // files linted while surfacing those comments as migration warnings.
-      '@typescript-eslint/ban-ts-comment': 'warn',
     },
   },
 ])

@@ -1,62 +1,54 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useConnectionLatency } from '../../hooks/useConnectionLatency';
-import WS from 'vitest-websocket-mock';
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useConnectionLatency } from '@/hooks/useConnectionLatency';
+import { recordLiveMarketEvent } from '@/services/marketTelemetry';
 
-describe.skip('useConnectionLatency', () => {
-    let wsServer: WS;
-
+describe('useConnectionLatency', () => {
     beforeEach(() => {
-        wsServer = new WS('wss://stream.binance.com:9443/ws');
         vi.useFakeTimers();
-
-        // Mock fetch for ping
-        global.fetch = vi.fn().mockResolvedValue({
-            ok: true,
-            json: async () => ({})
-        } as Response);
+        vi.setSystemTime(new Date('2026-07-18T00:00:00.000Z'));
     });
 
     afterEach(() => {
-        WS.clean();
         vi.useRealTimers();
-        vi.restoreAllMocks();
     });
 
-    it('should connect immediately if tokens are available', async () => {
-        renderHook(() => useConnectionLatency());
+    it('reports selected-symbol message latency and update rate', () => {
+        const { result } = renderHook(() => useConnectionLatency('btcusdt'));
+        const now = Date.now();
 
-        // Should connect immediately
-        await expect(wsServer).toReceiveMessage(expect.anything()).catch(() => { });
-        // Actually we don't send a message on connect, just open.
-        // vitest-websocket-mock waits for connection.
-        await wsServer.connected;
-
-        expect(wsServer.server.clients().length).toBe(1);
-    });
-
-    it('should retry with backoff on close', async () => {
-        vi.useFakeTimers();
-        renderHook(() => useConnectionLatency());
-        await wsServer.connected;
-
-        // Close connection
-        wsServer.close();
-
-        // First backoff is 1s (2^0 * 1000)
-        // Advance time by 500ms - should not be connected yet
-        await act(async () => {
-            vi.advanceTimersByTime(500);
+        act(() => {
+            recordLiveMarketEvent('binance', now - 80, 'BTCUSDT');
+            recordLiveMarketEvent('binance', now - 20, 'BTCUSDT');
+            recordLiveMarketEvent('binance', now - 60, 'BTCUSDT');
+            recordLiveMarketEvent('binance', now - 5, 'ETHUSDT');
+            vi.advanceTimersByTime(1_000);
         });
-        // We can't easily check internal state, but we can check if new connection is made
-        // Since we closed the server, we need to restart it or just check if client tries to connect?
-        // WS mock might not support reopening easily in same test if server is closed.
-        // Actually WS mock server stays open, we just closed the client connection from server side?
-        // "wsServer.close()" closes the server.
-        // We should simulate client disconnect or server closing individual client.
-        // But let's assume the hook handles the "onclose" event.
 
-        // Let's just verify the hook doesn't crash.
-        // A better test would check the console.log or internal state if exposed.
+        expect(result.current).toEqual({
+            latency: 60,
+            quality: 'Good',
+            updatesPerSecond: 3,
+        });
+    });
+
+    it('marks telemetry poor after the selected feed becomes stale', () => {
+        const { result } = renderHook(() => useConnectionLatency('BTCUSDT'));
+
+        act(() => {
+            recordLiveMarketEvent('binance', Date.now() - 40, 'BTCUSDT');
+            vi.advanceTimersByTime(1_000);
+        });
+        expect(result.current.quality).toBe('Excellent');
+
+        act(() => {
+            vi.advanceTimersByTime(3_001);
+        });
+
+        expect(result.current).toEqual({
+            latency: 0,
+            quality: 'Poor',
+            updatesPerSecond: 0,
+        });
     });
 });

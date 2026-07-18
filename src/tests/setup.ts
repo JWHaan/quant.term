@@ -14,9 +14,7 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
     disconnect: vi.fn(),
 }));
 
-// Mock WebSocket if not provided by environment (though vitest-websocket-mock handles this usually)
-// We'll let vitest-websocket-mock handle the specific WS mocking in tests, 
-// but ensuring the global object exists is good practice for JSDOM.
+// Provide a minimal WebSocket constructor for components that only check its presence.
 if (!global.WebSocket) {
     // @ts-expect-error: vitest globals need explicit typing
     global.WebSocket = vi.fn();

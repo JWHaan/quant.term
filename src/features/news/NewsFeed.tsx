@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchCryptoNews } from '@/services/cryptoPanicService';
+import { fetchCryptoNews } from '@/integrations/news/client';
 import { Newspaper, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface NewsFeedProps {

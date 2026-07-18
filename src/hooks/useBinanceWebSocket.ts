@@ -4,9 +4,8 @@ import {
     recordLiveMarketEvent,
     releaseLiveConnection,
     reportLiveConnection,
-} from '@/services/liveMarketData';
+} from '@/services/marketTelemetry';
 import { provenanceRegistry } from '@/services/provenanceEngine';
-import { useMarketStore } from '@/stores/marketStore';
 
 export interface Candle {
     time: number;
@@ -206,9 +205,6 @@ export const useBinanceWebSocket = (
                             .getEngine(normalizedSymbol)
                             .augment(nextCandle, eventTimestamp ?? receivedAt);
 
-                        if (kline['x'] === true) {
-                            useMarketStore.getState().addCandle(normalizedSymbol, nextCandle);
-                        }
                         return;
                     }
 

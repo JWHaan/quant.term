@@ -29,6 +29,20 @@ export function formatVolume(num: number, decimals = 2): string {
     return num.toFixed(decimals);
 }
 
+/** Format signed paper-account values with compact suffixes and a currency sign. */
+export function formatCurrency(num: number, decimals = 2): string {
+    if (!Number.isFinite(num)) return '—';
+
+    const absolute = Math.abs(num);
+    let formatted: string;
+    if (absolute >= 1e9) formatted = `${(absolute / 1e9).toFixed(decimals)}B`;
+    else if (absolute >= 1e6) formatted = `${(absolute / 1e6).toFixed(decimals)}M`;
+    else if (absolute >= 1e3) formatted = `${(absolute / 1e3).toFixed(decimals)}K`;
+    else formatted = absolute.toFixed(decimals);
+
+    return `${num < 0 ? '-$' : '$'}${formatted}`;
+}
+
 /**
  * Format a percentage change with a leading + for positive values.
  */

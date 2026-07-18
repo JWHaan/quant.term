@@ -1,12 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { MarketState, Candle, Trade } from '@/types/stores';
+import type { MarketState } from '@/types/stores';
 import type { MarketData } from '@/types/binance';
 import {
     DEFAULT_SYMBOL,
     DEFAULT_WATCHLIST,
-    CANDLE_BUFFER_SIZE,
-    TRADE_BUFFER_SIZE,
     normalizeBinanceSpotSymbol,
 } from '@/constants/config';
 
@@ -21,8 +19,6 @@ export const useMarketStore = create<MarketState>()(
             selectedSymbol: DEFAULT_SYMBOL,
             watchlist: [...DEFAULT_WATCHLIST],
             marketData: {},
-            candles: {},
-            trades: {},
             lastUpdate: null,
 
             // ─── Actions ─────────────────────────────────────────────────────
@@ -67,27 +63,8 @@ export const useMarketStore = create<MarketState>()(
                 }));
             },
 
-            addCandle: (symbol: string, candle: Candle) =>
-                set((state) => {
-                    const current = state.candles[symbol] ?? [];
-                    const next = [...current, candle];
-                    if (next.length > CANDLE_BUFFER_SIZE) next.splice(0, next.length - CANDLE_BUFFER_SIZE);
-                    return { candles: { ...state.candles, [symbol]: next } };
-                }),
-
-            addTrade: (symbol: string, trade: Trade) =>
-                set((state) => {
-                    const current = state.trades[symbol] ?? [];
-                    const next = [...current, trade];
-                    if (next.length > TRADE_BUFFER_SIZE) next.splice(0, next.length - TRADE_BUFFER_SIZE);
-                    return { trades: { ...state.trades, [symbol]: next } };
-                }),
-
             clearMarketData: () =>
-                set({ marketData: {}, candles: {}, trades: {}, lastUpdate: null }),
-
-            cleanup: () =>
-                set({ candles: {}, trades: {} }),
+                set({ marketData: {}, lastUpdate: null }),
 
             // ─── Getters ─────────────────────────────────────────────────────
             getMarketData: (symbol: string): MarketData | null =>
@@ -95,12 +72,6 @@ export const useMarketStore = create<MarketState>()(
 
             isInWatchlist: (symbol: string): boolean =>
                 get().watchlist.includes(normalizeBinanceSpotSymbol(symbol)),
-
-            getCandles: (symbol: string) =>
-                get().candles[symbol] ?? [],
-
-            getTrades: (symbol: string) =>
-                get().trades[symbol] ?? [],
         }),
         {
             name: 'market-store',

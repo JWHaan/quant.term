@@ -1,0 +1,70 @@
+name: Bug report
+description: Report a reproducible problem in the terminal
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Do not include credentials, private keys, seed phrases, or personal data.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the actual result and what you expected instead.
+      placeholder: The BTC chart remains empty after selecting BTCUSDT...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open...
+        2. Select...
+        3. Observe...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Market watch
+        - Chart or indicators
+        - Order book or order flow
+        - Derivatives or liquidations
+        - News or network data
+        - Alerts or paper trading
+        - Authentication or routing
+        - Build or deployment
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser/version, operating system, deployment URL, and commit SHA when known.
+      placeholder: Firefox 128 on macOS 15, local main at abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Add console/network errors, screenshots, and provider status. Redact sensitive data.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I reproduced this with browser extensions or content blockers disabled when relevant.
+          required: false

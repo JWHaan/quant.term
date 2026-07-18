@@ -1,20 +1,14 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { AlertState, Alert, AlertCondition } from '@/types/stores';
+import type {
+    AlertState,
+    Alert,
+    AlertCondition,
+    MarketConditionPayload,
+} from '@/types/stores';
 
 interface AlertHistoryEntry extends Alert {
     triggeredAt: number;
-}
-
-interface MarketConditionPayload {
-    symbol: string;
-    price: number;
-    rsi?: number;
-    macd?: number;
-    volumeRatio?: number;
-    signal?: string;
-    ofi?: number;
-    liquidation?: number;
 }
 
 const STORAGE_FALLBACK = {
@@ -87,9 +81,15 @@ class AlertEngine {
                     if (typeof alert.value === 'number') shouldTrigger = this.checkPriceCondition(price, alert.condition, alert.value);
                     break;
                 case 'indicator': {
-                    if (marketData && alert.condition in marketData && typeof alert.value === 'number') {
-                        const indicatorValue = marketData[alert.condition as keyof typeof marketData];
-                        if (typeof indicatorValue === 'number') shouldTrigger = indicatorValue >= alert.value;
+                    if (marketData && alert.indicator && typeof alert.value === 'number') {
+                        const indicatorValue = marketData[alert.indicator];
+                        if (typeof indicatorValue === 'number') {
+                            shouldTrigger = this.checkPriceCondition(
+                                indicatorValue,
+                                alert.condition,
+                                alert.value,
+                            );
+                        }
                     }
                     break;
                 }

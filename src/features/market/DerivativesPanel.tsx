@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, RefreshCw } from 'lucide-react';
 import { BINANCE_FUTURES_REST_URL } from '@/constants/config';
-import { parseDerivativesSnapshot, type DerivativesSnapshot } from '@/services/binanceDerivatives';
+import { parseDerivativesSnapshot, type DerivativesSnapshot } from '@/integrations/binance/derivatives';
 import { formatPrice, formatVolume } from '@/utils/format';
-import { getBinanceFuturesContract } from '@/utils/binanceFutures';
+import { getBinanceFuturesContract } from '@/integrations/binance/contracts';
 
 interface DerivativesPanelProps {
     symbol: string;

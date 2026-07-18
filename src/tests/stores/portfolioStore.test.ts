@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+    calculatePositionMargin,
     calculatePositionPnl,
     usePortfolioStore,
     type PaperPosition,
@@ -45,6 +46,8 @@ describe('portfolioStore', () => {
         expect(calculatePositionPnl(long, 90)).toBe(-20);
         expect(calculatePositionPnl(short)).toBe(60);
         expect(calculatePositionPnl(short, 220)).toBe(-60);
+        expect(calculatePositionMargin(long)).toBe(40);
+        expect(calculatePositionMargin({ ...long, leverage: 1 })).toBe(200);
     });
 
     it('opens a position at the live mark and updates only matching symbols', () => {
@@ -82,6 +85,10 @@ describe('portfolioStore', () => {
         ['non-finite quantity', { quantity: Number.NaN }, 'Quantity must be greater than zero'],
         ['zero entry', { entryPrice: 0 }, 'A live market price is required'],
         ['non-finite entry', { entryPrice: Number.POSITIVE_INFINITY }, 'A live market price is required'],
+        ['zero leverage', { leverage: 0 }, 'Leverage must be an integer from 1 to 100'],
+        ['fractional leverage', { leverage: 1.5 }, 'Leverage must be an integer from 1 to 100'],
+        ['excessive leverage', { leverage: 101 }, 'Leverage must be an integer from 1 to 100'],
+        ['insufficient margin', { quantity: 10_000, leverage: 1 }, 'Insufficient free paper margin'],
     ])('rejects %s', (_label, overrides, message) => {
         expect(() => usePortfolioStore.getState().openPosition(makePositionInput(overrides))).toThrow(message);
         expect(usePortfolioStore.getState().positions).toHaveLength(0);

@@ -1,191 +1,141 @@
-# quant.term architecture
+# Architecture
 
-## System overview
+`quant.term` is a browser-first React application with one small, platform-neutral news handler. Public market and network data goes directly to the browser; the edge layer fetches and normalizes public RSS. There is no account backend, secret store, or order-routing service.
 
-`quant.term` is a React application with a small edge Worker. The browser reads public market and network endpoints, while the Worker normalizes public RSS news behind `/api/news`. User preferences, alerts, and paper-trading state remain local. There is no exchange-account backend or order-routing service.
+## Runtime data flow
 
-```mermaid
+~~~mermaid
 flowchart LR
-    subgraph Sources["Public data sources"]
+    subgraph Sources["Public providers"]
         BS["Binance Spot"]
         BF["Binance USDⓈ-M"]
-        CD["CoinDesk RSS"]
-        CT["Cointelegraph RSS"]
+        RSS["CoinDesk + Cointelegraph RSS"]
         MP["mempool.space"]
         FG["Alternative.me"]
     end
 
-    subgraph Edge["Sites Worker"]
-        News["/api/news normalization + cache"]
+    subgraph Edge["Edge adapters"]
+        News["Shared news handler"]
+        Sites["Sites / Cloudflare Worker"]
+        Vercel["Vercel Function"]
     end
 
-    subgraph Browser["Browser application"]
-        Feeds["REST and WebSocket hooks"]
+    subgraph Browser["React application"]
+        Feeds["REST + WebSocket hooks"]
         Stores["Zustand stores"]
-        Calc["Indicators and order-flow calculators"]
-        UI["React terminal"]
-        Chart["D3-scaled Canvas chart"]
+        Calc["Indicators + order-flow calculators"]
+        UI["Terminal panels"]
         Local["localStorage"]
     end
 
+    RSS --> News
+    News --> Sites
+    News --> Vercel
+    Sites --> Feeds
+    Vercel --> Feeds
     BS --> Feeds
     BF --> Feeds
-    CD --> News
-    CT --> News
-    News --> Feeds
     MP --> Feeds
     FG --> Feeds
     Feeds --> Stores
     Feeds --> Calc
     Stores --> UI
     Calc --> UI
-    Stores --> Chart
     Stores <--> Local
-```
+~~~
 
-## Technology stack
+## Source ownership
 
-| Layer | Technology | Current role |
-|---|---|---|
-| UI | React 19 | Component tree, effects, error boundaries, lazy panels |
-| Language | TypeScript 5.9 | Strict application and financial-data types |
-| Build | Vite 7 | Development server and static production bundle |
-| State | Zustand 5 | Shared state, bounded buffers, selected persistence |
-| Primary chart | Canvas + D3 7 | Price rendering, scales, axes, zoom, and pointer interaction |
-| Layout | react-resizable-panels | Three-column resizable terminal workspace |
-| Tests | Vitest + happy-dom | Unit and regression tests |
+| Area | Responsibility |
+|---|---|
+| `src/app` | Application shell and workspace composition |
+| `src/features` | Feature-owned panels and presentation |
+| `src/hooks` | React lifecycle around live subscriptions |
+| `src/integrations` | Provider-specific contracts, parsers, and clients |
+| `src/services` | Provider-neutral telemetry and data provenance |
+| `src/stores` | Shared state and persistence boundaries |
+| `src/ui` | Reusable terminal primitives |
+| `src/utils` | Pure calculations and formatting |
+| `worker` | Shared news handler and Sites adapter |
+| `api` | Vercel Function adapters |
 
-The installed Lightweight Charts package is not the primary dashboard renderer. The active price workspace uses `CustomChart.tsx` and Canvas.
-
-## Runtime layout
-
-```text
-App
-├── AppHeader
-├── MarketOverviewBar
-├── NewsTicker
-├── resizable workspace
-│   ├── Market Watch
-│   │   └── MarketGrid
-│   ├── Primary Market Workspace
-│   │   ├── ChartContainer
-│   │   │   └── CustomChart
-│   │   └── Market Depth tabs
-│   │       ├── OrderBookDOM
-│   │       └── LiquidationFeed
-│   └── Research and Intelligence
-│       ├── QuantSignalEngine / AlphaPanel
-│       └── Perpetuals / Paper / Network / Alerts / News
-├── AppFooter
-├── CommandPalette
-└── KeyboardShortcutsModal
-```
-
-Global and per-panel error boundaries keep one failed data panel from replacing the entire workspace. `MobileGate` intentionally targets the full terminal at desktop layouts.
+Only active runtime code lives under `src`. Research prototypes that are not compiled, tested, or reachable do not remain in the production tree.
 
 ## Market-data paths
 
 ### Binance Spot
 
-| Consumer | Transport | Data |
+| Consumer | Transport | Responsibility |
 |---|---|---|
-| `MarketGrid` | Targeted MINI REST seed + combined per-symbol mini-ticker WebSocket | Last price, 24h change, volume |
-| `useChartDataFeed` | REST klines | Historical candles, capped at Binance's request limit |
-| `useBinanceWebSocket` | Combined WebSocket | Selected-symbol kline and top-20 depth snapshots |
-| `OrderBookDOM` / OFI | Separate partial-depth WebSocket | Selected-symbol top-20 bids and asks |
-| Volume delta / VPIN | Shared reconnecting aggregate-trade WebSocket | Exchange taker-side volume classification |
-| Research panels | REST klines | Heuristic indicators and factor calculations |
+| Market watch | REST seed + combined mini-ticker WebSocket | Last price, 24-hour change, and quote volume |
+| Chart feed | REST klines + selected-symbol WebSocket | Historical and live candles |
+| Chart heatmap | Selected-symbol depth snapshots | Bounded depth history and derived bins |
+| DOM / OFI | Partial-depth WebSocket | Top-20 bid and ask snapshots |
+| Volume delta / VPIN | Shared aggregate-trade WebSocket | Taker-side trade classification |
 
-The active feed model is decentralized: panels own subscriptions appropriate to their update rate. Shared connection telemetry aggregates owner status so one unmounted subscriber does not incorrectly mark a healthy source offline.
+### Binance USDⓈ-M
 
-### Binance USDⓈ-M Futures
+Provider code under `src/integrations/binance` normalizes futures contract symbols and parses mark price, funding, open interest, long/short positioning, and forced-order events. These are public observations only.
 
-- REST requests provide mark price, index price, funding rate, open interest, and the five-minute global long/short account ratio.
-- The public `!forceOrder@arr` WebSocket supplies liquidation events, filtered for the selected symbol in the panel.
+### News and network
 
-These feeds are market observations only. They do not use an account or submit orders.
-
-### News and network data
-
-- The Worker merges CoinDesk and Cointelegraph RSS, validates and deduplicates stories, and serves partial results if one publisher is unavailable. The browser adds a 90-second in-memory cache.
-- mempool.space supplies Bitcoin height, mempool statistics, and recommended fees.
-- Alternative.me supplies the current Fear & Greed reading.
-
-Requests use bounded timeouts and show unavailable states instead of generated fallback values.
+`worker/news.ts` merges, validates, sorts, and deduplicates CoinDesk and Cointelegraph RSS. `worker/index.ts` and `api/vercel-news.ts` are thin platform adapters around that shared handler. mempool.space and Alternative.me requests remain browser-side.
 
 ## Chart pipeline
 
-```mermaid
+~~~mermaid
 sequenceDiagram
-    participant REST as Binance Spot REST
-    participant WS as Binance combined WebSocket
+    participant REST as Binance REST
+    participant WS as Binance WebSocket
     participant Feed as useChartDataFeed
     participant Store as chartDataStore
-    participant Chart as CustomChart Canvas
+    participant Chart as CustomChart
 
     Feed->>REST: Request historical klines
     REST-->>Feed: Validated candle rows
-    Feed->>Store: Replace symbol/interval history
-    WS-->>Feed: Live kline and depth snapshots
+    Feed->>Store: Replace interval history
+    WS-->>Feed: Live candle and depth
     Feed->>Store: Upsert latest candle
-    Feed->>Store: Capture bounded depth history
+    Feed->>Store: Append bounded depth snapshot
     Store-->>Chart: Candles and heatmap bins
-    Chart->>Chart: D3 scales + Canvas drawing
-```
+    Chart->>Chart: D3 scales and Canvas render
+~~~
 
-If a live candle arrives while historical data is loading, the feed reapplies it after the REST response so history cannot roll the chart backward. The chart offers six intervals, optional EMA/RSI/MACD displays, and a derived depth heatmap.
+If a live candle arrives while history is loading, the feed reapplies it after the REST response so an older snapshot cannot roll the chart backward.
 
 ## State and persistence
 
-| Store/value | Responsibility | Persisted locally |
+| State | Responsibility | Persisted |
 |---|---|---|
-| `marketStore` | Selected symbol, watchlist, bounded shared market cache | Selected symbol and watchlist only |
-| `chartDataStore` | Candle series metadata and heatmap configuration | No |
+| `marketStore` | Selected symbol, watchlist, normalized ticker cache | Symbol and watchlist |
+| `chartDataStore` | Candle series and heatmap configuration | No |
 | `orderBookHistoryStore` | Bounded depth snapshots | No |
-| `connectionStore` | Per-source status and measured message latency | No |
-| `alertStore` | Alert definitions, triggers, session history | Definitions only; triggered flags reset on reload |
-| `portfolioStore` | Simulated balance, positions, P&L, closed trades | Full paper state; closed trades capped at 250 |
-| `quantStore` | Experimental ML/stat-arb metadata | Model metrics and last-training timestamp only |
+| `connectionStore` | Per-source status and measured latency | No |
+| `alertStore` | Alert definitions and session triggers | Definitions only |
+| `portfolioStore` | Simulated balance, initial margin, positions, P&L, and bounded history | Yes |
 | Theme | Dark/light preference | Yes |
 
-Live exchange messages, news, Bitcoin network snapshots, alert history, and connection statistics are memory-only. Clearing site storage removes all persisted preferences, alerts, and paper activity.
+## Reliability boundaries
 
-## Alerts and paper trading
+- WebSocket hooks clean up handlers, use stale-feed watchdogs, and reconnect with bounded exponential delay.
+- REST consumers validate response shape and surface unavailable states.
+- The news handler returns partial results when one publisher fails and a 502 when all publishers fail.
+- Connection latency comes from exchange-message timestamps, not synthetic random values.
+- Provider availability, region policy, browser scheduling, and network distance remain outside the application's control.
 
-Price alerts run in the open browser against the selected symbol's live market price. Definitions can be enabled, disabled, or removed locally. Browser notifications require user permission; no remote notification service exists.
+## Deployment boundary
 
-Paper trading is a local simulation:
+`npm run build` produces:
 
-- opening a position records the current public market price
-- mark updates calculate unrealized P&L
-- closing records realized P&L and a local trade-history row
-- leverage is descriptive position metadata; no margin engine or liquidation model is applied
-- no exchange key, wallet, or order endpoint is present
+~~~text
+dist/
+├── client/      # Browser assets
+├── server/      # Sites / Cloudflare Worker bundle
+└── .openai/     # Sites project metadata
+~~~
 
-## Experimental analytics
-
-OFI, volume delta/CVD, VPIN, Hurst, ADX, RSI, ATR, MACD, Bollinger Bands, OBV, VWAP, and composite scores are calculated in the browser from public data. The signal panel is explicitly heuristic.
-
-Repository scaffolds for ML, econometrics, risk, options surfaces, stat-arbitrage, plugins, and multi-exchange adapters are not active product paths. Some are excluded from compilation or coverage until dependencies and data contracts are ready.
-
-The active dashboard does not currently include authenticated on-chain analytics, an economic calendar, Deribit options, real VaR/Greeks, or automated execution.
-
-## Reliability and telemetry
-
-Active WebSocket hooks implement cleanup, stale-feed watchdogs, and bounded exponential reconnect delays. REST consumers use abort signals or refresh cycles appropriate to the panel. The footer derives latency from timestamps on actual selected-symbol exchange messages and reports update counts per second.
-
-These are operational diagnostics, not an SLA. Network distance, browser scheduling, upstream throttling, regional access, and provider outages determine real latency and availability.
-
-## Security and environment
-
-The main dashboard requires no environment variables. All active providers expose public read-only endpoints.
-
-Vite variables are compiled into browser JavaScript and must never hold private API keys. A future authenticated provider should be integrated through a separately secured backend or serverless proxy, not a `VITE_*` secret.
+Vercel serves `dist/client` and builds `api/vercel-news.ts` separately, rewriting the public `/api/news` route to that Function. Sites serves `dist/client` through the Worker in `dist/server`. Both expose the same `/api/news` response contract.
 
 ## Quality gates
 
-CI installs from the lockfile, lints, type-checks, runs Vitest with configured coverage thresholds, and produces the Vite bundle. Financial calculations and state transitions have focused regression suites, including indicators, alerts, paper P&L, trade classification, and VPIN bucket overflow.
-
----
-
-Last updated: 2026-07-17
+TypeScript covers `src`, `worker`, `api`, build helpers, and Vite/Vitest configuration. CI requires zero lint warnings, strict type checking, deterministic Vitest execution, configured coverage floors, and a verified production build.

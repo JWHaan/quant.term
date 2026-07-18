@@ -1,5 +1,5 @@
 import React, { useMemo, memo } from 'react';
-import { useOrderBook } from '@/hooks/useOrderBook';
+import { useOrderBook, type OrderBookLevel } from '@/hooks/useOrderBook';
 import { formatPrice } from '@/utils/format';
 import { getAdaptiveBookStep } from '@/utils/orderBookFormatting';
 
@@ -129,7 +129,7 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
         if (!bids.length || !asks.length) return { rows: [], maxVol: 0, spread: 0 };
 
         // Helper to aggregate levels
-        const aggregate = (levels: [string, string][], prec: number, side: 'bid' | 'ask') => {
+        const aggregate = (levels: readonly OrderBookLevel[], prec: number, side: 'bid' | 'ask') => {
             const map = new Map<number, number>();
             levels.forEach(([p, v]) => {
                 const price = parseFloat(p);
@@ -152,8 +152,8 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
             processedBids = aggBids.slice(0, DEPTH).map(([p, v]) => ({ price: p, vol: v, type: 'bid' as const }));
         } else {
             // Raw
-            processedAsks = (asks as [string, string][]).slice(0, DEPTH).reverse().map(([p, v]) => ({ price: parseFloat(p), vol: parseFloat(v), type: 'ask' as const }));
-            processedBids = (bids as [string, string][]).slice(0, DEPTH).map(([p, v]) => ({ price: parseFloat(p), vol: parseFloat(v), type: 'bid' as const }));
+            processedAsks = asks.slice(0, DEPTH).reverse().map(([p, v]) => ({ price: parseFloat(p), vol: parseFloat(v), type: 'ask' as const }));
+            processedBids = bids.slice(0, DEPTH).map(([p, v]) => ({ price: parseFloat(p), vol: parseFloat(v), type: 'bid' as const }));
         }
 
         let max = 0;

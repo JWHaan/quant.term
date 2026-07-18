@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
 
+interface ChromiumMemoryInfo {
+    usedJSHeapSize: number;
+    totalJSHeapSize: number;
+    jsHeapSizeLimit: number;
+}
+
+type PerformanceWithMemory = Performance & { memory?: ChromiumMemoryInfo };
+
 export const MemoryProfiler: React.FC = () => {
     const [memory, setMemory] = useState<{ used: number; total: number; limit: number } | null>(null);
 
     useEffect(() => {
         const interval = setInterval(() => {
             // performance.memory is a Chrome-specific extension
-            if ((performance as any).memory) {
-                const mem = (performance as any).memory;
+            const mem = (performance as PerformanceWithMemory).memory;
+            if (mem) {
                 setMemory({
                     used: mem.usedJSHeapSize,
                     total: mem.totalJSHeapSize,

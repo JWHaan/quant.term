@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { subscribeToLiveMarketEvents } from '@/services/liveMarketData';
-import { useConnectionStore } from '@/stores/connectionStore';
+import { subscribeToLiveMarketEvents } from '@/services/marketTelemetry';
 
 export type ConnectionQuality = 'Excellent' | 'Good' | 'Fair' | 'Poor';
 
@@ -64,10 +63,6 @@ export const useConnectionLatency = (symbol: string = 'BTCUSDT'): LatencyStats =
             if (samples.length > 0) lastLatencyRef.current = median(samples);
             const latency = isStale ? 0 : lastLatencyRef.current;
             const quality = isStale || latency === 0 ? 'Poor' : qualityForLatency(latency);
-
-            if (!isStale && latency > 0) {
-                useConnectionStore.getState().setLatency('binance', latency);
-            }
 
             setStats({ latency, quality, updatesPerSecond });
             updateCountRef.current = 0;

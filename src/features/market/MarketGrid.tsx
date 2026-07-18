@@ -5,14 +5,14 @@ import {
     recordLiveMarketEvent,
     releaseLiveConnection,
     reportLiveConnection,
-} from '@/services/liveMarketData';
+} from '@/services/marketTelemetry';
 import {
     buildWatchlistSeedUrl,
     buildWatchlistStreamUrl,
     extractTickerValues,
     parseTicker,
     type WatchlistMarketData,
-} from '@/services/binanceWatchlist';
+} from '@/integrations/binance/watchlist';
 import { useMarketStore } from '@/stores/marketStore';
 
 interface MarketGridProps {

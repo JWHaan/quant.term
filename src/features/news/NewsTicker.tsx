@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
-import { fetchCryptoNews, getTimeAgo, startNewsPolling } from '@/services/cryptoPanicService';
+import { fetchCryptoNews, getTimeAgo, startNewsPolling } from '@/integrations/news/client';
 
 interface NewsTickerItem {
     id: string;

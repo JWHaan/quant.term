@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseDerivativesSnapshot } from '@/services/binanceDerivatives';
-import { parseBinanceLiquidation } from '@/services/liquidationService';
+import { parseDerivativesSnapshot } from '@/integrations/binance/derivatives';
+import { parseBinanceLiquidation } from '@/integrations/binance/liquidations';
 import {
     getBinanceFuturesContract,
     normalizeBinanceFuturesPrice,
     normalizeBinanceFuturesQuantity,
-} from '@/utils/binanceFutures';
+} from '@/integrations/binance/contracts';
 import { getAdaptiveBookStep } from '@/utils/orderBookFormatting';
 
 const premium = {

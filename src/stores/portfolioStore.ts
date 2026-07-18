@@ -37,6 +37,11 @@ export const calculatePositionPnl = (position: PaperPosition, price = position.c
     return (price - position.entryPrice) * position.quantity * direction;
 };
 
+/** Initial margin reserved by a paper position; leverage does not multiply P&L. */
+export const calculatePositionMargin = (
+    position: Pick<PaperPosition, 'entryPrice' | 'quantity' | 'leverage'>,
+): number => (position.entryPrice * position.quantity) / position.leverage;
+
 const storage = createJSONStorage(() => {
     if (typeof window === 'undefined') {
         return {
@@ -62,6 +67,25 @@ export const usePortfolioStore = create<PortfolioState>()(
                 }
                 if (!Number.isFinite(input.entryPrice) || input.entryPrice <= 0) {
                     throw new Error('A live market price is required');
+                }
+                if (!Number.isInteger(input.leverage) || input.leverage < 1 || input.leverage > 100) {
+                    throw new Error('Leverage must be an integer from 1 to 100');
+                }
+
+                const state = get();
+                const equity = state.startingBalance
+                    + state.realizedPnl
+                    + state.positions.reduce(
+                        (total, position) => total + calculatePositionPnl(position),
+                        0,
+                    );
+                const usedMargin = state.positions.reduce(
+                    (total, position) => total + calculatePositionMargin(position),
+                    0,
+                );
+                const requiredMargin = calculatePositionMargin(input);
+                if (requiredMargin > Math.max(0, equity - usedMargin)) {
+                    throw new Error('Insufficient free paper margin');
                 }
 
                 const id = `paper_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -120,4 +144,3 @@ export const usePortfolioStore = create<PortfolioState>()(
         }
     )
 );
-

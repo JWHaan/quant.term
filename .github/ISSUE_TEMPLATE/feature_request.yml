@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a focused improvement to quant.term
+title: "[Feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or research problem should this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the behavior, not only the implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: data
+    attributes:
+      label: Data and failure model
+      description: Identify the provider, authentication needs, rate limits, regional constraints, and honest unavailable state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Safety boundaries
+      options:
+        - label: This proposal does not require storing exchange credentials in the browser.
+          required: true
+        - label: This proposal does not fabricate fallback market or performance data.
+          required: true

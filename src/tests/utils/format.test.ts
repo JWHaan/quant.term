@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPrice } from '@/utils/format';
+import { formatCurrency, formatPrice } from '@/utils/format';
 
 describe('formatPrice', () => {
     it('preserves cent-level changes for high-priced assets', () => {
@@ -21,5 +21,14 @@ describe('formatPrice', () => {
     it('uses an em dash for absent or invalid prices', () => {
         expect(formatPrice(0)).toBe('—');
         expect(formatPrice(Number.NaN)).toBe('—');
+    });
+});
+
+describe('formatCurrency', () => {
+    it('formats zero, compact positive values, and signed losses', () => {
+        expect(formatCurrency(0)).toBe('$0.00');
+        expect(formatCurrency(125_000)).toBe('$125.00K');
+        expect(formatCurrency(-1_250)).toBe('-$1.25K');
+        expect(formatCurrency(Number.NaN)).toBe('—');
     });
 });

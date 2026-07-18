@@ -11,7 +11,7 @@ import {
     buildWatchlistStreamUrl,
     extractTickerValues,
     parseTicker,
-} from '@/services/binanceWatchlist';
+} from '@/integrations/binance/watchlist';
 import { useMarketStore } from '@/stores/marketStore';
 
 const RETIRED_SPOT_SYMBOLS = ['MATICUSDT', 'RNDRUSDT', 'MKRUSDT', 'FTMUSDT'] as const;
