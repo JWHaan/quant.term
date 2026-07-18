@@ -33,8 +33,8 @@
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@types/react-window": "^1.8.8",
-    "@vitejs/plugin-react": "^5.1.1",
-    "@vitest/coverage-v8": "^4.0.13",
+    "@vitejs/plugin-react": "^5.2.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
@@ -42,8 +42,8 @@
     "happy-dom": "^20.0.10",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1",
-    "vite": "^7.2.4",
-    "vitest": "^4.0.13",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10",
     "vitest-websocket-mock": "^0.5.0"
   }
 }
