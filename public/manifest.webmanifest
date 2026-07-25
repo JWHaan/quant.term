@@ -1,7 +1,7 @@
 {
-  "name": "quant.term — Live Crypto Market Intelligence",
+  "name": "quant.term — Crypto Research & Deterministic Replay",
   "short_name": "quant.term",
-  "description": "A Bloomberg-inspired read-only crypto dashboard with live market data, derivatives intelligence, alerts, and paper trading.",
+  "description": "A read-only crypto research terminal with live market intelligence and deterministic strategy replay.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#07090c",

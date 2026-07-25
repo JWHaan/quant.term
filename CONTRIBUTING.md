@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ~~~
 
-Node.js 22.12 or newer within the 22.x LTS line is required. The active dashboard needs no environment variables.
+Node.js 22.12 or newer within the 22.x LTS line is required. The complete quality gate also requires CMake 3.20+ and a C++20 compiler. The active dashboard needs no environment variables.
 
 ## Development workflow
 
@@ -33,6 +33,8 @@ Use Conventional Commit-style subjects where practical, for example `fix: recove
 - Treat external JSON as `unknown` and validate it at the integration boundary.
 - Keep provider-specific parsing under `src/integrations`.
 - Keep calculations pure when possible and cover financial math with deterministic fixtures.
+- Keep the browser and native backtest implementations aligned through shared golden fixtures.
+- Treat synthetic replay output as correctness evidence, never as historical performance.
 - Clean up WebSockets, intervals, abort controllers, and subscriptions on unmount.
 - Do not fabricate fallback prices, volume, P&L, risk metrics, or news.
 - Never put secrets in `VITE_*` variables; Vite values are shipped to the browser.

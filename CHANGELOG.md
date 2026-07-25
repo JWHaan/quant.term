@@ -13,6 +13,10 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Browser-local alerts and paper trading
 - Vercel `/api/news` Function adapter alongside the Sites/Cloudflare Worker
 - GitHub issue, pull-request, ownership, and dependency-maintenance metadata
+- Separate Monitor and Strategy Lab workspaces
+- Deterministic BTC/USDT SMA replay with next-bar fills, fees, slippage, and trade inspection
+- Native C++20 replay core, CTest suite, and `backtest-v1` contract schema
+- Golden browser/native result checks for the bundled synthetic fixture
 
 ### Changed
 
@@ -23,6 +27,7 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Refreshed build and test dependencies to patched releases with a clean npm audit
 - Corrected deployment output and documentation to match the generated artifacts
 - Replaced historical project claims with an evidence-based capability and roadmap description
+- Made the application header, footer, skip link, shortcuts, and command palette workspace-aware
 
 ### Fixed
 

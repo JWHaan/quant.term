@@ -9,6 +9,7 @@ export default defineConfig([
     'dist',
     'coverage',
     '.next',
+    'engine/build',
   ]),
   ...tseslint.configs.recommended,
   {

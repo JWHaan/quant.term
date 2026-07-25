@@ -20,6 +20,10 @@ dist/
 
 No production environment variables are required. Do not add secrets to `VITE_*` values because they are exposed to the browser.
 
+The deployed Strategy Lab runs the TypeScript reference replay against its
+bundled deterministic fixture. The native C++20 engine is built and tested by
+the quality gate but is not packaged into the static deployment.
+
 ## OpenAI Sites / Cloudflare
 
 `wrangler.jsonc` points to `worker/index.ts`. The Worker:
@@ -61,3 +65,5 @@ Then open the terminal and confirm:
 3. the DOM reports a live link,
 4. derivatives and network panels show data or an honest unavailable state,
 5. a refresh on a deep browser route does not return 404.
+6. Monitor and Strategy Lab switch without showing live-feed errors in replay mode,
+7. Strategy Lab starts without placeholder metrics and produces a trade ledger only after an explicit run.

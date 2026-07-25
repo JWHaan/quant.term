@@ -1,6 +1,6 @@
 # Architecture
 
-`quant.term` is a browser-first React application with one small, platform-neutral news handler. Public market and network data goes directly to the browser; the edge layer fetches and normalizes public RSS. There is no account backend, secret store, or order-routing service.
+`quant.term` is a browser-first React research application with two bounded workspaces: a live market monitor and a deterministic Strategy Lab. Public market and network data goes directly to the browser; the edge layer fetches and normalizes public RSS. Strategy Lab v1 uses a fixed local validation fixture. There is no account backend, secret store, remote compute service, or order-routing service.
 
 ## Runtime data flow
 
@@ -26,6 +26,9 @@ flowchart LR
         Calc["Indicators + order-flow calculators"]
         UI["Terminal panels"]
         Local["localStorage"]
+        Lab["Strategy Lab"]
+        TSReplay["TypeScript reference replay"]
+        Fixture["Deterministic BTC fixture"]
     end
 
     RSS --> News
@@ -42,13 +45,21 @@ flowchart LR
     Stores --> UI
     Calc --> UI
     Stores <--> Local
+    Fixture --> TSReplay
+    TSReplay --> Lab
 ~~~
+
+The separately compiled C++20 core under `engine/` implements the same bounded
+SMA crossover semantics and is checked against shared golden metric values. It
+is not executed by the deployed browser in v1. A native service or small-job
+WebAssembly adapter requires explicit parity fixtures and benchmarks first.
 
 ## Source ownership
 
 | Area | Responsibility |
 |---|---|
 | `src/app` | Application shell and workspace composition |
+| `src/backtest` | Browser reference replay, validation, metrics, and deterministic fixture |
 | `src/features` | Feature-owned panels and presentation |
 | `src/hooks` | React lifecycle around live subscriptions |
 | `src/integrations` | Provider-specific contracts, parsers, and clients |
@@ -58,6 +69,8 @@ flowchart LR
 | `src/utils` | Pure calculations and formatting |
 | `worker` | Shared news handler and Sites adapter |
 | `api` | Vercel Function adapters |
+| `engine` | Native C++20 deterministic replay core, CLI, and CTest suite |
+| `schemas` | Versioned browser/native result contract |
 
 Only active runtime code lives under `src`. Research prototypes that are not compiled, tested, or reachable do not remain in the production tree.
 
@@ -103,6 +116,32 @@ sequenceDiagram
 
 If a live candle arrives while history is loading, the feed reapplies it after the REST response so an older snapshot cannot roll the chart backward.
 
+## Deterministic replay pipeline
+
+~~~mermaid
+sequenceDiagram
+    participant User
+    participant Lab as Strategy Lab
+    participant Fixture as Fixed BTC fixture
+    participant Engine as Browser reference engine
+    participant Result as Results and trade ledger
+
+    User->>Lab: Configure SMA periods and costs
+    User->>Lab: Run replay
+    Lab->>Fixture: Load candles and checksum
+    Lab->>Engine: Validate ordered OHLCV + config
+    Engine->>Engine: Evaluate signal at candle close
+    Engine->>Engine: Fill at next candle open
+    Engine->>Result: Equity, drawdown, metrics, trades
+    Result-->>User: Inspect generated evidence
+~~~
+
+Replay v1 is long/flat only. It uses full available capital, explicit taker fees,
+adverse basis-point slippage, mark-to-market equity, and deterministic sequential
+trade identifiers. Any open position is closed with costs on the final fixture
+candle. The interface identifies the synthetic source and does not present the
+result as historical model performance.
+
 ## State and persistence
 
 | State | Responsibility | Persisted |
@@ -138,4 +177,4 @@ Vercel serves `dist/client` and builds `api/vercel-news.ts` separately, rewritin
 
 ## Quality gates
 
-TypeScript covers `src`, `worker`, `api`, build helpers, and Vite/Vitest configuration. CI requires zero lint warnings, strict type checking, deterministic Vitest execution, configured coverage floors, and a verified production build.
+TypeScript covers `src`, `worker`, `api`, build helpers, and Vite/Vitest configuration. CI requires zero lint warnings, strict type checking, deterministic Vitest execution, configured coverage floors, the C++20 CTest correctness suite, and a verified production build.

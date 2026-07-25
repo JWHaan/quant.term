@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, BarChart2, Flame, Newspaper, Keyboard } from 'lucide-react';
+import { Activity, BarChart2, Beaker, Flame, Keyboard, Monitor, Newspaper } from 'lucide-react';
 
 export interface Command {
     id: string;
@@ -13,6 +13,8 @@ export interface Command {
 export interface CommandsConfig {
     setShowHelp: (v: boolean) => void;
     setSymbol: (s: string) => void;
+    openMonitor: () => void;
+    openStrategyLab: () => void;
     scrollToMarket: () => void;
     scrollToChart: () => void;
     scrollToAlpha: () => void;
@@ -21,6 +23,22 @@ export interface CommandsConfig {
 
 export function buildCommands(cfg: CommandsConfig): Command[] {
     return [
+        {
+            id: 'open-monitor',
+            label: 'Open Market Monitor',
+            description: 'Switch to live market monitoring',
+            icon: React.createElement(Monitor, { size: 16 }),
+            action: cfg.openMonitor,
+            category: 'Workspaces'
+        },
+        {
+            id: 'open-strategy-lab',
+            label: 'Open Strategy Lab',
+            description: 'Configure and run a deterministic candle replay',
+            icon: React.createElement(Beaker, { size: 16 }),
+            action: cfg.openStrategyLab,
+            category: 'Workspaces'
+        },
         {
             id: 'focus-market',
             label: 'Focus Market Watch',

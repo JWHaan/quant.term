@@ -4,7 +4,7 @@
 
 # quant.term
 
-**A Bloomberg-inspired crypto market dashboard for live research, local alerts, and paper trading.**
+**A crypto research terminal for live market intelligence and deterministic strategy replay.**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -20,9 +20,9 @@
 
 ## Overview
 
-`quant.term` is a read-only React terminal for monitoring public crypto-market data. Its primary workspace combines a custom D3-scaled Canvas chart with live Binance Spot candles, trades, and depth. Supporting panels cover Binance USDⓈ-M perpetual metrics, liquidations, public news, Bitcoin network conditions, browser-local alerts, and simulated positions.
+`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The Monitor workspace uses a custom D3-scaled Canvas chart with live Binance Spot candles, trades, and depth. The Strategy Lab replays a bounded SMA crossover against a fixed BTC/USDT validation fixture with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger.
 
-No exchange credentials are accepted and no real orders are sent. Experimental analytics are research aids, not predictive models or financial advice.
+The browser reference engine and native C++20 core share a versioned `backtest-v1` contract and golden correctness values. Synthetic results validate execution and accounting; they are not evidence of historical or future performance. No exchange credentials are accepted and no real orders are sent.
 
 ## Highlights
 
@@ -33,6 +33,10 @@ No exchange credentials are accepted and no real orders are sent. Experimental a
 - Bitcoin block, mempool, fee, and Fear & Greed snapshots
 - Local price alerts with optional browser notifications
 - Margin-aware simulated long/short positions with unrealized and realized P&L
+- Deterministic Strategy Lab with explicit dataset and engine provenance
+- Long/flat SMA replay with next-candle-open fills, fees, and adverse slippage
+- Native C++20 replay core, CTest correctness gate, and a versioned JSON contract
+- Equity curve, drawdown, exposure, Sharpe, fee totals, and closed-trade inspection
 - OFI, volume delta/CVD, VPIN, Hurst, ADX, ATR, RSI, MACD, OBV, and VWAP research panels
 - Resizable desktop workspace, command palette, keyboard shortcuts, and themes
 
@@ -43,6 +47,7 @@ No exchange credentials are accepted and no real orders are sent. Experimental a
 - Node.js 22.x (22.12 or newer)
 - npm 10 or newer
 - A current desktop browser
+- CMake 3.20+ and a C++20 compiler for the complete native quality gate
 
 ~~~bash
 git clone https://github.com/JWHaan/quant.term.git
@@ -67,6 +72,7 @@ npm run check
 | `npm test` | Run the Vitest suite once |
 | `npm run test:watch` | Run Vitest in watch mode |
 | `npm run test:coverage` | Run tests and enforce the configured full-tree baseline |
+| `npm run engine:check` | Build and test the deterministic C++20 replay core |
 | `npm run build` | Build and verify the Sites artifact |
 | `npm run preview` | Preview the production client |
 | `npm run check` | Run lint, type-check, tests, and build |
@@ -76,8 +82,11 @@ npm run check
 ~~~text
 api/                         # Vercel Function adapters
 build/                       # Build-time Sites integration
+engine/                      # Native C++20 deterministic replay core and tests
+schemas/                     # Versioned browser/native backtest contract
 src/
 ├── app/                     # Application shell
+├── backtest/                # Browser reference engine and deterministic fixture
 ├── features/                # Market, analytics, news, alert, and trading panels
 ├── hooks/                   # Live subscriptions and React orchestration
 ├── integrations/
@@ -91,7 +100,7 @@ src/
 worker/                      # Sites/Cloudflare Worker and shared news handler
 ~~~
 
-The browser talks directly to public market endpoints. The edge layer only normalizes public RSS news behind `/api/news`. See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and persistence details.
+The browser talks directly to public market endpoints. The edge layer only normalizes public RSS news behind `/api/news`. Strategy Lab v1 runs locally against a bundled synthetic validation fixture; it does not send data or jobs to a remote service. See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and persistence details.
 
 ## Data and privacy
 
@@ -124,7 +133,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact build, deploy, and smoke-
 
 ## Scope
 
-The current project does not provide live execution, exchange accounts, wallets, custody, authenticated on-chain analytics, options analytics, portfolio VaR/Greeks, production ML forecasts, or guaranteed uptime and latency. Panels show unavailable states when upstream data fails; they do not manufacture replacement market values.
+The current project does not provide live execution, exchange accounts, wallets, custody, authenticated on-chain analytics, options analytics, portfolio VaR/Greeks, production ML forecasts, native remote backtest jobs, historical-performance claims, or guaranteed uptime and latency. Panels show unavailable states when upstream data fails; they do not manufacture replacement market values.
 
 ## License
 

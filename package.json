@@ -2,7 +2,7 @@
   "name": "quant-term",
   "private": true,
   "version": "0.1.0",
-  "description": "A Bloomberg-inspired, read-only crypto market intelligence terminal.",
+  "description": "A crypto market intelligence terminal with deterministic strategy replay.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -28,7 +28,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check": "npm run lint && npm run type-check && npm run test:coverage && npm run build"
+    "engine:configure": "cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release",
+    "engine:build": "cmake --build engine/build --config Release",
+    "engine:test": "ctest --test-dir engine/build --output-on-failure -C Release",
+    "engine:check": "npm run engine:configure && npm run engine:build && npm run engine:test",
+    "check": "npm run lint && npm run type-check && npm run test:coverage && npm run engine:check && npm run build"
   },
   "dependencies": {
     "d3": "^7.9.0",

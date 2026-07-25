@@ -9,6 +9,9 @@ The roadmap is ordered by product risk and maintainability, not promised dates.
 - [x] Binance USDⓈ-M derivatives and liquidations
 - [x] Public news and Bitcoin network intelligence
 - [x] Browser-local alerts and paper trading
+- [x] Strategy Lab with deterministic BTC/USDT fixture replay
+- [x] Versioned `backtest-v1` browser/native contract
+- [x] C++20 SMA replay core with next-bar fills, costs, and golden correctness tests
 - [x] Strict TypeScript across browser and edge code
 - [x] Sites and Vercel deployment adapters
 - [x] CI for lint, types, tests, coverage, and production build
@@ -21,12 +24,16 @@ The roadmap is ordered by product risk and maintainability, not promised dates.
 - [ ] Add component and browser smoke tests for chart loading, symbol switching, and degraded providers
 - [ ] Raise full-tree coverage floors as UI coverage lands
 - [ ] Add accessible compact and tablet layouts without weakening the desktop terminal
+- [ ] Add language-independent request/result fixtures for byte-stable browser/native parity
+- [ ] Add a historical Binance adapter that preserves decimal strings, close times, and closed-candle state
 - [ ] Publish the first tagged release after deployment and migration verification
 
 ## Later
 
 - [ ] Optional multi-exchange market-data adapters with explicit normalization contracts
-- [ ] Historical replay and deterministic strategy research
+- [ ] Run benchmark-validated native backtest jobs through an isolated worker service
+- [ ] Add importable Parquet/CSV datasets with explicit lineage and gap validation
+- [ ] Add short positions, funding, maintenance margin, and liquidation after long-only validation
 - [ ] Export/import for local preferences and paper portfolios
 - [ ] Remote alerts or cross-device sync behind an opt-in authenticated service
 
