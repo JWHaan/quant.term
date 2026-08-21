@@ -11,10 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 coverage
 .nyc_output
 .wrangler
 .dev.vars*
+.vercel
+engine/build
 
 # Editor directories and files
 .vscode/*
@@ -29,3 +34,4 @@ coverage
 
 # Agent/temporary files
 .agent/
+.agents/

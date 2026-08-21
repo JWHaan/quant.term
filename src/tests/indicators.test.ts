@@ -11,13 +11,13 @@ import {
 } from '@/utils/indicators';
 import type { OHLCV } from '@/types/common';
 
-// Helper to generate mock OHLCV data
+// Deterministic fixture generator: stable across machines and test runs.
 const generateMockData = (length: number, basePrice: number = 100): OHLCV[] => {
     const data: OHLCV[] = [];
     let price = basePrice;
     
     for (let i = 0; i < length; i++) {
-        const change = (Math.random() - 0.5) * 2; // Random walk
+        const change = (((i * 17) % 11) - 5) / 5;
         price += change;
         
         data.push({
@@ -26,7 +26,7 @@ const generateMockData = (length: number, basePrice: number = 100): OHLCV[] => {
             high: price + 1,
             low: price - 1,
             close: price,
-            volume: 1000 + Math.random() * 500
+            volume: 1000 + ((i * 37) % 500)
         });
     }
     

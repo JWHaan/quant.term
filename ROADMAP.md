@@ -1,91 +1,47 @@
-# Strategic Roadmap: The "Vim of Trading Terminals"
+# Roadmap
 
-**Core Philosophy**: Progressive Enhancement & Zero-Cost Infrastructure.
-The project works 100% client-side by default, offering optional self-hostable micro-services for power users.
+The roadmap is ordered by product risk and maintainability, not promised dates.
 
----
+## Current foundation
 
-## Phase 1: Critical Fixes (0-3 months) — Stabilize the Foundation
+- [x] Live Binance Spot market watch, candles, trades, and depth
+- [x] Custom Canvas chart with technical overlays and depth heatmap
+- [x] Binance USDⓈ-M derivatives and liquidations
+- [x] Public news and Bitcoin network intelligence
+- [x] Browser-local alerts and paper trading
+- [x] Strategy Lab with deterministic BTC/USDT fixture replay
+- [x] Versioned `backtest-v1` browser/native contract
+- [x] C++20 SMA replay core with next-bar fills, costs, and golden correctness tests
+- [x] Strict TypeScript across browser and edge code
+- [x] Sites and Vercel deployment adapters
+- [x] CI for lint, types, tests, coverage, and production build
 
-### 1. Eliminate Memory Leaks
-- **Problem**: Long sessions crash browsers.
-- **Solution**:
-  - Implement circular buffer for tick data (max 10,000 bars per symbol).
-  - Add `WeakRef` for chart objects and aggressively `destroy()` TradingView instances.
-  - Build memory profiler UI (MB/s growth rate).
-- **Outcome**: Stable 24h+ sessions on 8GB RAM machines.
+## Next
 
-### 2. Harden WebSocket Layer
-- **Problem**: IP bans from rate limits.
-- **Solution**:
-  - Connection pool manager (max 3 symbols/socket, auto-rotate).
-  - Adaptive rate limiter (≤5 msg/sec with jitter).
-  - "Offline Mode" with IndexedDB caching.
-- **Outcome**: 90% reduction in disconnections.
+- [ ] Share one selected-symbol depth subscription across chart, DOM, and OFI consumers
+- [ ] Split the chart renderer into data model, scales, drawing, and interaction modules
+- [ ] Move panel-owned network requests into typed integration clients and feature hooks
+- [ ] Add component and browser smoke tests for chart loading, symbol switching, and degraded providers
+- [ ] Raise full-tree coverage floors as UI coverage lands
+- [ ] Add accessible compact and tablet layouts without weakening the desktop terminal
+- [ ] Add language-independent request/result fixtures for byte-stable browser/native parity
+- [ ] Add a historical Binance adapter that preserves decimal strings, close times, and closed-candle state
+- [ ] Publish the first tagged release after deployment and migration verification
 
-### 3. Error Boundary & Graceful Degradation
-- **Solution**:
-  - Wrap major components (`ChartPanel`, `OrderBook`) in React Error Boundaries.
-  - Fallback UI with "Reload Component" button.
-- **Outcome**: One bug doesn't kill the whole terminal.
+## Later
 
----
+- [ ] Optional multi-exchange market-data adapters with explicit normalization contracts
+- [ ] Run benchmark-validated native backtest jobs through an isolated worker service
+- [ ] Add importable Parquet/CSV datasets with explicit lineage and gap validation
+- [ ] Add short positions, funding, maintenance margin, and liquidation after long-only validation
+- [ ] Export/import for local preferences and paper portfolios
+- [ ] Remote alerts or cross-device sync behind an opt-in authenticated service
 
-## Phase 2: Optional Backend (3-6 months) — Enable Superpowers
+## Explicit non-goals
 
-### 4. Deploy a Free Serverless Backend (Optional)
-- **Stack**: Cloudflare Workers + D1 (SQLite).
-- **Features**:
-  - Rate Limit Proxy.
-  - Persistent Alerts (Webhooks to Discord/Telegram).
-  - Configuration Sync (Cross-device watchlists).
-- **Outcome**: Institutional features at zero cost.
+- Custody, wallets, or real-money order execution
+- Unverified “institutional-grade” latency or accuracy claims
+- Fabricated fallback market, news, performance, or risk values
+- Client-side storage of exchange credentials
 
-### 5. Mobile-First Responsive Redesign
-- **Solution**:
-  - CSS Grid + Container Queries.
-  - Collapsible sidebar, swipeable charts.
-  - `useOptimistic` for touch-friendly interactions.
-- **Outcome**: Usable on tablets and phones.
-
----
-
-## Phase 3: Community & Ecosystem (6-12 months)
-
-### 6. Plugin Architecture
-- **Solution**:
-  - `ExchangeAdapter` interface for community contributions.
-  - Web Workers for sandboxed plugin execution.
-- **Outcome**: Scalable exchange support.
-
-### 7. Crowdsourced Indicator Library
-- **Solution**:
-  - WASM runtime (Pyodide/JS) for user indicators.
-  - GitHub Pages "Indicator Store".
-- **Outcome**: Community-driven innovation.
-
-### 8. Automated Quality Gates
-- **Solution**:
-  - GitHub Actions: Latency benchmark, Memory leak detection, Coverage gate (>70%).
-  - Visual regression tests (Playwright).
-- **Outcome**: Confidence in merging.
-
----
-
-## Phase 4: Sustainability (12+ months) — Free Forever
-
-### 9. Create "Quant.Term Foundation"
-- **Funding**: GitHub Sponsors, Open Collective, Grants.
-- **Promise**: Zero features behind paywall.
-
-### 10. Governance & BDFL Transition
-- **Solution**: Maintainer council, RFCs via GitHub Discussions.
-- **Outcome**: Project longevity.
-
----
-
-## Anti-Patterns (What NOT to Do)
-❌ No Commercial Hosting (Premium Cloud).
-❌ No Closed Extensions.
-❌ No ICO/Token.
-❌ No Enterprise Features (SAML/SSO).
+New roadmap items should begin with a concrete data source, failure model, validation plan, and maintenance owner.

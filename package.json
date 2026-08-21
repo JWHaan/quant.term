@@ -1,7 +1,21 @@
 {
-  "name": "quant_terminal",
+  "name": "quant-term",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A crypto market intelligence terminal with deterministic strategy replay.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JWHaan/quant.term.git"
+  },
+  "homepage": "https://quant-term.vercel.app",
+  "bugs": {
+    "url": "https://github.com/JWHaan/quant.term/issues"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "packageManager": "npm@10.9.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,23 +23,25 @@
     "build": "tsc && vite build",
     "postbuild": "node scripts/verify-sites-build.mjs",
     "type-check": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage && node scripts/generate-coverage-summary.js"
+    "shot": "node driver.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "engine:configure": "cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release",
+    "engine:build": "cmake --build engine/build --config Release",
+    "engine:test": "ctest --test-dir engine/build --output-on-failure -C Release",
+    "engine:check": "npm run engine:configure && npm run engine:build && npm run engine:test",
+    "check": "npm run lint && npm run type-check && npm run test:coverage && npm run engine:check && npm run build"
   },
   "dependencies": {
-    "@types/d3": "^7.4.3",
     "d3": "^7.9.0",
     "decimal.js": "^10.6.0",
-    "idb-keyval": "^6.2.2",
-    "lightweight-charts": "^5.0.9",
     "lucide-react": "^0.554.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-hot-toast": "^2.6.0",
     "react-resizable-panels": "^3.0.6",
-    "react-virtuoso": "^4.14.1",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
@@ -33,9 +49,10 @@
     "@eslint/js": "^9.39.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
+    "@types/d3": "^7.4.3",
+    "@types/node": "^22.20.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react": "^5.1.1",
     "@vitest/coverage-v8": "^4.0.13",
     "eslint": "^9.39.1",
@@ -43,11 +60,11 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "happy-dom": "^20.0.10",
+    "playwright": "^1.62.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.62.1",
     "vite": "^7.2.4",
     "vitest": "^4.0.13",
-    "vitest-websocket-mock": "^0.5.0",
     "wrangler": "^4.92.0"
   }
 }

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://quant-term.dev/schemas/backtest-v1.schema.json",
+  "title": "quant.term deterministic backtest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "engine",
+    "strategy",
+    "dataset",
+    "config",
+    "metrics",
+    "trades",
+    "equityCurve",
+    "diagnostics"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "backtest-v1"
+    },
+    "engine": {
+      "enum": [
+        "TYPESCRIPT_REFERENCE",
+        "CPP20_NATIVE"
+      ]
+    },
+    "strategy": {
+      "const": "SMA_CROSS_LONG_FLAT"
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "symbol",
+        "interval",
+        "source",
+        "checksum",
+        "candleCount",
+        "startTime",
+        "endTime"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "symbol": { "const": "BTCUSDT" },
+        "interval": { "const": "1m" },
+        "source": { "const": "SYNTHETIC_FIXTURE" },
+        "checksum": { "type": "string", "minLength": 1 },
+        "candleCount": { "type": "integer", "minimum": 1 },
+        "startTime": { "type": "number" },
+        "endTime": { "type": "number" }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initialCapital",
+        "fastPeriod",
+        "slowPeriod",
+        "feeBps",
+        "slippageBps"
+      ],
+      "properties": {
+        "initialCapital": { "type": "number", "exclusiveMinimum": 0 },
+        "fastPeriod": { "type": "integer", "minimum": 2 },
+        "slowPeriod": { "type": "integer", "minimum": 3 },
+        "feeBps": { "type": "number", "minimum": 0, "maximum": 1000 },
+        "slippageBps": { "type": "number", "minimum": 0, "maximum": 1000 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initialCapital",
+        "finalEquity",
+        "totalReturnPct",
+        "maxDrawdownPct",
+        "totalTrades",
+        "winRatePct",
+        "profitFactor",
+        "sharpeRatio",
+        "totalFees",
+        "exposurePct"
+      ],
+      "properties": {
+        "initialCapital": { "type": "number" },
+        "finalEquity": { "type": "number" },
+        "totalReturnPct": { "type": "number" },
+        "maxDrawdownPct": { "type": "number", "minimum": 0 },
+        "totalTrades": { "type": "integer", "minimum": 0 },
+        "winRatePct": { "type": "number", "minimum": 0, "maximum": 100 },
+        "profitFactor": {
+          "oneOf": [
+            { "type": "number", "minimum": 0 },
+            { "type": "null" }
+          ]
+        },
+        "sharpeRatio": { "type": "number" },
+        "totalFees": { "type": "number", "minimum": 0 },
+        "exposurePct": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "trades": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "equityCurve": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deterministic",
+        "executionTiming",
+        "priceModel",
+        "warnings"
+      ],
+      "properties": {
+        "deterministic": { "const": true },
+        "executionTiming": { "const": "NEXT_BAR_OPEN" },
+        "priceModel": { "const": "MARKET_WITH_BPS_COSTS" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

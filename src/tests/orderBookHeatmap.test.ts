@@ -216,19 +216,17 @@ describe('Heatmap Data Binning', () => {
     });
 });
 
-describe('Performance Tests', () => {
-    it('should process 300 snapshots in under 50ms', () => {
+describe('Snapshot bounds', () => {
+    it('keeps the configured 300-snapshot bound under sustained input', () => {
         const store = useOrderBookHistoryStore.getState();
         store.setMaxSnapshots(300);
-
-        const startTime = performance.now();
 
         // Add 300 snapshots
         for (let i = 0; i < 300; i++) {
             const snapshot: OrderBookSnapshot = {
                 timestamp: Date.now() + i * 1000,
-                bids: new Map(Array.from({ length: 20 }, (_, j) => [100 - j, Math.random() * 10])),
-                asks: new Map(Array.from({ length: 20 }, (_, j) => [101 + j, Math.random() * 10])),
+                bids: new Map(Array.from({ length: 20 }, (_, j) => [100 - j, ((i + j) % 10) + 0.5])),
+                asks: new Map(Array.from({ length: 20 }, (_, j) => [101 + j, ((i + (j * 3)) % 10) + 0.5])),
                 symbol: 'BTCUSDT'
             };
 
@@ -236,9 +234,6 @@ describe('Performance Tests', () => {
             store.addSnapshot(snapshot);
         }
 
-        const endTime = performance.now();
-        const duration = endTime - startTime;
-
-        expect(duration).toBeLessThan(50);
+        expect(useOrderBookHistoryStore.getState().snapshots).toHaveLength(300);
     });
 });

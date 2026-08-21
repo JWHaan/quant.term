@@ -1,10 +1,24 @@
 import React from 'react';
-import { Github, Maximize2, Minimize2, Moon, Search, Sun, Wifi, WifiOff } from 'lucide-react';
+import {
+    Beaker,
+    Github,
+    Maximize2,
+    Minimize2,
+    Monitor,
+    Moon,
+    Search,
+    Sun,
+    Wifi,
+    WifiOff,
+} from 'lucide-react';
 import { ThemeContext } from './ThemeProvider';
+import type { WorkspaceMode } from '@/types/workspace';
 
 interface AppHeaderProps {
     isGlobalConnected: boolean;
     isFullscreen: boolean;
+    workspace: WorkspaceMode;
+    onWorkspaceChange: (workspace: WorkspaceMode) => void;
     onToggleFullscreen: () => void;
     onOpenCommandPalette: () => void;
 }
@@ -12,11 +26,20 @@ interface AppHeaderProps {
 const AppHeader: React.FC<AppHeaderProps> = ({
     isGlobalConnected,
     isFullscreen,
+    workspace,
+    onWorkspaceChange,
     onToggleFullscreen,
     onOpenCommandPalette
 }) => {
     const { theme, toggleTheme } = React.useContext(ThemeContext);
-    const connectionState = isGlobalConnected ? 'connected' : 'offline';
+    const isStrategyLab = workspace === 'strategy-lab';
+    const connectionState = isStrategyLab ? 'replay' : isGlobalConnected ? 'connected' : 'offline';
+    const statusLabel = isStrategyLab ? 'LAB' : isGlobalConnected ? 'LIVE' : 'OFFLINE';
+    const statusDescription = isStrategyLab
+        ? 'Deterministic research workspace is active'
+        : isGlobalConnected
+            ? 'Primary market data feeds are live'
+            : 'A primary market data feed is unavailable';
 
     return (
         <header className="app-header" aria-label="Application command bar">
@@ -27,6 +50,25 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     <span className="version">Crypto market intelligence</span>
                 </div>
             </div>
+
+            <nav className="workspace-nav" aria-label="Workspace">
+                <button
+                    type="button"
+                    aria-current={workspace === 'monitor' ? 'page' : undefined}
+                    onClick={() => onWorkspaceChange('monitor')}
+                >
+                    <Monitor size={12} aria-hidden="true" />
+                    Monitor
+                </button>
+                <button
+                    type="button"
+                    aria-current={isStrategyLab ? 'page' : undefined}
+                    onClick={() => onWorkspaceChange('strategy-lab')}
+                >
+                    <Beaker size={12} aria-hidden="true" />
+                    Strategy Lab
+                </button>
+            </nav>
 
             <div className="header-controls">
                 <button
@@ -84,17 +126,19 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                     data-state={connectionState}
                     role="status"
                     aria-live="polite"
-                    aria-label={isGlobalConnected ? 'Primary market data feeds are live' : 'A primary market data feed is unavailable'}
-                    title={isGlobalConnected ? 'Watchlist and chart feeds are live' : 'Watchlist or chart feed unavailable'}
+                    aria-label={statusDescription}
+                    title={statusDescription}
                 >
                     <span className="status-dot" aria-hidden="true" />
-                    {isGlobalConnected
+                    {isStrategyLab
+                        ? <Beaker size={12} aria-hidden="true" />
+                        : isGlobalConnected
                         ? <Wifi size={12} aria-hidden="true" />
                         : <WifiOff size={12} aria-hidden="true" />}
-                    <span>{isGlobalConnected ? 'LIVE' : 'OFFLINE'}</span>
+                    <span>{statusLabel}</span>
                 </div>
 
-                <div className="user-profile" aria-label="Read-only market data terminal">
+                <div className="user-profile" aria-label="Read-only research terminal">
                     <div className="avatar">READ ONLY</div>
                 </div>
             </div>

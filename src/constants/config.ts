@@ -43,8 +43,6 @@ export const WS_MESSAGE_BATCH_INTERVAL_MS = 50;
 
 // ─── Market Data ─────────────────────────────────────────────────────────────
 export const MARKET_POLL_INTERVAL_MS = 15_000;
-export const CANDLE_BUFFER_SIZE = 10_000;
-export const TRADE_BUFFER_SIZE = 10_000;
 export const DEFAULT_SYMBOL = 'BTCUSDT' as const;
 export const DEFAULT_WATCHLIST = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'ADAUSDT'] as const;
 

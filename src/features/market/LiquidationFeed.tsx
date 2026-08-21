@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { subscribeLiquidations, type Liquidation as StreamLiquidation, type LiquidationSubscription } from '@/services/liquidationService';
+import { subscribeLiquidations, type Liquidation as StreamLiquidation, type LiquidationSubscription } from '@/integrations/binance/liquidations';
 import { TrendingDown, TrendingUp, Droplets } from 'lucide-react';
 import { formatPrice } from '@/utils/format';
 import {
     getBinanceFuturesContract,
     normalizeBinanceFuturesPrice,
     normalizeBinanceFuturesQuantity,
-} from '@/utils/binanceFutures';
+} from '@/integrations/binance/contracts';
 
 interface LiquidationFeedProps {
     symbol?: string;

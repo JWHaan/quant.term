@@ -212,8 +212,6 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
             }
         };
 
-        setState(INITIAL_STATE);
-        setError(null);
         fetchData();
         const id = setInterval(fetchData, MARKET_POLL_INTERVAL_MS);
         return () => {

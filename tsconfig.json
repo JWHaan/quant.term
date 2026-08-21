@@ -16,8 +16,6 @@
         "module": "ESNext",
         "moduleResolution": "bundler",
         "resolveJsonModule": true,
-        "allowJs": true,
-        "allowImportingTsExtensions": true,
         // Type Checking - STRICT for financial accuracy
         "strict": true,
         "noUncheckedIndexedAccess": true,
@@ -42,56 +40,19 @@
         "paths": {
             "@/*": [
                 "./src/*"
-            ],
-            "@/components/*": [
-                "./src/components/*"
-            ],
-            "@/stores/*": [
-                "./src/stores/*"
-            ],
-            "@/services/*": [
-                "./src/services/*"
-            ],
-            "@/utils/*": [
-                "./src/utils/*"
-            ],
-            "@/hooks/*": [
-                "./src/hooks/*"
-            ],
-            "@/types/*": [
-                "./src/types/*"
-            ],
-            "@/data/*": [
-                "./src/data/*"
-            ],
-            "@/features/*": [
-                "./src/features/*"
-            ],
-            "@/ui/*": [
-                "./src/ui/*"
-            ],
-            "@/layout/*": [
-                "./src/layout/*"
             ]
         }
     },
     "include": [
-        "src"
+        "api",
+        "build",
+        "src",
+        "worker",
+        "vite.config.ts",
+        "vitest.config.ts"
     ],
     "exclude": [
         "node_modules",
-        "dist",
-        "src/services/mlService.ts",
-        "src/services/dataQualityMonitor.ts",
-        "src/services/deribitService.ts",
-        "src/services/multiAssetWebSocket.ts",
-        "src/services/risk/**/*",
-        "src/services/sentimentService.ts",
-        "src/services/statarb/**/*",
-        "src/services/timeseries/**/*",
-        "src/features/charts/CorrelationHeatmap.tsx",
-        "src/features/charts/OrderFlowSankey.tsx",
-        "src/features/charts/VolatilitySurface3D.tsx",
-        "src/features/charts/VolatilitySurface.tsx"
-    ],
+        "dist"
+    ]
 }

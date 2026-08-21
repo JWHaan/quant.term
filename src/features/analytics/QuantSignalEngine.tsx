@@ -157,10 +157,6 @@ const QuantSignalEngine = () => {
             }
         };
 
-        setSignals(null);
-        setLastUpdated(null);
-        setError(null);
-        setLoading(true);
         analyzeMarket();
         const interval = setInterval(analyzeMarket, ANALYSIS_POLL_INTERVAL_MS);
         return () => {

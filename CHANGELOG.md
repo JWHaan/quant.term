@@ -1,131 +1,45 @@
 # Changelog
 
-All notable changes to quant.term will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Notable project changes are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). No release has been tagged yet.
 
 ## [Unreleased]
 
 ### Added
-- Production readiness roadmap with 7 priority levels
-- Comprehensive implementation plan for v1.0 launch
+
+- Live Binance Spot market watch, chart history, trades, and depth feeds
+- Binance USDⓈ-M derivatives and liquidation panels
+- Same-origin CoinDesk and Cointelegraph news aggregation
+- Bitcoin network and Fear & Greed panels
+- Browser-local alerts and paper trading
+- Vercel `/api/news` Function adapter alongside the Sites/Cloudflare Worker
+- GitHub issue, pull-request, ownership, and dependency-maintenance metadata
+- Separate Monitor and Strategy Lab workspaces
+- Deterministic BTC/USDT SMA replay with next-bar fills, fees, slippage, and trade inspection
+- Native C++20 replay core, CTest suite, and `backtest-v1` contract schema
+- Golden browser/native result checks for the bundled synthetic fixture
 
 ### Changed
-- Component architecture restructured into feature-based modules
-- Improved TabPanel to keep all tabs mounted (prevents remounting)
+
+- Organized application composition under `src/app` and provider code under `src/integrations`
+- Converted the remaining JavaScript order-book hook to strict TypeScript
+- Expanded type checking to the Worker, Vercel adapter, build helpers, and config
+- Made zero lint warnings a required quality gate
+- Refreshed build and test dependencies to patched releases with a clean npm audit
+- Corrected deployment output and documentation to match the generated artifacts
+- Replaced historical project claims with an evidence-based capability and roadmap description
+- Made the application header, footer, skip link, shortcuts, and command palette workspace-aware
 
 ### Fixed
-- Market Watch symbol selection now updates all panels
-- Order Book no longer alternates between symbols during switching
-- ESLint `react-hooks/set-state-in-effect` error resolved
 
-## [0.2.0] - 2024-11-24
-
-### Added
-- Feature-based component architecture (`src/features/`, `src/ui/`, `src/layout/`)
-- Path aliases in `tsconfig.json` (`@/ui`, `@/features`, `@/layout`)
-- TypeScript migration for `useFundamentals` hook
-- `useConnectionLatency` hook for performance monitoring
-- Test infrastructure with Vitest
-- Initial test coverage for indicators (RSI, MACD, Bollinger Bands, EMA, SMA, ATR)
-
-### Changed
-- Migrated all components from flat `src/components/` to domain-driven structure
-- Updated all imports to use absolute paths with `@/` aliases
-- Improved WebSocket cleanup in `useOrderBook` hook
-
-### Fixed
-- TabPanel causing component remounting and flashing
-- WebSocket race condition in Order Book
-- Symbol switching not propagating to all components
-
-## [0.1.0] - 2024-11-23
-
-### Added
-- Real-time WebSocket data integration (Binance, Deribit)
-- Technical indicators:
-  - RSI (Relative Strength Index)
-  - MACD (Moving Average Convergence Divergence)
-  - Bollinger Bands
-  - EMA/SMA (Exponential/Simple Moving Averages)
-  - ATR (Average True Range)
-  - VWAP (Volume-Weighted Average Price)
-- TradingView lightweight-charts integration
-- Order Book DOM (Depth of Market) visualization
-- Liquidation feed with real-time updates
-- Alert system with browser notifications
-- Paper trading portfolio manager with P&L tracking
-- Market heatmap with treemap visualization
-- News feed aggregation
-- Economic calendar
-- On-chain analytics panel
-- Quant signal engine with multi-indicator analysis
-- Alpha factor panel
-- Options Greeks calculator
-- Options flow analysis
-- Statistical arbitrage signals
-- Risk analytics dashboard
-- Backtesting framework
-- Command terminal for quick actions
-- Keyboard shortcuts modal
-- Performance monitoring panel (FPS, latency)
-- Theme provider with Bloomberg-inspired dark theme
-- Error boundaries for fault isolation
-- Loading states and spinners
-
-### Technical
-- React 19 with TypeScript
-- Zustand for state management
-- Vite for build tooling
-- ESLint + Prettier for code quality
-- Vitest for testing
-- react-resizable-panels for layout
-- react-virtuoso for virtual scrolling
-- Three.js for 3D visualizations
-
-### Documentation
-- Comprehensive README with features and setup
-- Architecture documentation
-- Security guidelines
-
-## [0.0.1] - 2024-11-22
-
-### Added
-- Initial project setup
-- Basic React + TypeScript configuration
-- Vite build configuration
-- ESLint and TypeScript configuration
-
----
-
-## Release Notes Format
-
-### Added
-New features and capabilities
-
-### Changed
-Changes to existing functionality
-
-### Deprecated
-Features that will be removed in future releases
+- Restored SPA fallback routing after authentication and direct navigation
+- Corrected Sites asset packaging
+- Recovered live market prices and chart candles through Binance's public market-data hosts
+- Corrected indicator-alert condition evaluation
+- Made paper leverage reserve initial margin and reject positions beyond free simulated equity
 
 ### Removed
-Features that have been removed
 
-### Fixed
-Bug fixes
-
-### Security
-Security vulnerability fixes
-
----
-
-**Legend:**
-- 🎉 Major feature
-- ✨ Enhancement
-- 🐛 Bug fix
-- 📚 Documentation
-- 🔒 Security
-- ⚡ Performance
-- 🎨 UI/UX
+- Unreachable research prototypes, fabricated demo metrics, and their unused dependencies
+- Duplicate market-store candle and trade buffers
+- Obsolete cleanup scripts, starter assets, and one-time implementation reports
+- Broken Docker deployment files

@@ -1,8 +1,7 @@
-// @ts-nocheck: Deprecated scaffold file — suppressed for type checking — not wired into the UI, may have stale types
 /**
  * Market Data Provenance Engine
  * 
- * Tracks data quality, lineage, and health for all market data streams.
+ * Tracks data quality, lineage, and health for active market data streams.
  * Provides real-time monitoring of:
  * - Message latency (exchange → client)
  * - Gap detection (missing ticks)

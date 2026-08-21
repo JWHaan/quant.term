@@ -154,7 +154,7 @@ describe('alertStore', () => {
         store.addAlert({
             symbol: 'BTCUSDT',
             type: 'indicator',
-            condition: 'rsi' as any,
+            condition: 'above',
             indicator: 'rsi',
             value: 70,
             message: 'RSI overbought',
@@ -361,14 +361,15 @@ describe('alertStore', () => {
     it('should request notification permission', async () => {
         // Mock Notification API
         const mockRequestPermission = vi.fn().mockResolvedValue('granted');
-        global.Notification = {
+        vi.stubGlobal('Notification', {
             requestPermission: mockRequestPermission,
             permission: 'default'
-        } as any;
+        });
 
         const store = useAlertStore.getState();
         await store.requestNotificationPermission();
 
         expect(mockRequestPermission).toHaveBeenCalled();
+        vi.unstubAllGlobals();
     });
 });

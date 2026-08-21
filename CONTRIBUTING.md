@@ -1,215 +1,60 @@
-# Contributing to quant.term
+# Contributing
 
-Thank you for your interest in contributing to quant.term! This document provides guidelines for contributing to the project.
+Thanks for helping improve `quant.term`. Keep pull requests focused, explain the user impact, and preserve the read-only safety boundary.
 
-## 🚀 Quick Start
+## Set up locally
 
-### Development Setup
+~~~bash
+git clone https://github.com/YOUR_USERNAME/quant.term.git
+cd quant.term
+npm ci
+npm run dev
+~~~
 
-1. **Fork and clone the repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/quant.term.git
-   cd quant.term
-   ```
+Node.js 22.12 or newer within the 22.x LTS line is required. The complete quality gate also requires CMake 3.20+ and a C++20 compiler. The active dashboard needs no environment variables.
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+## Development workflow
 
-3. **Start development server**
-   ```bash
-   npm run dev
-   ```
+1. Create a short-lived branch from an up-to-date `main`.
+2. Add or update tests with the behavior change.
+3. Run the complete local gate:
 
-4. **Run tests**
-   ```bash
-   npm run test
-   npm run test:coverage
-   ```
+~~~bash
+npm run check
+~~~
 
-## 📋 Code Standards
+4. Open a pull request using the repository template.
 
-### TypeScript
-- **Strict mode enabled** - No `any` types allowed
-- Use explicit return types for functions
-- Prefer `interface` over `type` for object shapes
-- Use `const` assertions for literal types
+Use Conventional Commit-style subjects where practical, for example `fix: recover stale candle stream` or `docs: clarify news provider behavior`.
 
-### Code Style
-- **ESLint + Prettier** - Run `npm run lint` before committing
-- **Naming conventions:**
-  - Components: PascalCase (`OrderBookDOM.tsx`)
-  - Hooks: camelCase with `use` prefix (`useOrderBook.ts`)
-  - Utilities: camelCase (`calculateRSI.ts`)
-  - Constants: UPPER_SNAKE_CASE (`MAX_RECONNECTS`)
+## Engineering expectations
 
-### Testing
-- **70%+ coverage required** for new features
-- **100% coverage required** for indicator calculations
-- Use descriptive test names: `it('should reconnect with exponential backoff after disconnect')`
-- Test edge cases (NaN, Infinity, empty arrays, null values)
+- Keep TypeScript strict and do not add `@ts-nocheck`.
+- Treat external JSON as `unknown` and validate it at the integration boundary.
+- Keep provider-specific parsing under `src/integrations`.
+- Keep calculations pure when possible and cover financial math with deterministic fixtures.
+- Keep the browser and native backtest implementations aligned through shared golden fixtures.
+- Treat synthetic replay output as correctness evidence, never as historical performance.
+- Clean up WebSockets, intervals, abort controllers, and subscriptions on unmount.
+- Do not fabricate fallback prices, volume, P&L, risk metrics, or news.
+- Never put secrets in `VITE_*` variables; Vite values are shipped to the browser.
+- Update README, architecture, deployment, or indicator docs when their contracts change.
 
-### Commit Messages
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-```
-feat: add VWAP indicator
-fix: resolve WebSocket race condition
-docs: update architecture diagram
-test: add coverage for RSI calculation
-chore: update dependencies
-```
+Coverage floors in `vitest.config.ts` are a current full-tree baseline, not a definition of sufficient coverage for a new feature. New logic should include focused tests for success, malformed input, upstream failure, and boundary conditions.
 
-## 🔄 Pull Request Process
+## Pull requests
 
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feat/your-feature-name
-   ```
+A ready pull request should:
 
-2. **Write tests first** (TDD approach)
-   - Create test file in `src/tests/`
-   - Write failing tests
-   - Implement feature
-   - Ensure tests pass
+- describe what changed and why
+- link the relevant issue when one exists
+- include screenshots for visible UI changes
+- identify data-provider or deployment impact
+- pass lint, type-check, tests, coverage, and build
+- avoid unrelated formatting or dependency churn
 
-3. **Run quality checks**
-   ```bash
-   npm run lint
-   npm run type-check
-   npm run test -- --coverage
-   npm run build
-   ```
+## Security
 
-4. **Submit PR with description**
-   - Reference related issues (`Fixes #123`)
-   - Describe what changed and why
-   - Include screenshots for UI changes
-   - Add test coverage report
+Do not report vulnerabilities in a public issue. Follow [SECURITY.md](SECURITY.md) and use GitHub's private security-advisory flow.
 
-5. **Code review**
-   - Address reviewer feedback
-   - Keep PR focused (one feature per PR)
-   - Squash commits before merge
-
-## 🎯 What to Contribute
-
-### Good First Issues
-Look for issues labeled `good-first-issue`:
-- Documentation improvements
-- UI polish (animations, transitions)
-- Test coverage expansion
-- Bug fixes
-
-### High-Impact Contributions
-- New technical indicators (with validation)
-- Performance optimizations
-- Accessibility improvements
-- Mobile responsiveness
-
-### Feature Requests
-Before implementing major features:
-1. Open an issue for discussion
-2. Wait for maintainer approval
-3. Agree on implementation approach
-4. Submit PR with tests
-
-## 🧪 Testing Guidelines
-
-### Unit Tests
-```typescript
-// src/tests/indicators/rsi.test.ts
-import { describe, it, expect } from 'vitest';
-import { calculateRSI } from '@/utils/indicators';
-
-describe('calculateRSI', () => {
-  it('should calculate RSI correctly for sample data', () => {
-    const prices = [44, 44.34, 44.09, 43.61, 44.33];
-    const result = calculateRSI(prices, 14);
-    expect(result[result.length - 1].value).toBeCloseTo(50, 1);
-  });
-
-  it('should handle edge cases', () => {
-    expect(calculateRSI([], 14)).toEqual([]);
-    expect(calculateRSI([100], 14)).toEqual([]);
-  });
-});
-```
-
-### Component Tests
-```typescript
-// src/tests/components/OrderBookDOM.test.tsx
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import OrderBookDOM from '@/features/market/OrderBookDOM';
-
-describe('OrderBookDOM', () => {
-  it('should render order book with bids and asks', () => {
-    render(<OrderBookDOM symbol="BTCUSDT" />);
-    expect(screen.getByText('DOM')).toBeInTheDocument();
-  });
-});
-```
-
-## 📚 Documentation
-
-### Code Comments
-- Use JSDoc for public APIs
-- Explain **why**, not **what** (code should be self-explanatory)
-- Document complex algorithms with references
-
-```typescript
-/**
- * Calculates Relative Strength Index (RSI)
- * @param prices - Array of closing prices
- * @param period - RSI period (default: 14)
- * @returns Array of RSI values (0-100)
- * @see https://www.investopedia.com/terms/r/rsi.asp
- */
-export const calculateRSI = (prices: number[], period = 14) => {
-  // Implementation...
-};
-```
-
-### README Updates
-- Update feature list when adding new functionality
-- Add screenshots for UI changes
-- Update roadmap when completing milestones
-
-## 🐛 Bug Reports
-
-When reporting bugs, include:
-- **Steps to reproduce**
-- **Expected behavior**
-- **Actual behavior**
-- **Browser/OS version**
-- **Console errors** (if any)
-- **Screenshots/recordings** (if applicable)
-
-## 💡 Feature Requests
-
-When requesting features:
-- **Use case** - Why is this needed?
-- **Proposed solution** - How should it work?
-- **Alternatives considered** - What else did you think about?
-- **Additional context** - Screenshots, mockups, references
-
-## 🔒 Security
-
-If you discover a security vulnerability:
-- **DO NOT** open a public issue
-- Email the maintainers directly
-- Include detailed description and reproduction steps
-
-## 📜 License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
-
-## 🙏 Recognition
-
-All contributors will be recognized in:
-- README.md (Contributors section)
-- Release notes
-- GitHub contributors page
-
-Thank you for making quant.term better! 🚀
+By contributing, you agree that your contribution is licensed under the [MIT License](LICENSE).

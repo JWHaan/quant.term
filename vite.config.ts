@@ -1,10 +1,10 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { sites } from './build/sites-vite-plugin'
 
 // https://vitejs.dev/config/
-export default defineConfig(async () => {
+export default defineConfig(async (): Promise<UserConfig> => {
     // Wrangler snapshots these paths while its plugin loads. Keep all local
     // state inside the project so sandboxed and CI builds remain portable.
     process.env.WRANGLER_WRITE_LOGS ??= 'false'
@@ -13,27 +13,23 @@ export default defineConfig(async () => {
 
     const { cloudflare } = await import('@cloudflare/vite-plugin')
 
-    return {
+    const config: UserConfig = {
     plugins: [
         react(),
         sites(),
-        cloudflare({ viteEnvironment: { name: 'server' } }),
+        ...cloudflare({ viteEnvironment: { name: 'server' } }),
     ],
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),
-            '@/components': path.resolve(__dirname, './src/components'),
-            '@/stores': path.resolve(__dirname, './src/stores'),
-            '@/services': path.resolve(__dirname, './src/services'),
-            '@/utils': path.resolve(__dirname, './src/utils'),
-            '@/hooks': path.resolve(__dirname, './src/hooks'),
-            '@/types': path.resolve(__dirname, './src/types'),
-            '@/data': path.resolve(__dirname, './src/data'),
         }
     },
     server: {
         port: 3000,
         host: true,
+        watch: {
+            ignored: ['**/coverage/**', '**/dist/**'],
+        },
     },
     preview: {
         port: 4173,
@@ -54,7 +50,7 @@ export default defineConfig(async () => {
                 // Function-based manualChunks: smarter than the object form.
                 // The object form was mislabeling a shared React/zustand chunk
                 // as "three" even though three.js is never imported in production.
-                manualChunks: (id) => {
+                manualChunks: (id: string) => {
                     if (!id.includes('node_modules')) return undefined;
 
                     // React core runtime — kept stable for fast cache hits
@@ -71,15 +67,9 @@ export default defineConfig(async () => {
                         return 'state';
                     }
 
-                    // Charting libraries
-                    if (id.includes('node_modules/lightweight-charts/')) {
-                        return 'charts';
-                    }
-
                     // Data viz
                     if (
                         id.includes('node_modules/d3/') ||
-                        id.includes('node_modules/d3-sankey/') ||
                         id.includes('node_modules/decimal.js/')
                     ) {
                         return 'data-viz';
@@ -90,13 +80,8 @@ export default defineConfig(async () => {
                         return 'icons';
                     }
 
-                    // Toaster / UI utilities
-                    if (
-                        id.includes('node_modules/react-hot-toast/') ||
-                        id.includes('node_modules/react-resizable-panels/') ||
-                        id.includes('node_modules/react-virtuoso/') ||
-                        id.includes('node_modules/react-window/')
-                    ) {
+                    // Resizable workspace panels
+                    if (id.includes('node_modules/react-resizable-panels/')) {
                         return 'ui-utils';
                     }
 
@@ -109,4 +94,6 @@ export default defineConfig(async () => {
         }
     }
     }
+
+    return config
 })

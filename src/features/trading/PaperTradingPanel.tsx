@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, X } from 'lucide-react';
 import { useMarketData, useMarketStore } from '@/stores/marketStore';
-import { calculatePositionPnl, usePortfolioStore, type PaperSide } from '@/stores/portfolioStore';
-import { formatPrice, formatVolume } from '@/utils/format';
+import {
+    calculatePositionMargin,
+    calculatePositionPnl,
+    usePortfolioStore,
+    type PaperSide,
+} from '@/stores/portfolioStore';
+import { formatCurrency, formatPrice } from '@/utils/format';
 
 interface PaperTradingPanelProps {
     symbol: string;
@@ -14,7 +19,7 @@ const PaperTradingPanel: React.FC<PaperTradingPanelProps> = ({ symbol }) => {
     const [quantity, setQuantity] = useState('0.01');
     const [leverage, setLeverage] = useState(1);
     const [error, setError] = useState<string | null>(null);
-    const { startingBalance, realizedPnl, positions, trades, openPosition, closePosition, updatePrice } = usePortfolioStore();
+    const { startingBalance, realizedPnl, positions, openPosition, closePosition, updatePrice } = usePortfolioStore();
 
     useEffect(() => {
         usePortfolioStore.getState().positions.forEach((position) => {
@@ -29,8 +34,12 @@ const PaperTradingPanel: React.FC<PaperTradingPanelProps> = ({ symbol }) => {
         () => positions.reduce((total, position) => total + calculatePositionPnl(position), 0),
         [positions]
     );
-    const wins = trades.filter((trade) => trade.realizedPnl > 0).length;
     const equity = startingBalance + realizedPnl + unrealizedPnl;
+    const usedMargin = useMemo(
+        () => positions.reduce((total, position) => total + calculatePositionMargin(position), 0),
+        [positions],
+    );
+    const freeMargin = equity - usedMargin;
 
     const submit = (side: PaperSide) => {
         setError(null);
@@ -54,10 +63,10 @@ const PaperTradingPanel: React.FC<PaperTradingPanelProps> = ({ symbol }) => {
             </div>
 
             <div className="metric-grid metric-grid--four">
-                <div className="metric"><span>Equity</span><strong>${formatVolume(equity)}</strong></div>
-                <div className="metric"><span>Realized</span><strong className={realizedPnl >= 0 ? 'positive' : 'negative'}>${formatVolume(realizedPnl)}</strong></div>
-                <div className="metric"><span>Unrealized</span><strong className={unrealizedPnl >= 0 ? 'positive' : 'negative'}>${formatVolume(unrealizedPnl)}</strong></div>
-                <div className="metric"><span>Win rate</span><strong>{trades.length ? `${((wins / trades.length) * 100).toFixed(0)}%` : '—'}</strong></div>
+                <div className="metric"><span>Equity</span><strong>{formatCurrency(equity)}</strong></div>
+                <div className="metric"><span>Realized</span><strong className={realizedPnl >= 0 ? 'positive' : 'negative'}>{formatCurrency(realizedPnl)}</strong></div>
+                <div className="metric"><span>Unrealized</span><strong className={unrealizedPnl >= 0 ? 'positive' : 'negative'}>{formatCurrency(unrealizedPnl)}</strong></div>
+                <div className="metric"><span>Free margin</span><strong className={freeMargin >= 0 ? 'positive' : 'negative'}>{formatCurrency(freeMargin)}</strong></div>
             </div>
 
             <div className="ticket-row">
@@ -86,7 +95,7 @@ const PaperTradingPanel: React.FC<PaperTradingPanelProps> = ({ symbol }) => {
 
             <div className="terminal-table-wrap">
                 <table className="terminal-table">
-                    <thead><tr><th>Position</th><th>Qty</th><th>Entry</th><th>Mark</th><th>P&amp;L</th><th><span className="sr-only">Actions</span></th></tr></thead>
+                    <thead><tr><th>Position</th><th>Qty</th><th>Entry</th><th>Mark</th><th>Margin</th><th>P&amp;L</th><th><span className="sr-only">Actions</span></th></tr></thead>
                     <tbody>
                         {positions.map((position) => {
                             const pnl = calculatePositionPnl(position);
@@ -96,12 +105,13 @@ const PaperTradingPanel: React.FC<PaperTradingPanelProps> = ({ symbol }) => {
                                     <td>{position.quantity}</td>
                                     <td>{formatPrice(position.entryPrice)}</td>
                                     <td>{formatPrice(position.currentPrice)}</td>
-                                    <td className={pnl >= 0 ? 'positive' : 'negative'}>${pnl.toFixed(2)}</td>
+                                    <td>{formatCurrency(calculatePositionMargin(position))}</td>
+                                    <td className={pnl >= 0 ? 'positive' : 'negative'}>{formatCurrency(pnl)}</td>
                                     <td><button className="icon-action" onClick={() => closePosition(position.id, position.currentPrice)} aria-label={`Close ${position.side} ${position.symbol} position at its latest recorded mark`}><X size={12} /></button></td>
                                 </tr>
                             );
                         })}
-                        {!positions.length && <tr><td colSpan={6} className="empty-cell">No open paper positions</td></tr>}
+                        {!positions.length && <tr><td colSpan={7} className="empty-cell">No open paper positions</td></tr>}
                     </tbody>
                 </table>
             </div>
