@@ -39,10 +39,10 @@
     "d3": "^7.9.0",
     "decimal.js": "^10.6.0",
     "lucide-react": "^0.554.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-resizable-panels": "^3.0.6",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.37.1",
@@ -51,8 +51,8 @@
     "@testing-library/react": "^16.3.0",
     "@types/d3": "^7.4.3",
     "@types/node": "^22.20.1",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.1.1",
     "@vitest/coverage-v8": "^4.0.13",
     "eslint": "^9.39.1",
