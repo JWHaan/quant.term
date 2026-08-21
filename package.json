@@ -38,7 +38,7 @@
   "dependencies": {
     "d3": "^7.9.0",
     "decimal.js": "^10.6.0",
-    "lucide-react": "^0.554.0",
+    "lucide-react": "^1.32.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-resizable-panels": "^3.0.6",
