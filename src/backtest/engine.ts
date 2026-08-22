@@ -303,7 +303,9 @@ export const runSmaCrossBacktest = (
             executionTiming: 'NEXT_BAR_OPEN',
             priceModel: 'MARKET_WITH_BPS_COSTS',
             warnings: [
-                'Synthetic validation data is not evidence of live strategy performance.',
+                ...(dataset.source === 'SYNTHETIC_FIXTURE'
+                    ? ['Synthetic validation data is not evidence of live strategy performance.']
+                    : []),
                 'This first slice models long/flat market orders only.',
                 ...(dataset.source === 'BINANCE_REST'
                     ? ['Real market data may contain exchange outage gaps; listed-pair history carries survivorship bias.']

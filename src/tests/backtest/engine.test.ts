@@ -183,10 +183,15 @@ describe('interval-aware metrics', () => {
         expect(hourly.metrics.sharpeRatio).toBeCloseTo(oneMinute.metrics.sharpeRatio * Math.sqrt(1 / 60), 10);
     });
 
-    it('adds a real-data caveat for BINANCE_REST datasets', () => {
+    it('emits the synthetic disclaimer only for SYNTHETIC_FIXTURE datasets', () => {
         const fixture = createSyntheticBtcFixture();
         const binanceDataset = { ...fixture.dataset, id: 'binance-test', source: 'BINANCE_REST' as const, fetchedAt: 1_758_000_000_000 };
-        const result = runSmaCrossBacktest(fixture.candles, binanceDataset, defaultConfig);
-        expect(result.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(true);
+
+        const synthetic = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
+        const realData = runSmaCrossBacktest(fixture.candles, binanceDataset, defaultConfig);
+
+        expect(synthetic.diagnostics.warnings.some((w) => w.includes('Synthetic validation data'))).toBe(true);
+        expect(realData.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(true);
+        expect(realData.diagnostics.warnings.some((w) => w.includes('Synthetic validation data'))).toBe(false);
     });
 });

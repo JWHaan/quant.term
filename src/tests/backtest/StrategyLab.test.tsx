@@ -1,13 +1,74 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import StrategyLab from '@/features/backtest/StrategyLab';
+import { fetchKlinesRange } from '@/integrations/binance/klines';
+import type { BacktestCandle } from '@/backtest/types';
+
+vi.mock('@/integrations/binance/klines', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/integrations/binance/klines')>();
+    return {
+        ...actual,
+        fetchKlinesRange: vi.fn(),
+    };
+});
+
+const fetchKlinesRangeMock = vi.mocked(fetchKlinesRange);
+
+const CANDLE_START = 1_704_067_200;
+
+/** Build valid ascending candles; when `gapAfter` is set, one bar is omitted after that index. */
+const binanceCandles = (count: number, gapAfter?: number): BacktestCandle[] => {
+    const candles: BacktestCandle[] = [];
+    for (let index = 0; index < count; index += 1) {
+        const skipped = gapAfter !== undefined && index > gapAfter;
+        const time = CANDLE_START + (index + (skipped ? 1 : 0)) * 60;
+        const open = 42_000 + index;
+        const close = open + 5;
+        candles.push({
+            time,
+            open,
+            high: Math.max(open, close) + 2,
+            low: Math.min(open, close) - 2,
+            close,
+            volume: 10,
+        });
+    }
+    return candles;
+};
+
+const deferredRange = () => {
+    let resolve!: (value: { candles: BacktestCandle[]; requests: number }) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<{ candles: BacktestCandle[]; requests: number }>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    fetchKlinesRangeMock.mockReturnValue(promise);
+    return { resolve, reject };
+};
+
+const selectBinanceSource = () => {
+    fireEvent.click(screen.getByRole('radio', { name: 'Binance history' }));
+};
 
 describe('StrategyLab', () => {
+    beforeEach(() => {
+        fetchKlinesRangeMock.mockReset();
+    });
+
     it('does not present generated performance before a run', () => {
         render(<StrategyLab />);
 
         expect(screen.getByText('No generated performance yet')).toBeInTheDocument();
         expect(screen.queryByText('Total return')).not.toBeInTheDocument();
+    });
+
+    it('defaults to the synthetic fixture dataset and provenance', () => {
+        render(<StrategyLab />);
+
+        expect(screen.getByText('Synthetic')).toBeInTheDocument();
+        expect(screen.getByText('SOURCE: FIXTURE')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Fetch Binance history' })).not.toBeInTheDocument();
     });
 
     it('runs the deterministic fixture and exposes inspectable results', () => {
@@ -34,5 +95,87 @@ describe('StrategyLab', () => {
             'Slow period must be an integer greater than the fast period',
         );
         expect(screen.queryByText('Total return')).not.toBeInTheDocument();
+    });
+
+    it('reveals symbol, interval, and lookback controls after switching source', () => {
+        render(<StrategyLab />);
+        selectBinanceSource();
+
+        expect(screen.getByRole('textbox', { name: 'Binance symbol' })).toHaveValue('BTCUSDT');
+        expect(screen.getByRole('combobox', { name: 'Kline interval' })).toHaveValue('1m');
+        expect(screen.getByRole('spinbutton', { name: 'Lookback bars' })).toHaveValue(1000);
+        expect(screen.getByRole('button', { name: 'Fetch Binance history' })).toBeEnabled();
+    });
+
+    it('shows a loading status then the BINANCE_REST provenance card with a gap report', async () => {
+        const { resolve } = deferredRange();
+        render(<StrategyLab />);
+        selectBinanceSource();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+        expect(await screen.findByText(/Fetching/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Fetch Binance history' })).toBeDisabled();
+
+        resolve({ candles: binanceCandles(60, 30), requests: 1 });
+        expect(await screen.findByText(/GAPS 1 · MISSING 1 bars/)).toBeInTheDocument();
+        expect(screen.getByText('SOURCE: BINANCE REST')).toBeInTheDocument();
+        expect(screen.getByText('Binance REST')).toBeInTheDocument();
+        expect(fetchKlinesRangeMock).toHaveBeenCalledWith(
+            { symbol: 'BTCUSDT', interval: '1m', lookbackBars: 1000 },
+            expect.anything(),
+        );
+    });
+
+    it('reports NO GAPS DETECTED for a continuous Binance range', async () => {
+        fetchKlinesRangeMock.mockResolvedValue({ candles: binanceCandles(60), requests: 1 });
+        render(<StrategyLab />);
+        selectBinanceSource();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+
+        expect(await screen.findByText('NO GAPS DETECTED')).toBeInTheDocument();
+    });
+
+    it('surfaces a fetch rejection as an alert and keeps the prior dataset', async () => {
+        fetchKlinesRangeMock.mockResolvedValueOnce({ candles: binanceCandles(60), requests: 1 });
+        render(<StrategyLab />);
+        selectBinanceSource();
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+        await screen.findByText('NO GAPS DETECTED');
+
+        fetchKlinesRangeMock.mockRejectedValueOnce(new Error('Failed to fetch klines (418)'));
+        fireEvent.change(screen.getByRole('textbox', { name: 'Binance symbol' }), { target: { value: 'ETHUSDT' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('Failed to fetch klines (418)');
+        expect(screen.getByText('BTCUSDT · 1m')).toBeInTheDocument();
+        expect(screen.getByText('SOURCE: BINANCE REST')).toBeInTheDocument();
+    });
+
+    it('treats an empty fetched range as an error, not an empty dataset', async () => {
+        fetchKlinesRangeMock.mockResolvedValue({ candles: [], requests: 0 });
+        render(<StrategyLab />);
+        selectBinanceSource();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'No closed candles available for BTCUSDT 1m',
+        );
+        expect(screen.getByText('SOURCE: FIXTURE')).toBeInTheDocument();
+    });
+
+    it('runs the replay against the fetched Binance dataset and warns on gaps', async () => {
+        fetchKlinesRangeMock.mockResolvedValue({ candles: binanceCandles(60, 30), requests: 1 });
+        render(<StrategyLab />);
+        selectBinanceSource();
+        fireEvent.change(screen.getByRole('textbox', { name: 'Binance symbol' }), { target: { value: 'ETHUSDT' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+        await screen.findByText(/GAPS 1 · MISSING 1 bars/);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Run deterministic replay' }));
+
+        expect(await screen.findByRole('heading', { name: 'ETHUSDT · SMA 12/36' })).toBeInTheDocument();
+        expect(screen.getByText(/data gap/)).toBeInTheDocument();
     });
 });
