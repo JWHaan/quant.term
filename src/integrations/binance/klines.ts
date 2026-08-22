@@ -1,5 +1,6 @@
 import { BINANCE_REST_URL } from '@/constants/config';
-import type { BacktestCandle } from '@/backtest/types';
+import type { BacktestCandle, BacktestDataset } from '@/backtest/types';
+import { checksumCandles } from '@/backtest/fixture';
 import type { Timeframe } from '@/types/common';
 
 /** Bar duration in seconds for every supported Binance kline interval. */
@@ -98,4 +99,126 @@ export const fetchKlinesPage = async (request: KlinesRequest, signal?: AbortSign
         throw new Error('Failed to fetch klines: no closed candles in response');
     }
     return candles;
+};
+
+export interface KlinesRangeRequest {
+    symbol: string;
+    interval: Timeframe;
+    /** Bars to walk back from the latest closed bar; ignored when startTime is given. */
+    lookbackBars?: number;
+    startTime?: number;
+    endTime?: number;
+    maxCandles?: number;
+}
+
+export interface KlinesRangeResult {
+    candles: BacktestCandle[];
+    requests: number;
+}
+
+const HARD_PAGE_CAP = 50;
+const DEFAULT_MAX_CANDLES = 20_000;
+const DEFAULT_LOOKBACK_BARS = 1_000;
+
+/**
+ * Fetch a historical kline range by paging forward from `startTime` until a short page
+ * or the close-time deadline is reached. Candles are deduped by open time and returned
+ * strictly ascending. Throws past the hard page cap or on HTTP/abort failures, which
+ * propagate from fetchKlinesPage.
+ */
+export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: AbortSignal): Promise<KlinesRangeResult> => {
+    const intervalMs = INTERVAL_SECONDS[request.interval] * 1_000;
+    const maxCandles = request.maxCandles ?? DEFAULT_MAX_CANDLES;
+    // Closed bars only: the newest admissible bar opens at now - interval and closes exactly at now.
+    const endMs = request.endTime ?? Date.now() - intervalMs;
+    // Window of exactly lookbackBars bars ending at endMs when no explicit start is given.
+    const lookbackBars = Math.max(request.lookbackBars ?? DEFAULT_LOOKBACK_BARS, 1);
+    const startMs = request.startTime ?? endMs - ((lookbackBars - 1) * intervalMs);
+
+    const byTime = new Map<number, BacktestCandle>();
+    let requests = 0;
+    let cursor = startMs;
+
+    while (byTime.size < maxCandles && cursor <= endMs) {
+        if (requests >= HARD_PAGE_CAP) {
+            throw new Error(`Failed to fetch klines range: exceeded hard page cap (${HARD_PAGE_CAP} requests)`);
+        }
+        const limit = Math.min(DEFAULT_PAGE_LIMIT, maxCandles - byTime.size);
+        let page: BacktestCandle[];
+        try {
+            page = await fetchKlinesPage(
+                { symbol: request.symbol, interval: request.interval, startTime: cursor, endTime: endMs, limit },
+                signal,
+            );
+        } catch (error) {
+            // An exchange window with zero closed candles means history is exhausted here.
+            if (error instanceof Error && error.message.includes('no closed candles')) break;
+            throw error;
+        }
+        requests += 1;
+
+        for (const candle of page) byTime.set(candle.time, candle);
+
+        const last = page.at(-1);
+        if (last === undefined || page.length < limit) break;
+        cursor = last.time * 1_000 + intervalMs;
+    }
+
+    return { candles: [...byTime.values()].sort((a, b) => a.time - b.time), requests };
+};
+
+const pad2 = (value: number): string => String(value).padStart(2, '0');
+
+/**
+ * Build dataset provenance for a Binance REST fetch: UTC-stamped id, human-readable
+ * name, and an FNV-1a content checksum reused from the fixture module.
+ */
+export const buildDatasetMeta = (
+    candles: BacktestCandle[],
+    symbol: string,
+    interval: Timeframe,
+    fetchedAt: number,
+): BacktestDataset => {
+    const stamp = new Date(fetchedAt);
+    const stampUtc =
+        `${stamp.getUTCFullYear()}${pad2(stamp.getUTCMonth() + 1)}${pad2(stamp.getUTCDate())}` +
+        `${pad2(stamp.getUTCHours())}${pad2(stamp.getUTCMinutes())}`;
+
+    return {
+        id: `binance-${symbol}-${interval}-${stampUtc}-v1`,
+        name: `${symbol} ${interval} Binance REST history`,
+        symbol,
+        interval,
+        source: 'BINANCE_REST',
+        checksum: checksumCandles(candles),
+        candleCount: candles.length,
+        startTime: candles[0]?.time ?? 0,
+        endTime: candles.at(-1)?.time ?? 0,
+        intervalSeconds: INTERVAL_SECONDS[interval],
+        fetchedAt,
+    };
+};
+
+export interface GapReport {
+    gapCount: number;
+    longestGapBars: number;
+    missingBars: number;
+}
+
+/**
+ * Detect missing bars between consecutive candles. A step larger than
+ * intervalSeconds + toleranceSeconds counts as a gap; missingBars sums the
+ * whole bars absent inside each gap.
+ */
+export const detectGaps = (candles: BacktestCandle[], intervalSeconds: number, toleranceSeconds = 5): GapReport => {
+    const report: GapReport = { gapCount: 0, longestGapBars: 0, missingBars: 0 };
+    for (let index = 1; index < candles.length; index += 1) {
+        const deltaSeconds = candles[index]!.time - candles[index - 1]!.time;
+        if (deltaSeconds <= intervalSeconds + toleranceSeconds) continue;
+        const gapBars = deltaSeconds / intervalSeconds;
+        report.gapCount += 1;
+        report.longestGapBars = Math.max(report.longestGapBars, gapBars);
+        report.missingBars += gapBars - 1;
+    }
+    return report;
 };
