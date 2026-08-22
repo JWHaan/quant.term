@@ -102,7 +102,7 @@ sequenceDiagram
     participant WS as Binance WebSocket
     participant Feed as useChartDataFeed
     participant Store as chartDataStore
-    participant Chart as CustomChart
+    participant Chart as TerminalChart
 
     Feed->>REST: Request historical klines
     REST-->>Feed: Validated candle rows
@@ -111,7 +111,7 @@ sequenceDiagram
     Feed->>Store: Upsert latest candle
     Feed->>Store: Append bounded depth snapshot
     Store-->>Chart: Candles and heatmap bins
-    Chart->>Chart: D3 scales and Canvas render
+    Chart->>Chart: lightweight-charts series update/reload
 ~~~
 
 If a live candle arrives while history is loading, the feed reapplies it after the REST response so an older snapshot cannot roll the chart backward.

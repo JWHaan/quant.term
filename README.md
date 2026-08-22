@@ -20,14 +20,15 @@
 
 ## Overview
 
-`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The Monitor workspace uses a custom D3-scaled Canvas chart with live Binance Spot candles, trades, and depth. The Strategy Lab replays a bounded SMA crossover against a fixed BTC/USDT validation fixture with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger.
+`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The Monitor workspace renders live Binance Spot candles, trades, and depth through TradingView Lightweight Charts v5. The Strategy Lab replays a bounded SMA crossover against a fixed BTC/USDT validation fixture with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger.
 
 The browser reference engine and native C++20 core share a versioned `backtest-v1` contract and golden correctness values. Synthetic results validate execution and accounting; they are not evidence of historical or future performance. No exchange credentials are accepted and no real orders are sent.
 
 ## Highlights
 
 - Live Binance Spot watchlist, candles, aggregate trades, and top-20 depth
-- Custom Canvas chart with zoom/pan, EMA overlays, RSI, MACD, and depth heatmap
+- Lightweight Charts v5 candlesticks and volume with EMA overlays and native RSI/MACD panes
+- Synced order-book depth heatmap strip that tracks chart pan and zoom
 - Binance USDⓈ-M funding, mark/index price, open interest, positioning, and liquidations
 - CoinDesk and Cointelegraph news through a cached same-origin edge route
 - Bitcoin block, mempool, fee, and Fear & Greed snapshots
