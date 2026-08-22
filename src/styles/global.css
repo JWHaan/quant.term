@@ -1078,6 +1078,71 @@ code,
 .chart-feed-state > span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .chart-feed-state--live { color: var(--accent-success); }
 
+.chart-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.chart-toolbar__group {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--bg-panel) 90%, transparent);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+}
+
+.chart-tool-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.chart-tool-btn:hover { background: rgba(51, 255, 0, 0.1); color: var(--text-primary); }
+
+.chart-tool-btn.is-active {
+  background: var(--accent-primary);
+  color: #000;
+  font-weight: 600;
+}
+
+.chart-tool-btn.is-active:hover { filter: brightness(1.08); }
+
+.chart-tool-btn--indicator-ema9.is-active { background: #3b82f6; }
+.chart-tool-btn--indicator-ema21.is-active { background: #8b5cf6; }
+.chart-tool-btn--indicator-rsi.is-active { background: #a855f7; }
+
+.chart-tool-btn--indicator-ema9.is-active,
+.chart-tool-btn--indicator-ema21.is-active,
+.chart-tool-btn--indicator-rsi.is-active {
+  border: none;
+  color: #fff;
+  font-weight: 600;
+}
+
+.chart-tool-btn--indicator-macd.is-active { background: rgba(245, 158, 11, 0.18); color: #f59e0b; font-weight: 600; }
+
+.chart-heatmap-strip {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color);
+}
+
 .sr-only {
   position: absolute !important;
   width: 1px !important;

@@ -1,17 +1,37 @@
-import React, { useState } from 'react';
-import CustomChart from '@/features/charts/CustomChart';
+import React, { useCallback, useEffect, useState } from 'react';
+import TerminalChart, { type IndicatorToggles } from '@/features/charts/TerminalChart';
+import HeatmapStrip from '@/features/charts/HeatmapStrip';
 import DataQualityBadge from '@/ui/DataQualityBadge';
 import { provenanceRegistry } from '@/services/provenanceEngine';
+import { useChartDataFeed } from '@/hooks/useChartDataFeed';
 import type { FeedStatus } from '@/types/common';
 
-const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
+const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const;
 
 interface ChartContainerProps {
     symbol?: string;
 }
 
+const INDICATOR_BUTTONS: Array<{
+    key: keyof IndicatorToggles;
+    label: string;
+}> = [
+    { key: 'ema9', label: 'EMA9' },
+    { key: 'ema21', label: 'EMA21' },
+    { key: 'macd', label: 'MACD' },
+    { key: 'rsi', label: 'RSI' },
+];
+
 const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) => {
     const [interval, setInterval] = useState<string>('1m');
+    const [indicatorToggles, setIndicatorToggles] = useState<IndicatorToggles>({
+        ema9: true,
+        ema21: false,
+        macd: false,
+        rsi: false,
+    });
+    const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+    const [visibleRange, setVisibleRange] = useState<{ fromTime: number; toTime: number } | null>(null);
 
     // Data quality tracking is populated by the shared provenance registry.
     const [dataQuality, setDataQuality] = useState<{
@@ -24,38 +44,13 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
         hasGap: false,
     });
 
-    // Indicator toggles – expose to the toolbar
-    const [indicatorToggles, setIndicatorToggles] = useState<{ ema9: boolean; ema21: boolean; macd: boolean; rsi: boolean }>({
-        ema9: true,
-        ema21: false,
-        macd: false,
-        rsi: false,
-    });
+    const feed = useChartDataFeed(symbol, interval, { heatmapEnabled: showHeatmap });
+    const handleVisibleRangeChange = useCallback(
+        (range: { fromTime: number; toTime: number } | null) => setVisibleRange(range),
+        [],
+    );
 
-    const toggleIndicator = (key: keyof typeof indicatorToggles) => {
-        setIndicatorToggles(prev => ({ ...prev, [key]: !prev[key] }));
-    };
-
-    // Heatmap visibility toggle
-    const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
-
-    // Responsive container height using ResizeObserver
-    const containerRef = React.useRef<HTMLDivElement>(null);
-    const [containerHeight, setContainerHeight] = useState<number>(600);
-    React.useEffect(() => {
-        if (!containerRef.current) return;
-        const ro = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const height = entry.contentRect.height;
-                if (height) setContainerHeight(height);
-            }
-        });
-        ro.observe(containerRef.current);
-        return () => ro.disconnect();
-    }, []);
-
-    // Data quality polling
-    React.useEffect(() => {
+    useEffect(() => {
         const engine = provenanceRegistry.getEngine(symbol.toUpperCase());
         const intervalId = window.setInterval(() => {
             const distribution = engine.getLatencyDistribution();
@@ -71,192 +66,83 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
 
     return (
         <div
-            ref={containerRef}
             style={{
                 position: 'relative',
                 width: '100%',
                 height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
                 background: 'var(--chart-bg)',
             }}
         >
-            {/* Chart */}
-            <div style={{ width: '100%', height: '100%' }}>
-                <CustomChart
+            <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+                <TerminalChart
                     symbol={symbol}
                     interval={interval}
-                    height={containerHeight}
-                    showHeatmap={showHeatmap}
+                    candles={feed.candles}
+                    isLoading={feed.isLoading}
+                    error={feed.error}
+                    isConnected={feed.isConnected}
                     indicatorToggles={indicatorToggles}
+                    onVisibleRangeChange={handleVisibleRangeChange}
                 />
-            </div>
+                <div className="chart-toolbar">
+                    <DataQualityBadge
+                        symbol={symbol.toUpperCase()}
+                        latency={dataQuality.latency}
+                        feedStatus={dataQuality.feedStatus}
+                        latencyDistribution={provenanceRegistry
+                            .getEngine(symbol.toUpperCase())
+                            .getLatencyDistribution()}
+                        hasGap={dataQuality.hasGap}
+                    />
 
-            {/* Toolbar */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: 10,
-                    left: 10,
-                    right: 10,
-                    zIndex: 20,
-                    display: 'flex',
-                    gap: '12px',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                }}
-            >
-                {/* Data Quality Badge */}
-                <DataQualityBadge
-                    symbol={symbol.toUpperCase()}
-                    latency={dataQuality.latency}
-                    feedStatus={dataQuality.feedStatus}
-                    latencyDistribution={provenanceRegistry
-                        .getEngine(symbol.toUpperCase())
-                        .getLatencyDistribution()}
-                    hasGap={dataQuality.hasGap}
-                />
+                    <div className="chart-toolbar__group" role="group" aria-label="Timeframe">
+                        {INTERVALS.map((tf) => (
+                            <button
+                                key={tf}
+                                type="button"
+                                onClick={() => setInterval(tf)}
+                                aria-pressed={interval === tf}
+                                aria-label={`Use ${tf} candles`}
+                                className={`chart-tool-btn${interval === tf ? ' is-active' : ''}`}
+                            >
+                                {tf}
+                            </button>
+                        ))}
+                    </div>
 
-                {/* Timeframe Selector */}
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: '2px',
-                        background: 'rgba(15, 23, 42, 0.9)',
-                        border: '1px solid rgba(51, 255, 0, 0.2)',
-                        padding: '3px',
-                        borderRadius: '4px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                    }}
-                >
-                    {INTERVALS.map(tf => (
+                    <div className="chart-toolbar__group" role="group" aria-label="Overlays">
                         <button
-                            key={tf}
-                            onClick={() => setInterval(tf)}
-                            aria-pressed={interval === tf}
-                            aria-label={`Use ${tf} candles`}
-                            style={{
-                                padding: '4px 10px',
-                                background: interval === tf ? 'var(--accent-primary)' : 'transparent',
-                                border: 'none',
-                                fontSize: '11px',
-                                fontWeight: interval === tf ? '600' : '400',
-                                color: interval === tf ? '#000' : 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                fontFamily: 'var(--font-mono)',
-                                borderRadius: '2px',
-                                transition: 'all 0.15s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                                if (interval !== tf) {
-                                    e.currentTarget.style.background = 'rgba(51, 255, 0, 0.1)';
-                                    e.currentTarget.style.color = 'var(--text-primary)';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (interval !== tf) {
-                                    e.currentTarget.style.background = 'transparent';
-                                    e.currentTarget.style.color = 'var(--text-secondary)';
-                                }
-                            }}
+                            type="button"
+                            onClick={() => setShowHeatmap((previous) => !previous)}
+                            aria-pressed={showHeatmap}
+                            className={`chart-tool-btn${showHeatmap ? ' is-active' : ''}`}
                         >
-                            {tf}
+                            📊 Heatmap
                         </button>
-                    ))}
-                </div>
-
-                {/* Indicator Controls Group */}
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: '4px',
-                        background: 'rgba(15, 23, 42, 0.9)',
-                        border: '1px solid rgba(51, 255, 0, 0.2)',
-                        padding: '3px',
-                        borderRadius: '4px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                    }}
-                >
-                    {/* Heatmap Toggle */}
-                    <button
-                        onClick={() => setShowHeatmap(prev => !prev)}
-                        aria-pressed={showHeatmap}
-                        style={{
-                            padding: '4px 10px',
-                            background: showHeatmap ? 'var(--accent-primary)' : 'transparent',
-                            border: 'none',
-                            borderRadius: '2px',
-                            fontSize: '11px',
-                            fontWeight: showHeatmap ? '600' : '400',
-                            color: showHeatmap ? '#000' : 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            fontFamily: 'var(--font-mono)',
-                            transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                            if (!showHeatmap) {
-                                e.currentTarget.style.background = 'rgba(51, 255, 0, 0.1)';
-                                e.currentTarget.style.color = 'var(--text-primary)';
-                            }
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!showHeatmap) {
-                                e.currentTarget.style.background = 'transparent';
-                                e.currentTarget.style.color = 'var(--text-secondary)';
-                            }
-                        }}
-                    >
-                        📊 Heatmap
-                    </button>
-
-                    {/* Indicator Toggles */}
-                    {(['ema9', 'ema21', 'macd', 'rsi'] as const).map(key => {
-                        const labels = {
-                            ema9: 'EMA9',
-                            ema21: 'EMA21',
-                            macd: 'MACD',
-                            rsi: 'RSI'
-                        };
-                        const colors = {
-                            ema9: '#3b82f6',
-                            ema21: '#8b5cf6',
-                            macd: '#f59e0b',
-                            rsi: '#a855f7'
-                        };
-                        return (
+                        {INDICATOR_BUTTONS.map(({ key, label }) => (
                             <button
                                 key={key}
-                                onClick={() => toggleIndicator(key)}
+                                type="button"
+                                onClick={() =>
+                                    setIndicatorToggles((previous) => ({ ...previous, [key]: !previous[key] }))
+                                }
                                 aria-pressed={indicatorToggles[key]}
-                                style={{
-                                    padding: '4px 10px',
-                                    background: indicatorToggles[key] ? colors[key] : 'transparent',
-                                    border: indicatorToggles[key] ? `1px solid ${colors[key]}` : '1px solid transparent',
-                                    borderRadius: '2px',
-                                    fontSize: '11px',
-                                    fontWeight: indicatorToggles[key] ? '600' : '400',
-                                    color: indicatorToggles[key] ? '#fff' : 'var(--text-secondary)',
-                                    cursor: 'pointer',
-                                    fontFamily: 'var(--font-mono)',
-                                    transition: 'all 0.15s ease',
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!indicatorToggles[key]) {
-                                        e.currentTarget.style.background = 'rgba(51, 255, 0, 0.1)';
-                                        e.currentTarget.style.color = 'var(--text-primary)';
-                                    }
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (!indicatorToggles[key]) {
-                                        e.currentTarget.style.background = 'transparent';
-                                        e.currentTarget.style.color = 'var(--text-secondary)';
-                                    }
-                                }}
+                                className={`chart-tool-btn chart-tool-btn--indicator-${key}${
+                                    indicatorToggles[key] ? ' is-active' : ''
+                                }`}
                             >
-                                {labels[key]}
+                                {label}
                             </button>
-                        );
-                    })}
+                        ))}
+                    </div>
                 </div>
             </div>
+
+            {showHeatmap && (
+                <HeatmapStrip heatmap={feed.heatmap} visibleRange={visibleRange} height={72} />
+            )}
         </div>
     );
 };
