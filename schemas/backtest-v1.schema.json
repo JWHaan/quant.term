@@ -40,18 +40,30 @@
         "checksum",
         "candleCount",
         "startTime",
-        "endTime"
+        "endTime",
+        "intervalSeconds",
+        "fetchedAt"
       ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
-        "symbol": { "const": "BTCUSDT" },
-        "interval": { "const": "1m" },
-        "source": { "const": "SYNTHETIC_FIXTURE" },
+        "symbol": { "type": "string", "pattern": "^[A-Z0-9]{5,20}$" },
+        "interval": {
+          "enum": [
+            "1m", "3m", "5m", "15m", "30m",
+            "1h", "2h", "4h", "6h", "12h",
+            "1d", "3d", "1w", "1M"
+          ]
+        },
+        "source": {
+          "enum": ["SYNTHETIC_FIXTURE", "BINANCE_REST"]
+        },
         "checksum": { "type": "string", "minLength": 1 },
         "candleCount": { "type": "integer", "minimum": 1 },
         "startTime": { "type": "number" },
-        "endTime": { "type": "number" }
+        "endTime": { "type": "number" },
+        "intervalSeconds": { "type": "integer", "minimum": 60 },
+        "fetchedAt": { "type": "number", "minimum": 0 }
       }
     },
     "config": {

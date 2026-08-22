@@ -11,7 +11,7 @@ namespace quant {
 namespace {
 
 constexpr double bps_divisor = 10'000.0;
-constexpr double minutes_per_year = 365.0 * 24.0 * 60.0;
+constexpr double seconds_per_year = 31'536'000.0;
 
 struct OpenPosition {
     double entry_time{};
@@ -94,7 +94,10 @@ struct ClosedPosition {
     };
 }
 
-[[nodiscard]] double calculate_sharpe(const std::vector<EquityPoint>& curve) {
+[[nodiscard]] double calculate_sharpe(
+    const std::vector<EquityPoint>& curve,
+    double interval_seconds
+) {
     if (curve.size() < 3U) {
         return 0.0;
     }
@@ -119,7 +122,9 @@ struct ClosedPosition {
     }
     const auto variance = squared_difference_sum / static_cast<double>(returns.size() - 1U);
     const auto deviation = std::sqrt(variance);
-    return deviation == 0.0 ? 0.0 : (mean / deviation) * std::sqrt(minutes_per_year);
+    return deviation == 0.0 ? 0.0
+        : (mean / deviation)
+            * std::sqrt(seconds_per_year / interval_seconds);
 }
 
 [[nodiscard]] Metrics calculate_metrics(
@@ -161,7 +166,7 @@ struct ClosedPosition {
         .profit_factor = losing_pnl == 0.0
             ? std::nullopt
             : std::optional<double>{winning_pnl / losing_pnl},
-        .sharpe_ratio = calculate_sharpe(curve),
+        .sharpe_ratio = calculate_sharpe(curve, config.interval_seconds),
         .total_fees = total_fees,
         .exposure_pct = curve.empty()
             ? 0.0
@@ -190,6 +195,9 @@ void validate_input(const std::vector<Candle>& candles, const BacktestConfig& co
         || config.slippage_bps > 1'000.0
     ) {
         throw std::invalid_argument{"Slippage basis points are outside the supported range"};
+    }
+    if (!std::isfinite(config.interval_seconds) || config.interval_seconds <= 0.0) {
+        throw std::invalid_argument{"Interval seconds must be finite and positive"};
     }
     if (candles.size() < config.slow_period + 2U) {
         throw std::invalid_argument{"Insufficient candles"};
