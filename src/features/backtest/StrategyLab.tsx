@@ -7,6 +7,12 @@ import EquityCurveChart from '@/features/backtest/EquityCurveChart';
 import TabPanel from '@/ui/TabPanel';
 import { formatCurrency, formatPrice } from '@/utils/format';
 
+const labelForInterval = (intervalSeconds: number): string => {
+    if (intervalSeconds === 60) return '1m';
+    if (intervalSeconds === 3_600) return '1h';
+    return `${intervalSeconds}s`;
+};
+
 const DEFAULT_CONFIG: BacktestConfig = {
     initialCapital: 10_000,
     fastPeriod: 12,
@@ -293,7 +299,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                                 <div><dt>Max drawdown</dt><dd className="negative">-{metrics.maxDrawdownPct.toFixed(2)}%</dd></div>
                                 <div><dt>Closed trades</dt><dd>{metrics.totalTrades}</dd></div>
                                 <div><dt>Win rate</dt><dd>{metrics.winRatePct.toFixed(1)}%</dd></div>
-                                <div><dt>Sharpe · 1m annualized</dt><dd>{metrics.sharpeRatio.toFixed(2)}</dd></div>
+                                <div><dt>Sharpe · {labelForInterval(result.dataset.intervalSeconds)} annualized</dt><dd>{metrics.sharpeRatio.toFixed(2)}</dd></div>
                                 <div><dt>Total fees</dt><dd>{formatCurrency(metrics.totalFees)}</dd></div>
                                 <div><dt>Exposure</dt><dd>{metrics.exposurePct.toFixed(1)}%</dd></div>
                             </dl>

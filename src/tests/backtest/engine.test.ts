@@ -21,6 +21,8 @@ const testDataset: BacktestDataset = {
     candleCount: 0,
     startTime: 0,
     endTime: 0,
+    intervalSeconds: 60,
+    fetchedAt: 0,
 };
 
 const candlesFromCloses = (closes: number[], opens = closes): BacktestCandle[] => (
@@ -163,5 +165,28 @@ describe('deterministic SMA crossover backtester', () => {
         expect(() => validateBacktestInput(invalid, defaultConfig)).toThrow(
             'inconsistent OHLC bounds',
         );
+    });
+});
+
+describe('interval-aware metrics', () => {
+    it('keeps 1-minute golden values when intervalSeconds is 60', () => {
+        const fixture = createSyntheticBtcFixture();
+        const result = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
+        expect(result.metrics.finalEquity).toBeCloseTo(10_692.208640, 6);
+    });
+
+    it('derives Sharpe annualization from dataset.intervalSeconds', () => {
+        const fixture = createSyntheticBtcFixture();
+        const oneMinute = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
+        const hourlyDataset = { ...fixture.dataset, id: 'hourly-equivalent', intervalSeconds: 3_600 };
+        const hourly = runSmaCrossBacktest(fixture.candles, hourlyDataset, defaultConfig);
+        expect(hourly.metrics.sharpeRatio).toBeCloseTo(oneMinute.metrics.sharpeRatio * Math.sqrt(1 / 60), 10);
+    });
+
+    it('adds a real-data caveat for BINANCE_REST datasets', () => {
+        const fixture = createSyntheticBtcFixture();
+        const binanceDataset = { ...fixture.dataset, id: 'binance-test', source: 'BINANCE_REST' as const, fetchedAt: 1_758_000_000_000 };
+        const result = runSmaCrossBacktest(fixture.candles, binanceDataset, defaultConfig);
+        expect(result.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(true);
     });
 });

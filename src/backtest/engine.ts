@@ -10,7 +10,8 @@ import {
 } from '@/backtest/types';
 
 const BPS_DIVISOR = 10_000;
-const MINUTES_PER_YEAR = 365 * 24 * 60;
+/** 31_536_000 seconds per year (365 days). */
+const SECONDS_PER_YEAR = 31_536_000;
 
 interface OpenPosition {
     entryTime: number;
@@ -104,7 +105,7 @@ const calculateSmaSpreads = (
     return spreads;
 };
 
-const calculateSharpe = (equityCurve: BacktestEquityPoint[]): number => {
+const calculateSharpe = (equityCurve: BacktestEquityPoint[], barsPerYear: number): number => {
     if (equityCurve.length < 3) return 0;
 
     const returns: number[] = [];
@@ -122,7 +123,7 @@ const calculateSharpe = (equityCurve: BacktestEquityPoint[]): number => {
         0,
     ) / (returns.length - 1);
     const deviation = Math.sqrt(variance);
-    return deviation === 0 ? 0 : (mean / deviation) * Math.sqrt(MINUTES_PER_YEAR);
+    return deviation === 0 ? 0 : (mean / deviation) * Math.sqrt(barsPerYear);
 };
 
 const closePosition = (
@@ -168,6 +169,7 @@ const calculateMetrics = (
     trades: BacktestTrade[],
     equityCurve: BacktestEquityPoint[],
     exposedBars: number,
+    barsPerYear: number,
 ): BacktestMetrics => {
     const finalEquity = equityCurve.at(-1)?.equity ?? config.initialCapital;
     const winningPnl = trades
@@ -187,7 +189,7 @@ const calculateMetrics = (
             ? 0
             : (trades.filter((trade) => trade.netPnl > 0).length / trades.length) * 100,
         profitFactor: losingPnl === 0 ? null : winningPnl / losingPnl,
-        sharpeRatio: calculateSharpe(equityCurve),
+        sharpeRatio: calculateSharpe(equityCurve, barsPerYear),
         totalFees: trades.reduce((sum, trade) => sum + trade.entryFee + trade.exitFee, 0),
         exposurePct: (exposedBars / equityCurve.length) * 100,
     };
@@ -287,7 +289,13 @@ export const runSmaCrossBacktest = (
         strategy: 'SMA_CROSS_LONG_FLAT',
         dataset,
         config: { ...config },
-        metrics: calculateMetrics(config, trades, equityCurve, exposedBars),
+        metrics: calculateMetrics(
+            config,
+            trades,
+            equityCurve,
+            exposedBars,
+            SECONDS_PER_YEAR / dataset.intervalSeconds,
+        ),
         trades,
         equityCurve,
         diagnostics: {
@@ -297,6 +305,9 @@ export const runSmaCrossBacktest = (
             warnings: [
                 'Synthetic validation data is not evidence of live strategy performance.',
                 'This first slice models long/flat market orders only.',
+                ...(dataset.source === 'BINANCE_REST'
+                    ? ['Real market data may contain exchange outage gaps; listed-pair history carries survivorship bias.']
+                    : []),
             ],
         },
     };
