@@ -20,7 +20,7 @@
 
 ## Overview
 
-`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The Monitor workspace renders live Binance Spot candles, trades, and depth through TradingView Lightweight Charts v5. The Strategy Lab replays a bounded SMA crossover against a fixed BTC/USDT validation fixture with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger.
+`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The Monitor workspace renders live Binance Spot candles, trades, and depth through TradingView Lightweight Charts v5. The Strategy Lab replays a bounded SMA crossover with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger. Datasets come from either the bundled BTC/USDT validation fixture or Binance Spot klines fetched live from `data-api.binance.vision` for a user-selected symbol, interval, and lookback; every run records dataset provenance and reports candle gaps rather than filling them.
 
 The browser reference engine and native C++20 core share a versioned `backtest-v1` contract and golden correctness values. Synthetic results validate execution and accounting; they are not evidence of historical or future performance. No exchange credentials are accepted and no real orders are sent.
 
@@ -35,6 +35,7 @@ The browser reference engine and native C++20 core share a versioned `backtest-v
 - Local price alerts with optional browser notifications
 - Margin-aware simulated long/short positions with unrealized and realized P&L
 - Deterministic Strategy Lab with explicit dataset and engine provenance
+- Bundled synthetic fixture or live Binance Spot klines, with FNV-1a dataset checksums and gap reporting
 - Long/flat SMA replay with next-candle-open fills, fees, and adverse slippage
 - Native C++20 replay core, CTest correctness gate, and a versioned JSON contract
 - Equity curve, drawdown, exposure, Sharpe, fee totals, and closed-trade inspection
@@ -101,7 +102,7 @@ src/
 worker/                      # Sites/Cloudflare Worker and shared news handler
 ~~~
 
-The browser talks directly to public market endpoints. The edge layer only normalizes public RSS news behind `/api/news`. Strategy Lab v1 runs locally against a bundled synthetic validation fixture; it does not send data or jobs to a remote service. See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and persistence details.
+The browser talks directly to public market endpoints. The edge layer only normalizes public RSS news behind `/api/news`. Strategy Lab runs locally against the bundled synthetic validation fixture or Binance Spot public klines read directly by the browser; it does not send data or jobs to a remote service. See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and persistence details.
 
 ## Data and privacy
 

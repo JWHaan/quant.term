@@ -1,6 +1,6 @@
 # Architecture
 
-`quant.term` is a browser-first React research application with two bounded workspaces: a live market monitor and a deterministic Strategy Lab. Public market and network data goes directly to the browser; the edge layer fetches and normalizes public RSS. Strategy Lab v1 uses a fixed local validation fixture. There is no account backend, secret store, remote compute service, or order-routing service.
+`quant.term` is a browser-first React research application with two bounded workspaces: a live market monitor and a deterministic Strategy Lab. Public market and network data goes directly to the browser; the edge layer fetches and normalizes public RSS. Strategy Lab replays either a fixed local validation fixture or Binance Spot klines the browser fetches from `data-api.binance.vision`. There is no account backend, secret store, remote compute service, or order-routing service.
 
 ## Runtime data flow
 
@@ -28,7 +28,7 @@ flowchart LR
         Local["localStorage"]
         Lab["Strategy Lab"]
         TSReplay["TypeScript reference replay"]
-        Fixture["Deterministic BTC fixture"]
+        Datasets["Dataset loader (fixture / Binance klines)"]
     end
 
     RSS --> News
@@ -38,6 +38,7 @@ flowchart LR
     Vercel --> Feeds
     BS --> Feeds
     BF --> Feeds
+    BS --> Datasets
     MP --> Feeds
     FG --> Feeds
     Feeds --> Stores
@@ -45,7 +46,7 @@ flowchart LR
     Stores --> UI
     Calc --> UI
     Stores <--> Local
-    Fixture --> TSReplay
+    Datasets --> TSReplay
     TSReplay --> Lab
 ~~~
 
@@ -122,13 +123,14 @@ If a live candle arrives while history is loading, the feed reapplies it after t
 sequenceDiagram
     participant User
     participant Lab as Strategy Lab
-    participant Fixture as Fixed BTC fixture
+    participant Dataset as Fixture or Binance klines
     participant Engine as Browser reference engine
     participant Result as Results and trade ledger
 
+    User->>Lab: Select dataset source, symbol, interval, lookback
     User->>Lab: Configure SMA periods and costs
     User->>Lab: Run replay
-    Lab->>Fixture: Load candles and checksum
+    Lab->>Dataset: Load candles, provenance, and gap report
     Lab->>Engine: Validate ordered OHLCV + config
     Engine->>Engine: Evaluate signal at candle close
     Engine->>Engine: Fill at next candle open
@@ -136,11 +138,29 @@ sequenceDiagram
     Result-->>User: Inspect generated evidence
 ~~~
 
-Replay v1 is long/flat only. It uses full available capital, explicit taker fees,
+Replay is long/flat only. It uses full available capital, explicit taker fees,
 adverse basis-point slippage, mark-to-market equity, and deterministic sequential
-trade identifiers. Any open position is closed with costs on the final fixture
-candle. The interface identifies the synthetic source and does not present the
-result as historical model performance.
+trade identifiers. Any open position is closed with costs on the final candle of
+the dataset.
+
+Datasets come from two sources: the bundled synthetic validation fixture, or
+Binance Spot klines the browser fetches page-by-page from
+`data-api.binance.vision` for a user-selected symbol, interval, and bounded,
+abortable lookback. Every dataset carries provenance — source, symbol, interval,
+candle count, time span, an FNV-1a checksum, and the fetch timestamp. Gap
+detection reports missing bars (`GAPS n · MISSING m bars` or `NO GAPS DETECTED`);
+gaps are surfaced to the user and never interpolated.
+
+Metrics are interval-aware: Sharpe and other annualized figures derive from the
+dataset's `intervalSeconds`, so 1-minute and daily datasets annualize
+consistently. The synthetic source keeps its synthetic disclaimer; results from
+`BINANCE_REST` carry an exchange-outage and survivorship caveat instead.
+
+Results serialize under the versioned `backtest-v1` schema, widened additively
+with the 14 Binance spot intervals, a dataset-source enum, a symbol pattern, and
+required `intervalSeconds` (≥ 60) and `fetchedAt` fields. The TypeScript engine
+and the C++20 core share golden values per interval; the 1-minute fixture
+goldens are unchanged on both sides.
 
 ## State and persistence
 
@@ -152,6 +172,7 @@ result as historical model performance.
 | `connectionStore` | Per-source status and measured latency | No |
 | `alertStore` | Alert definitions and session triggers | Definitions only |
 | `portfolioStore` | Simulated balance, initial margin, positions, P&L, and bounded history | Yes |
+| Strategy Lab | Selected dataset, run configuration, results, and trade ledger | No (component state; session-only) |
 | Theme | Dark/light preference | Yes |
 
 ## Reliability boundaries
