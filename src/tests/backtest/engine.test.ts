@@ -190,7 +190,11 @@ describe('interval-aware metrics', () => {
         const synthetic = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
         const realData = runSmaCrossBacktest(fixture.candles, binanceDataset, defaultConfig);
 
+        // SYNTHETIC_FIXTURE pins BOTH synthetic warnings and NO real-data caveat…
         expect(synthetic.diagnostics.warnings.some((w) => w.includes('Synthetic validation data'))).toBe(true);
+        expect(synthetic.diagnostics.warnings.some((w) => w.includes('long/flat market orders'))).toBe(true);
+        expect(synthetic.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(false);
+        // …while BINANCE_REST swaps the disclaimer for the exchange-outage caveat.
         expect(realData.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(true);
         expect(realData.diagnostics.warnings.some((w) => w.includes('Synthetic validation data'))).toBe(false);
     });

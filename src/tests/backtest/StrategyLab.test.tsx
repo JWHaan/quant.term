@@ -136,6 +136,24 @@ describe('StrategyLab', () => {
         expect(await screen.findByText('NO GAPS DETECTED')).toBeInTheDocument();
     });
 
+    it('re-enables fetch after a mid-flight form change aborts the load', async () => {
+        const { resolve } = deferredRange();
+        render(<StrategyLab />);
+        selectBinanceSource();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+        expect(await screen.findByText(/Fetching/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Fetch Binance history' })).toBeDisabled();
+
+        // Editing a param while loading aborts the in-flight walk; the button must not stay stuck.
+        fireEvent.change(screen.getByRole('textbox', { name: 'Binance symbol' }), { target: { value: 'ETHUSDT' } });
+
+        expect(await screen.findByRole('button', { name: 'Fetch Binance history' })).toBeEnabled();
+        // The aborted walk must never settle into state.
+        resolve({ candles: binanceCandles(60), requests: 1 });
+        expect(screen.queryByText(/Loaded 60 closed candles/)).not.toBeInTheDocument();
+    });
+
     it('surfaces a fetch rejection as an alert and keeps the prior dataset', async () => {
         fetchKlinesRangeMock.mockResolvedValueOnce({ candles: binanceCandles(60), requests: 1 });
         render(<StrategyLab />);
@@ -152,17 +170,23 @@ describe('StrategyLab', () => {
         expect(screen.getByText('SOURCE: BINANCE REST')).toBeInTheDocument();
     });
 
-    it('treats an empty fetched range as an error, not an empty dataset', async () => {
-        fetchKlinesRangeMock.mockResolvedValue({ candles: [], requests: 0 });
+    it('treats an empty fetched range as an error and keeps the prior live dataset', async () => {
+        fetchKlinesRangeMock.mockResolvedValueOnce({ candles: binanceCandles(60), requests: 1 });
         render(<StrategyLab />);
         selectBinanceSource();
+        fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
+        await screen.findByText('NO GAPS DETECTED');
 
+        fetchKlinesRangeMock.mockResolvedValueOnce({ candles: [], requests: 0 });
         fireEvent.click(screen.getByRole('button', { name: 'Fetch Binance history' }));
 
         expect(await screen.findByRole('alert')).toHaveTextContent(
             'No closed candles available for BTCUSDT 1m',
         );
-        expect(screen.getByText('SOURCE: FIXTURE')).toBeInTheDocument();
+        // The failed empty range must not clear the previously loaded dataset.
+        expect(screen.getByText('BTCUSDT · 1m')).toBeInTheDocument();
+        expect(screen.getByText('SOURCE: BINANCE REST')).toBeInTheDocument();
+        expect(screen.getByText('NO GAPS DETECTED')).toBeInTheDocument();
     });
 
     it('runs the replay against the fetched Binance dataset and warns on gaps', async () => {

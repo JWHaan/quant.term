@@ -80,13 +80,18 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
         return () => {
             loadAbortRef.current?.abort();
             loadAbortRef.current = null;
+            // An aborted walk never settles into state (its settlement paths bail
+            // on `signal.aborted`), so reset here or the button stays stuck.
+            setLoadState('idle');
         };
     }, [binanceForm.symbol, binanceForm.interval, binanceForm.lookbackBars]);
 
     const activeFixture = liveDataset ?? fixture;
-    const liveGapReport = useMemo(
-        () => (liveDataset ? detectGaps(liveDataset.candles, liveDataset.dataset.intervalSeconds) : null),
-        [liveDataset],
+    const activeGapReport = useMemo(
+        () => (activeFixture.dataset.source === 'BINANCE_REST'
+            ? detectGaps(activeFixture.candles, INTERVAL_SECONDS[activeFixture.dataset.interval])
+            : null),
+        [activeFixture],
     );
     const sourceChip = activeFixture.dataset.source === 'SYNTHETIC_FIXTURE' ? 'SOURCE: FIXTURE' : 'SOURCE: BINANCE REST';
 
@@ -100,6 +105,13 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
 
     const updateBinanceForm = (key: keyof typeof DEFAULT_BINANCE_FORM, value: string | number) => {
         setBinanceForm((current) => ({ ...current, [key]: value }));
+    };
+
+    // Narrow at the boundary so binanceForm.interval keeps its Timeframe type.
+    const updateBinanceInterval = (value: string) => {
+        if ((TIMEFRAMES as readonly string[]).includes(value)) {
+            updateBinanceForm('interval', value);
+        }
     };
 
     const fetchBinanceHistory = async () => {
@@ -125,8 +137,8 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
             if (controller.signal.aborted) return;
             if (candles.length === 0) {
                 // First-request exhaustion means no closed history exists for this window.
+                // The prior dataset is retained, matching the rejection path.
                 setLoadState('error');
-                setLiveDataset(null);
                 setLoadMessage(`No closed candles available for ${symbol} ${binanceForm.interval}`);
                 return;
             }
@@ -151,8 +163,9 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
             let nextMessage =
                 `Replay completed deterministically: ${nextResult.metrics.totalTrades} closed trades across ${activeFixture.candles.length} candles.`;
             if (activeFixture.dataset.source === 'BINANCE_REST') {
-                const report = detectGaps(activeFixture.candles, INTERVAL_SECONDS[activeFixture.dataset.interval]);
-                if (report.gapCount > 0) {
+                // Reuse the shared memo instead of recomputing detectGaps per run.
+                const report = activeGapReport;
+                if (report && report.gapCount > 0) {
                     nextMessage += ` Warning: ${report.gapCount} data gap(s) detected (${report.missingBars} missing bars); results may be distorted.`;
                 }
             }
@@ -307,7 +320,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                                         <select
                                             aria-label="Kline interval"
                                             value={binanceForm.interval}
-                                            onChange={(event) => updateBinanceForm('interval', event.target.value)}
+                                            onChange={(event) => updateBinanceInterval(event.target.value)}
                                         >
                                             {TIMEFRAMES.map((timeframe) => (
                                                 <option key={timeframe} value={timeframe}>{timeframe}</option>
@@ -374,8 +387,8 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                                     </dd>
                                 </div>
                             </dl>
-                            {liveGapReport && (
-                                <p className="field-help">{describeGapReport(liveGapReport)}</p>
+                            {activeGapReport && (
+                                <p className="field-help">{describeGapReport(activeGapReport)}</p>
                             )}
                         </div>
                         <p className="field-help">
