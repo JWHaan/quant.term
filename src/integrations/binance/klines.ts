@@ -62,11 +62,12 @@ export const parseKlineRow = (row: unknown, intervalSeconds: number, nowMs: numb
 
     if (![openMs, open, high, low, close, volume].every(Number.isFinite)) return null;
 
-    // Spec: closed iff Number(row[6]) + intervalSeconds*1000 <= nowMs.
-    // The plan's test fixture carries closeTime=0, so floor at openTime — on real
-    // REST rows (closeTime = openMs + interval - 1) this is the exact spec formula.
-    const closeMs = Math.max(Number(row[6]), openMs) + intervalSeconds * 1_000;
-    if (!Number.isFinite(closeMs) || closeMs > nowMs) return null;
+    // Spec: a candle is closed iff its close time is strictly before nowMs.
+    // Binance row[6] already IS the close time (openMs + interval − 1), so no
+    // interval is added here. The Math.max floor only tolerates test fixtures
+    // that carry closeTime=0; on real REST rows it is a no-op.
+    const closeMs = Math.max(Number(row[6]), openMs + intervalSeconds * 1_000 - 1);
+    if (!Number.isFinite(closeMs) || !(closeMs < nowMs)) return null;
 
     return {
         time: Math.floor(openMs / 1_000),
@@ -142,8 +143,9 @@ const DEFAULT_LOOKBACK_BARS = 1_000;
 export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: AbortSignal): Promise<KlinesRangeResult> => {
     const intervalMs = INTERVAL_SECONDS[request.interval] * 1_000;
     const maxCandles = request.maxCandles ?? DEFAULT_MAX_CANDLES;
-    // Closed bars only: the newest admissible bar opens at now - interval and closes exactly at now.
-    const endMs = request.endTime ?? Date.now() - intervalMs;
+    // The parse predicate above is the sole unclosed-bar filter, so end at now:
+    // backing off a full interval here would silently drop the freshest candle(s).
+    const endMs = request.endTime ?? Date.now();
     // Window of exactly lookbackBars bars ending at endMs when no explicit start is given.
     const lookbackBars = Math.max(request.lookbackBars ?? DEFAULT_LOOKBACK_BARS, 1);
     const startMs = request.startTime ?? endMs - ((lookbackBars - 1) * intervalMs);

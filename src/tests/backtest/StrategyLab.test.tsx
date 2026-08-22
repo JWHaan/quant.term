@@ -107,6 +107,18 @@ describe('StrategyLab', () => {
         expect(screen.getByRole('button', { name: 'Fetch Binance history' })).toBeEnabled();
     });
 
+    it('excludes the calendar-month 1M timeframe from the interval picker', () => {
+        render(<StrategyLab />);
+        selectBinanceSource();
+
+        const options = [...screen.getByRole('combobox', { name: 'Kline interval' }).querySelectorAll('option')];
+        const values = options.map((option) => option.value);
+        expect(values).not.toContain('1M');
+        // Sanity: shorter timeframes remain selectable.
+        expect(values).toContain('1m');
+        expect(values).toContain('1d');
+    });
+
     it('shows a loading status then the BINANCE_REST provenance card with a gap report', async () => {
         const { resolve } = deferredRange();
         render(<StrategyLab />);

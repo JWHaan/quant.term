@@ -12,7 +12,9 @@ import {
 import { checksumCandles } from '@/backtest/fixture';
 import type { BacktestCandle } from '@/backtest/types';
 
-const ms = (openMs: number) => [String(openMs), '42000.10000000', '42100.5', '41900.25', '42050.75000000', '12.5', 0, '0', 0, '0', '0', '0'];
+/** Build one raw kline row opening at `openMs` with a realistic Binance close time. */
+const ms = (openMs: number, intervalSeconds = 60): unknown[] =>
+    [String(openMs), '42000.10000000', '42100.5', '41900.25', '42050.75000000', '12.5', openMs + intervalSeconds * 1_000 - 1, '0', 0, '0', '0', '0'];
 
 const BASE_MS = 1_704_067_200_000;
 const MIN_MS = 60_000;
@@ -43,6 +45,13 @@ describe('kline adapter primitives', () => {
         expect(parseKlineRow(ms(Date.now() - 10_000), 60, Date.now())).toBeNull();
     });
 
+    it('includes a candle that closed within the last interval (freshness)', () => {
+        // Opened 90s ago with a 60s interval → closed ~30s ago; the old
+        // closeTime + interval arithmetic pushed this bar a full interval out.
+        const nowMs = Date.now();
+        expect(parseKlineRow(ms(nowMs - 90_000), 60, nowMs)).not.toBeNull();
+    });
+
     it('rejects malformed rows', () => {
         expect(parseKlineRow(['x'], 60, Date.now())).toBeNull();
         expect(parseKlineRow(null, 60, Date.now())).toBeNull();
@@ -55,7 +64,7 @@ describe('fetchKlinesPage', () => {
     });
 
     it('requests the right URL and returns parsed closed candles', async () => {
-        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([ms(1_704_067_200_000)]), { status: 200 }));
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([ms(1_704_067_200_000, 300)]), { status: 200 }));
         vi.stubGlobal('fetch', fetchMock);
 
         const candles = await fetchKlinesPage({ symbol: 'BTCUSDT', interval: '5m', startTime: 1_704_067_200_000 }, undefined);
@@ -218,8 +227,8 @@ describe('fetchKlinesRange', () => {
         const MOCK_NOW = 1_800_000_000_000;
         vi.spyOn(Date, 'now').mockReturnValue(MOCK_NOW);
         const fetchMock = servePages([rowsFrom(BASE_MS, 1)]);
-        // endTime = now - interval; startTime = endTime - (lookbackBars - 1) * interval.
-        const expectedStartMs = MOCK_NOW - MIN_MS - (90 - 1) * MIN_MS;
+        // endTime = now; startTime = endTime - (lookbackBars - 1) * interval.
+        const expectedStartMs = MOCK_NOW - (90 - 1) * MIN_MS;
 
         await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 90 });
 

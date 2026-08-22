@@ -144,7 +144,36 @@ describe('deterministic SMA crossover backtester', () => {
         [{ ...defaultConfig, slippageBps: 1_001 }, 'Slippage'],
     ])('rejects invalid configuration %#', (config, message) => {
         const fixture = createSyntheticBtcFixture();
-        expect(() => validateBacktestInput(fixture.candles, config)).toThrow(message);
+        expect(() => validateBacktestInput(fixture.candles, config, testDataset)).toThrow(message);
+    });
+
+    it('rejects invalid dataset intervalSeconds', () => {
+        const fixture = createSyntheticBtcFixture();
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: 0 },
+        )).toThrow('Interval seconds must be finite and positive');
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: -60 },
+        )).toThrow('Interval seconds must be finite and positive');
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: Number.NaN },
+        )).toThrow('Interval seconds must be finite and positive');
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: Number.POSITIVE_INFINITY },
+        )).toThrow('Interval seconds must be finite and positive');
+    });
+
+    it('accepts a valid dataset intervalSeconds', () => {
+        const fixture = createSyntheticBtcFixture();
+        expect(() => validateBacktestInput(fixture.candles, defaultConfig, testDataset)).not.toThrow();
     });
 
     it('rejects out-of-order timestamps', () => {
@@ -152,7 +181,7 @@ describe('deterministic SMA crossover backtester', () => {
         const invalid = fixture.candles.map((candle) => ({ ...candle }));
         invalid[20] = { ...invalid[20]!, time: invalid[19]!.time };
 
-        expect(() => validateBacktestInput(invalid, defaultConfig)).toThrow(
+        expect(() => validateBacktestInput(invalid, defaultConfig, testDataset)).toThrow(
             'strictly increasing',
         );
     });
@@ -162,7 +191,7 @@ describe('deterministic SMA crossover backtester', () => {
         const invalid = fixture.candles.map((candle) => ({ ...candle }));
         invalid[20] = { ...invalid[20]!, high: invalid[20]!.close - 1 };
 
-        expect(() => validateBacktestInput(invalid, defaultConfig)).toThrow(
+        expect(() => validateBacktestInput(invalid, defaultConfig, testDataset)).toThrow(
             'inconsistent OHLC bounds',
         );
     });

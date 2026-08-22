@@ -15,12 +15,6 @@ import EquityCurveChart from '@/features/backtest/EquityCurveChart';
 import TabPanel from '@/ui/TabPanel';
 import { formatCurrency, formatPrice } from '@/utils/format';
 
-const labelForInterval = (intervalSeconds: number): string => {
-    if (intervalSeconds === 60) return '1m';
-    if (intervalSeconds === 3_600) return '1h';
-    return `${intervalSeconds}s`;
-};
-
 const DEFAULT_CONFIG: BacktestConfig = {
     initialCapital: 10_000,
     fastPeriod: 12,
@@ -35,7 +29,11 @@ const DEFAULT_BINANCE_FORM = {
     lookbackBars: 1_000,
 };
 
-const TIMEFRAMES = Object.keys(INTERVAL_SECONDS) as Timeframe[];
+// '1M' (calendar month) is excluded from the picker only: months vary 28–31 days
+// so there is no fixed bar length to drive gap detection or the paging cursor.
+// Monthly handling doesn't exist yet; INTERVAL_SECONDS and the Timeframe schema
+// still accept '1M' elsewhere.
+const TIMEFRAMES = (Object.keys(INTERVAL_SECONDS) as Timeframe[]).filter((timeframe) => timeframe !== '1M');
 
 type DatasetSource = 'FIXTURE' | 'BINANCE';
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
@@ -520,7 +518,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                                 <div><dt>Max drawdown</dt><dd className="negative">-{metrics.maxDrawdownPct.toFixed(2)}%</dd></div>
                                 <div><dt>Closed trades</dt><dd>{metrics.totalTrades}</dd></div>
                                 <div><dt>Win rate</dt><dd>{metrics.winRatePct.toFixed(1)}%</dd></div>
-                                <div><dt>Sharpe · {labelForInterval(result.dataset.intervalSeconds)} annualized</dt><dd>{metrics.sharpeRatio.toFixed(2)}</dd></div>
+                                <div><dt>Sharpe · {result.dataset.interval} annualized</dt><dd>{metrics.sharpeRatio.toFixed(2)}</dd></div>
                                 <div><dt>Total fees</dt><dd>{formatCurrency(metrics.totalFees)}</dd></div>
                                 <div><dt>Exposure</dt><dd>{metrics.exposurePct.toFixed(1)}%</dd></div>
                             </dl>

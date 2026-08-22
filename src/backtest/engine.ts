@@ -30,8 +30,15 @@ const assertFinitePositive = (value: number, label: string): void => {
 export const validateBacktestInput = (
     candles: BacktestCandle[],
     config: BacktestConfig,
+    dataset: BacktestDataset,
 ): void => {
     assertFinitePositive(config.initialCapital, 'Initial capital');
+
+    // Parity with the C++20 core: a non-positive or non-finite bar length would
+    // otherwise poison the Sharpe annualization (barsPerYear = year / interval).
+    if (!Number.isFinite(dataset.intervalSeconds) || dataset.intervalSeconds <= 0) {
+        throw new Error('Interval seconds must be finite and positive');
+    }
 
     if (!Number.isInteger(config.fastPeriod) || config.fastPeriod < 2) {
         throw new Error('Fast period must be an integer of at least 2');
@@ -200,7 +207,7 @@ export const runSmaCrossBacktest = (
     dataset: BacktestDataset,
     config: BacktestConfig,
 ): BacktestResult => {
-    validateBacktestInput(candles, config);
+    validateBacktestInput(candles, config, dataset);
 
     const feeRate = config.feeBps / BPS_DIVISOR;
     const slippageRate = config.slippageBps / BPS_DIVISOR;
