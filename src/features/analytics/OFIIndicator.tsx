@@ -37,13 +37,7 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
 
     if (!currentOFI) {
         return (
-            <div style={{
-                padding: '8px',
-                background: 'rgba(0,0,0,0.5)',
-                fontSize: '10px',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-mono)'
-            }}>
+            <div className="feed-init">
                 [INITIALIZING_OFI]...
             </div>
         );
@@ -61,105 +55,64 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
     const ofiColor = getOFIColor(currentOFI.ofi);
 
     return (
-        <div style={{
-            padding: '8px',
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-subtle)',
-            fontFamily: 'var(--font-mono)'
-        }}>
+        <div className="signal-panel">
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px'
-            }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+            <div className="signal-head">
+                <span className="signal-head__label">
                     DEPTH_FLOW_IMBALANCE · EXPERIMENTAL
                 </span>
-                <span style={{
-                    fontSize: '8px',
-                    color: isConnected ? 'var(--accent-primary)' : 'var(--accent-danger)'
-                }}>
+                <span className="signal-head__state" style={{ color: isConnected ? 'var(--accent-primary)' : 'var(--accent-danger)' }}>
                     {isConnected ? '[LIVE]' : '[OFFLINE]'}
                 </span>
             </div>
 
             {/* OFI Value */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: '8px',
-                marginBottom: '8px'
-            }}>
-                <span style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: ofiColor
-                }}>
+            <div className="signal-hero">
+                <span className="signal-hero__value tnum" style={{ color: ofiColor }}>
                     {currentOFI.ofi > 0 ? '+' : ''}{currentOFI.ofi.toFixed(3)}
                 </span>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                <span className="signal-hero__pct tnum">
                     ({ofiPercent.toFixed(1)}%)
                 </span>
             </div>
 
             {/* Visual Bar */}
-            <div style={{
-                height: '4px',
-                background: '#000',
-                border: '1px solid var(--border-subtle)',
-                marginBottom: '8px',
-                position: 'relative'
-            }}>
-                <div style={{
-                    height: '100%',
-                    width: `${Math.min(ofiPercent, 100)}%`,
-                    background: ofiColor,
-                    transition: 'width 0.2s, background 0.2s',
-                    marginLeft: currentOFI.ofi < 0 ? `${Math.max(0, 50 - ofiPercent)}%` : '50%',
-                    position: 'absolute'
-                }} />
+            <div className="signal-meter signal-meter--thin">
+                <div
+                    className="signal-meter__fill"
+                    style={{
+                        left: currentOFI.ofi < 0 ? `${Math.max(0, 50 - ofiPercent)}%` : '50%',
+                        width: `${Math.min(ofiPercent, 100)}%`,
+                        background: ofiColor
+                    }}
+                />
                 {/* Center marker */}
-                <div style={{
-                    position: 'absolute',
-                    left: '50%',
-                    top: 0,
-                    bottom: 0,
-                    width: '1px',
-                    background: 'var(--text-muted)'
-                }} />
+                <div className="signal-meter__center" />
             </div>
 
             {/* Details */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '4px',
-                fontSize: '9px',
-                color: 'var(--text-secondary)'
-            }}>
+            <div className="signal-grid">
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>BID_PRESSURE:</span>
-                    <span style={{ color: 'var(--accent-success)', marginLeft: '4px' }}>
+                    <span className="signal-kv__key">BID_PRESSURE:</span>
+                    <span className="signal-kv__val tnum" style={{ color: 'var(--accent-success)' }}>
                         {currentOFI.bidPressure.toFixed(2)}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>ASK_PRESSURE:</span>
-                    <span style={{ color: 'var(--accent-danger)', marginLeft: '4px' }}>
+                    <span className="signal-kv__key">ASK_PRESSURE:</span>
+                    <span className="signal-kv__val tnum" style={{ color: 'var(--accent-danger)' }}>
                         {currentOFI.askPressure.toFixed(2)}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>MA(10):</span>
-                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
+                    <span className="signal-kv__key">MA(10):</span>
+                    <span className="signal-kv__val tnum" style={{ color: 'var(--text-primary)' }}>
                         {ofiMA.toFixed(3)}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>TOTAL_VOL:</span>
-                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
+                    <span className="signal-kv__key">TOTAL_VOL:</span>
+                    <span className="signal-kv__val tnum" style={{ color: 'var(--text-primary)' }}>
                         {currentOFI.totalVolume.toFixed(2)}
                     </span>
                 </div>
@@ -167,17 +120,7 @@ export const OFIIndicator: React.FC<OFIIndicatorProps> = ({ symbol }) => {
 
             {/* Significant Event Alert */}
             {significantEvent.type && (
-                <div style={{
-                    marginTop: '8px',
-                    padding: '4px 6px',
-                    background: significantEvent.type === 'buy'
-                        ? 'rgba(51, 255, 0, 0.1)'
-                        : 'rgba(255, 0, 0, 0.1)',
-                    border: `1px solid ${significantEvent.type === 'buy' ? 'var(--accent-success)' : 'var(--accent-danger)'}`,
-                    fontSize: '9px',
-                    color: significantEvent.type === 'buy' ? 'var(--accent-success)' : 'var(--accent-danger)',
-                    textAlign: 'center'
-                }}>
+                <div className={`signal-alert ${significantEvent.type === 'buy' ? 'signal-alert--buy' : 'signal-alert--sell'}`}>
                     {significantEvent.type.toUpperCase()}_IMBALANCE ({significantEvent.magnitude.toFixed(1)}σ)
                 </div>
             )}

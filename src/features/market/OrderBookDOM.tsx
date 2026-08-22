@@ -33,29 +33,16 @@ const RowItem = memo(({ row, maxVol }: { row: OrderBookRow; maxVol: number }) =>
     const textColor = isBid ? 'var(--accent-success)' : 'var(--accent-danger)';
 
     return (
-        <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            height: '18px',
-            fontSize: '11px',
-            fontFamily: 'var(--font-mono)',
-            borderBottom: '1px solid rgba(255,255,255,0.02)',
-            background: 'var(--bg-panel)',
-            position: 'relative'
-        }}>
+        <div className="dom-row">
             {/* Bid Side (Left) */}
-            <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px', position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <div className="dom-side dom-side--bid">
                 {isBid && (
                     <>
-                        <div style={{
-                            position: 'absolute',
-                            top: 2, bottom: 2, right: 0,
-                            width: `${width}%`,
-                            background: barColor,
-                            opacity: 0.2,
-                            borderLeft: `2px solid ${barColor}`
-                        }} />
-                        <span style={{ position: 'relative', zIndex: 1, color: 'var(--text-primary)' }}>
+                        <div
+                            className="dom-side__bar"
+                            style={{ width: `${width}%`, background: barColor, borderLeft: `2px solid ${barColor}` }}
+                        />
+                        <span className="dom-side__vol tnum">
                             {formatBookSize(vol)}
                         </span>
                     </>
@@ -63,34 +50,19 @@ const RowItem = memo(({ row, maxVol }: { row: OrderBookRow; maxVol: number }) =>
             </div>
 
             {/* Price Column (Center) */}
-            <div style={{
-                width: '80px',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#000',
-                color: textColor,
-                fontWeight: 'bold',
-                borderLeft: '1px solid var(--border-subtle)',
-                borderRight: '1px solid var(--border-subtle)'
-            }}>
+            <div className="dom-row__price" style={{ color: textColor }}>
                 {formatPrice(price)}
             </div>
 
             {/* Ask Side (Right) */}
-            <div style={{ flex: 1, textAlign: 'left', paddingLeft: '8px', position: 'relative', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+            <div className="dom-side dom-side--ask">
                 {!isBid && (
                     <>
-                        <div style={{
-                            position: 'absolute',
-                            top: 2, bottom: 2, left: 0,
-                            width: `${width}%`,
-                            background: barColor,
-                            opacity: 0.2,
-                            borderRight: `2px solid ${barColor}`
-                        }} />
-                        <span style={{ position: 'relative', zIndex: 1, color: 'var(--text-primary)' }}>
+                        <div
+                            className="dom-side__bar"
+                            style={{ width: `${width}%`, background: barColor, borderRight: `2px solid ${barColor}` }}
+                        />
+                        <span className="dom-side__vol tnum">
                             {formatBookSize(vol)}
                         </span>
                     </>
@@ -173,47 +145,31 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
     }, [aggregationStep, bids, asks]);
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
+        <div className="dom-ladder">
             {/* Header */}
-            <div style={{
-                padding: '8px',
-                borderBottom: '1px solid var(--border-color)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: '10px',
-                background: 'rgba(51, 255, 0, 0.05)'
-            }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 'bold', color: 'var(--accent-primary)' }}>&gt; DOM_LADDER</span>
+            <div className="dom-ladder__head">
+                <div className="dom-ladder__controls">
+                    <span className="dom-ladder__title">&gt; DOM_LADDER</span>
                     {/* Precision Toggles */}
-                    <div style={{ display: 'flex', border: '1px solid var(--border-subtle)' }}>
+                    <div className="dom-ladder__seg">
                         {([0, 1, 2] as const).map((level) => {
                             const step = level === 0
                                 ? null
                                 : baseAggregationStep * (10 ** (level - 1));
                             return (
-                            <button
-                                key={level}
-                                onClick={() => setAggregationState({ symbol, level })}
-                                style={{
-                                    padding: '2px 6px',
-                                    background: aggregationLevel === level ? 'var(--accent-primary)' : 'transparent',
-                                    color: aggregationLevel === level ? '#000' : 'var(--text-secondary)',
-                                    border: 'none',
-                                    fontSize: '9px',
-                                    cursor: 'pointer',
-                                    fontFamily: 'var(--font-mono)'
-                                }}
-                            >
-                                {step === null ? 'RAW' : formatAggregationStep(step)}
-                            </button>
+                                <button
+                                    key={level}
+                                    onClick={() => setAggregationState({ symbol, level })}
+                                    className={aggregationLevel === level ? 'is-active' : undefined}
+                                >
+                                    {step === null ? 'RAW' : formatAggregationStep(step)}
+                                </button>
                             );
                         })}
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>SPREAD: <span style={{ color: '#fff' }}>{spread > 0 ? formatPrice(spread) : '—'}</span></span>
+                <div className="dom-ladder__stats">
+                    <span>SPREAD: <strong className="tnum">{spread > 0 ? formatPrice(spread) : '—'}</strong></span>
                     <span className={isConnected ? "text-glow" : ""} style={{ color: isConnected ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
                         {isConnected ? '[LINK_OK]' : '[NO_LINK]'}
                     </span>
@@ -221,21 +177,14 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
             </div>
 
             {/* Column Headers */}
-            <div style={{
-                display: 'flex',
-                fontSize: '9px',
-                color: 'var(--text-muted)',
-                padding: '4px 0',
-                borderBottom: '1px solid var(--border-subtle)',
-                background: '#000'
-            }}>
+            <div className="dom-ladder__cols">
                 <div style={{ flex: 1, textAlign: 'right', paddingRight: '8px' }}>BID_VOL</div>
                 <div style={{ width: '80px', textAlign: 'center' }}>PRICE</div>
                 <div style={{ flex: 1, textAlign: 'left', paddingLeft: '8px' }}>ASK_VOL</div>
             </div>
 
             {/* Ladder */}
-            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <div className="dom-ladder__body no-scrollbar" style={{ display: 'flex', flexDirection: 'column' }}>
                 {rows.map((row, i) => (
                     <RowItem
                         key={`${row.type}-${row.price}-${i}`}
@@ -244,7 +193,7 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
                     />
                 ))}
                 {rows.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
+                    <div className="feed-init" style={{ textAlign: 'center' }}>
                         AWAITING_DATA_STREAM...
                     </div>
                 )}

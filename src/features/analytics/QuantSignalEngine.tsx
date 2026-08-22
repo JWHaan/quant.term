@@ -199,7 +199,7 @@ const QuantSignalEngine = () => {
 
             <div className="panel-body" style={{ paddingTop: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="stat-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                    <div className="stat-card__row">
                         <span>RSI(14)</span>
                         <span className="tnum" style={{ color: signals.rsi > 70 ? 'var(--accent-danger)' : signals.rsi < 30 ? 'var(--accent-success)' : 'var(--text-primary)' }}>{signals.rsi.toFixed(1)}</span>
                     </div>
@@ -209,7 +209,7 @@ const QuantSignalEngine = () => {
                 </div>
 
                 <div className="stat-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                    <div className="stat-card__row">
                         <span>MOMENTUM</span>
                         <span style={{ color: signals.macdSignal === 'BULLISH' ? 'var(--accent-success)' : signals.macdSignal === 'BEARISH' ? 'var(--accent-danger)' : 'var(--text-secondary)' }}>
                             {signals.macdSignal}
@@ -222,7 +222,7 @@ const QuantSignalEngine = () => {
                 </div>
 
                 <div className="stat-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                    <div className="stat-card__row">
                         <span>VOLATILITY</span>
                         <span className="tnum" style={{ color: 'var(--text-primary)' }}>{signals.atrPercent.toFixed(2)}%</span>
                     </div>
@@ -235,7 +235,7 @@ const QuantSignalEngine = () => {
                 </div>
 
                 <div className="stat-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                    <div className="stat-card__row">
                         <span>BB_POSITION</span>
                         <span className="tnum" style={{ color: 'var(--text-primary)' }}>{(signals.bbPosition * 100).toFixed(0)}%</span>
                     </div>

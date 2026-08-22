@@ -84,98 +84,53 @@ const LiquidationFeed: React.FC<LiquidationFeedProps> = ({ symbol = 'BTCUSDT' })
     };
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)', overflow: 'hidden', fontFamily: 'var(--font-mono)' }}>
+        <div className="tape">
             {/* Header Stats */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '8px',
-                borderBottom: '1px solid var(--border-color)',
-                background: 'rgba(51, 255, 0, 0.05)',
-                fontSize: '10px'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-danger)' }}>
+            <div className="tape-stats">
+                <div className="tape-stat" style={{ color: 'var(--accent-danger)' }}>
                     <TrendingDown size={12} />
                     <span>SESSION LONG LIQS: {formatValue(stats.longVol)}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-success)' }}>
+                <div className="tape-stat" style={{ color: 'var(--accent-success)' }}>
                     <TrendingUp size={12} />
                     <span>SESSION SHORT LIQS: {formatValue(stats.shortVol)}</span>
                 </div>
             </div>
 
             {/* Column Headers */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '50px 1fr 1fr 60px',
-                padding: '4px 8px',
-                fontSize: '9px',
-                color: 'var(--text-muted)',
-                borderBottom: '1px solid var(--border-subtle)',
-                textTransform: 'uppercase',
-                background: '#000'
-            }}>
+            <div className="tape-cols">
                 <div>TIME</div>
                 <div>PRICE</div>
                 <div>VAL</div>
-                <div style={{ textAlign: 'right' }}>TYPE</div>
+                <div>TYPE</div>
             </div>
 
             {/* List */}
-            <div className="no-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+            <div className="tape-body no-scrollbar">
                 {liquidations.length === 0 ? (
-                    <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: '100%',
-                        color: 'var(--text-muted)',
-                        fontSize: '11px',
-                        gap: '8px',
-                        opacity: 0.6
-                    }}>
+                    <div className="tape-empty">
                         <Droplets size={24} />
                         <span>SCANNING_FOR_LIQUIDATIONS...</span>
-                        <span style={{ fontSize: '9px' }}>[TARGET: {contract.futuresSymbol} · !forceOrder@arr]</span>
+                        <small>[TARGET: {contract.futuresSymbol} · !forceOrder@arr]</small>
                     </div>
                 ) : (
                     liquidations.map(liq => (
                         <div
                             key={liq.id}
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: '50px 1fr 1fr 60px',
-                                padding: '4px 8px',
-                                fontSize: '11px',
-                                borderBottom: '1px solid rgba(255,255,255,0.02)',
-                                background: liq.value > 10000 ? (liq.side === 'LONG' ? 'rgba(255,0,0,0.1)' : 'rgba(0,255,0,0.1)') : 'transparent',
-                                animation: 'fadeIn 0.2s ease-out',
-                                color: liq.side === 'LONG' ? 'var(--accent-danger)' : 'var(--accent-success)'
-                            }}
+                            className={`tape-row tape-row--${liq.side.toLowerCase()}${liq.value > 10000 ? ' tape-row--big' : ''}`}
                         >
-                            <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{formatTime(liq.time)}</div>
-                            <div style={{ color: 'var(--text-primary)' }}>{formatPrice(liq.price)}</div>
-                            <div style={{ fontWeight: liq.value > 10000 ? 'bold' : 'normal' }}>
+                            <div className="tape-row__time tnum">{formatTime(liq.time)}</div>
+                            <div className="tape-row__price tnum">{formatPrice(liq.price)}</div>
+                            <div className="tnum" style={{ fontWeight: liq.value > 10000 ? 'bold' : 'normal' }}>
                                 {formatValue(liq.value)}
                             </div>
-                            <div style={{
-                                textAlign: 'right',
-                                fontWeight: 'bold'
-                            }}>
+                            <div className="tape-row__type">
                                 {liq.side === 'LONG' ? '[LONG]' : '[SHRT]'}
                             </div>
                         </div>
                     ))
                 )}
             </div>
-
-            <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateX(-5px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
         </div>
     );
 };

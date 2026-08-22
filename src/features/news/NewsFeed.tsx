@@ -110,25 +110,16 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
 
     if (loading) {
         return (
-            <div style={{ padding: '12px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
+            <div className="feed-init">
                 [FETCHING_NEWS_FEED]...
             </div>
         );
     }
 
     return (
-        <div style={{ height: '100%', overflow: 'auto', fontFamily: 'var(--font-mono)', background: 'var(--bg-panel)' }}>
+        <div className="news-feed">
             {error && (
-                <div style={{
-                    padding: '8px 12px',
-                    background: 'rgba(255,0,0,0.1)',
-                    borderBottom: '1px solid var(--accent-danger)',
-                    fontSize: '10px',
-                    color: 'var(--accent-danger)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                }}>
+                <div className="news-feed__error">
                     <Newspaper size={12} />
                     [ERROR] {error}
                 </div>
@@ -140,57 +131,33 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ symbol, maxItems = 20 }) => {
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                        display: 'block',
-                        padding: '12px',
-                        borderBottom: '1px solid var(--border-subtle)',
-                        cursor: 'pointer',
-                        background: 'transparent',
-                        transition: 'background 0.2s',
-                        textDecoration: 'none'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(51, 255, 0, 0.05)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    className="news-item-card"
                 >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                        <span style={{
-                            fontSize: '10px',
-                            color: 'var(--text-secondary)',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px'
-                        }}>
+                    <div className="news-item-card__meta">
+                        <span className="news-item-card__src">
                             [{item.source}]
                         </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{
-                                fontSize: '10px',
-                                color: getSentimentColor(item.sentiment),
-                                fontWeight: 'bold',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                            }}>
+                        <div className="news-item-card__flags">
+                            <span
+                                className="news-item-card__sentiment"
+                                style={{ color: getSentimentColor(item.sentiment) }}
+                            >
                                 {getSentimentIcon(item.sentiment)}
                                 {item.sentiment.toUpperCase()}
                             </span>
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                            <span className="news-item-card__stamp tnum">
                                 {formatTimestamp(item.timestamp)}
                             </span>
                         </div>
                     </div>
-                    <div style={{
-                        fontSize: '12px',
-                        color: 'var(--text-primary)',
-                        lineHeight: '1.4',
-                        fontWeight: 'normal'
-                    }}>
+                    <div className="news-item-card__title">
                         {item.title.toUpperCase()}
                     </div>
                 </a>
             ))}
 
             {news.length === 0 && !loading && (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div className="news-feed__empty">
                     <Newspaper size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
                     <p>NO_DATA_AVAILABLE</p>
                     <p style={{ fontSize: '12px', marginTop: '8px' }}>

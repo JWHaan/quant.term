@@ -79,64 +79,21 @@ const NewsTicker: React.FC = () => {
     return (
         <div
             className="news-ticker"
-            style={{
-                width: '100%',
-                height: '28px',
-                background: 'var(--bg-app)',
-                borderBottom: '1px solid var(--border-color)',
-                overflow: 'hidden',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                fontFamily: 'var(--font-mono)'
-            }}
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
         >
             {/* News-wire indicator */}
-            <div style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: '100px',
-                background: 'var(--bg-app)',
-                zIndex: 2,
-                display: 'flex',
-                alignItems: 'center',
-                paddingLeft: '12px',
-                gap: '6px',
-                borderRight: '1px solid var(--border-subtle)'
-            }}>
-                <span className="cursor-blink" style={{
-                    color: 'var(--accent-danger)',
-                    fontWeight: 'bold',
-                    fontSize: '14px'
-                }}>●</span>
-                <span style={{
-                    fontSize: '10px',
-                    fontWeight: 'bold',
-                    color: 'var(--accent-danger)',
-                    letterSpacing: '1px'
-                }}>
-                    NEWSWIRE
-                </span>
+            <div className="news-ticker__brand">
+                <span className="cursor-blink news-ticker__dot">●</span>
+                <span className="news-ticker__label">NEWSWIRE</span>
                 <span style={{ color: 'var(--border-color)' }}>&gt;&gt;</span>
             </div>
 
             {/* Scrolling news */}
-            <div
-                style={{
-                    display: 'flex',
-                    gap: '32px',
-                    paddingLeft: '110px',
-                    animation: isPaused ? 'none' : 'scroll 60s linear infinite',
-                    whiteSpace: 'nowrap'
-                }}
-            >
+            <div className={`news-ticker__track${isPaused ? ' is-paused' : ''}`}>
                 {/* Duplicate news for seamless loop */}
                 {isLoading ? (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                    <div className="news-ticker__msg">
                         INITIALIZING NEWS FEED...
                     </div>
                 ) : news.length ? (
@@ -146,61 +103,31 @@ const NewsTicker: React.FC = () => {
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                fontSize: '11px',
-                                color: getSentimentColor(item.sentiment),
-                                cursor: 'pointer',
-                                textDecoration: 'none'
-                            }}
+                            className="news-ticker__item"
+                            style={{ color: getSentimentColor(item.sentiment) }}
                             title="Click to read full article"
                         >
-                            <span style={{ color: 'var(--text-muted)' }}>[</span>
+                            <span className="news-ticker__bracket">[</span>
                             {getSentimentIcon(item.sentiment)}
-                            <span style={{ color: 'var(--text-muted)' }}>]</span>
-                            <span style={{ color: 'var(--accent-secondary)', fontWeight: 'bold' }}>
+                            <span className="news-ticker__bracket">]</span>
+                            <span className="news-ticker__src">
                                 {item.source.toUpperCase()}
                             </span>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                            <span className="news-ticker__headline">
                                 {item.headline.toUpperCase()}
                             </span>
-                            <span style={{
-                                fontSize: '10px',
-                                color: 'var(--text-muted)',
-                                marginLeft: '4px'
-                            }}>
+                            <span className="news-ticker__time">
                                 :: {item.time}
                             </span>
                         </a>
                     ))
                 ) : (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>NEWS WIRE UNAVAILABLE · MARKET DATA REMAINS LIVE</div>
+                    <div className="news-ticker__msg">NEWS WIRE UNAVAILABLE · MARKET DATA REMAINS LIVE</div>
                 )}
             </div>
 
             {/* Right fade */}
-            <div style={{
-                position: 'absolute',
-                right: 0,
-                top: 0,
-                bottom: 0,
-                width: '50px',
-                background: 'linear-gradient(90deg, rgba(0,0,0,0) 0%, var(--bg-app) 100%)',
-                pointerEvents: 'none'
-            }} />
-
-            <style>{`
-        @keyframes scroll {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}</style>
+            <div className="news-ticker__fade" />
         </div>
     );
 };

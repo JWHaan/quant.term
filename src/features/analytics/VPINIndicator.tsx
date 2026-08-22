@@ -31,13 +31,7 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
 
     if (!vpinResult) {
         return (
-            <div style={{
-                padding: '8px',
-                background: 'rgba(0,0,0,0.5)',
-                fontSize: '10px',
-                color: 'var(--text-muted)',
-                fontFamily: 'var(--font-mono)'
-            }}>
+            <div className="feed-init">
                 [{isConnected ? 'INITIALIZING_VPIN' : 'CONNECTING_TRADE_FEED'}]... ({bucketProgress.toFixed(0)}% BUCKET)
             </div>
         );
@@ -57,113 +51,72 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
     const vpinPercent = vpinResult.vpin * 100;
 
     return (
-        <div style={{
-            padding: '8px',
-            background: 'var(--bg-panel)',
-            border: `1px solid ${vpinResult.toxicity === 'extreme' ? 'var(--accent-danger)' : 'var(--border-subtle)'}`,
-            fontFamily: 'var(--font-mono)'
-        }}>
+        <div className={`signal-panel${vpinResult.toxicity === 'extreme' ? ' signal-panel--danger' : ''}`}>
             {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px'
-            }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+            <div className="signal-head">
+                <span className="signal-head__label">
                     &gt; VPIN_TOXICITY
                 </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div className="signal-head__meta">
                     {trend === 'increasing' && <TrendingUp size={10} color="var(--accent-danger)" />}
                     {trend === 'decreasing' && <TrendingDown size={10} color="var(--accent-success)" />}
                     {trend === 'stable' && <Minus size={10} color="var(--text-muted)" />}
-                    <span style={{ fontSize: '8px', color: 'var(--text-muted)' }}>
-                        [{trend.toUpperCase()}]
-                    </span>
+                    <span>[{trend.toUpperCase()}]</span>
                 </div>
             </div>
 
             {/* VPIN Value */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: '8px',
-                marginBottom: '8px'
-            }}>
-                <span style={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    color: toxicityColor
-                }}>
+            <div className="signal-hero">
+                <span className="signal-hero__value tnum" style={{ color: toxicityColor }}>
                     {vpinResult.vpin.toFixed(3)}
                 </span>
-                <span style={{
-                    fontSize: '11px',
-                    fontWeight: 'bold',
-                    color: toxicityColor,
-                    textTransform: 'uppercase'
-                }}>
+                <span className="signal-hero__tag" style={{ color: toxicityColor }}>
                     [{vpinResult.toxicity}]
                 </span>
             </div>
 
             {/* Visual Bar */}
-            <div style={{
-                height: '6px',
-                background: '#000',
-                border: '1px solid var(--border-subtle)',
-                marginBottom: '8px',
-                position: 'relative'
-            }}>
-                <div style={{
-                    height: '100%',
-                    width: `${Math.min(vpinPercent, 100)}%`,
-                    background: toxicityColor,
-                    transition: 'width 0.3s, background 0.3s'
-                }} />
+            <div className="signal-meter signal-meter--thick">
+                <div
+                    className="signal-meter__fill"
+                    style={{
+                        left: 0,
+                        width: `${Math.min(vpinPercent, 100)}%`,
+                        background: toxicityColor
+                    }}
+                />
             </div>
 
             {/* Bucket Progress */}
-            <div style={{
-                fontSize: '9px',
-                color: 'var(--text-secondary)',
-                marginBottom: '8px'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>CURRENT_BUCKET:</span>
-                    <span>{bucketProgress.toFixed(1)}%</span>
+            <div className="signal-bucket">
+                <div className="signal-bucket__row">
+                    <span className="signal-bucket__key">CURRENT_BUCKET:</span>
+                    <span className="tnum">{bucketProgress.toFixed(1)}%</span>
                 </div>
-                <div style={{
-                    height: '2px',
-                    background: '#000',
-                    border: '1px solid var(--border-subtle)'
-                }}>
-                    <div style={{
-                        height: '100%',
-                        width: `${bucketProgress}%`,
-                        background: 'var(--accent-primary)',
-                        transition: 'width 0.1s'
-                    }} />
+                <div className="signal-meter signal-meter--hairline">
+                    <div
+                        className="signal-meter__fill"
+                        style={{
+                            left: 0,
+                            width: `${bucketProgress}%`,
+                            background: 'var(--accent-primary)',
+                            transition: 'width 0.1s'
+                        }}
+                    />
                 </div>
             </div>
 
             {/* Details */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '4px',
-                fontSize: '9px',
-                color: 'var(--text-secondary)'
-            }}>
+            <div className="signal-grid">
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>BUCKETS:</span>
-                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
+                    <span className="signal-kv__key">BUCKETS:</span>
+                    <span className="signal-kv__val tnum" style={{ color: 'var(--text-primary)' }}>
                         {vpinResult.bucketsFilled}
                     </span>
                 </div>
                 <div>
-                    <span style={{ color: 'var(--text-muted)' }}>BUCKET_VOL:</span>
-                    <span style={{ marginLeft: '4px', color: 'var(--text-primary)' }}>
+                    <span className="signal-kv__key">BUCKET_VOL:</span>
+                    <span className="signal-kv__val tnum" style={{ color: 'var(--text-primary)' }}>
                         {vpinResult.currentBucket.totalVolume.toFixed(1)}
                     </span>
                 </div>
@@ -171,30 +124,14 @@ export const VPINIndicator: React.FC<VPINIndicatorProps> = ({ symbol }) => {
 
             {/* Extreme Warning */}
             {vpinResult.toxicity === 'extreme' && (
-                <div style={{
-                    marginTop: '8px',
-                    padding: '4px 6px',
-                    background: 'rgba(255, 0, 0, 0.2)',
-                    border: '1px solid var(--accent-danger)',
-                    fontSize: '9px',
-                    color: 'var(--accent-danger)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    animation: 'pulse 2s infinite'
-                }}>
+                <div className="signal-alert signal-alert--sell signal-alert--pulse">
                     <AlertTriangle size={10} />
                     <span>&gt;&gt; HIGH_TOXICITY_DETECTED</span>
                 </div>
             )}
 
             {/* Info */}
-            <div style={{
-                marginTop: '8px',
-                fontSize: '8px',
-                color: 'var(--text-muted)',
-                textAlign: 'center'
-            }}>
+            <div className="signal-note">
                 $500K QUOTE BUCKETS · 20-BUCKET ROLLING ESTIMATE · EXPERIMENTAL
             </div>
         </div>
