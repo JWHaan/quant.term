@@ -32,6 +32,19 @@ export interface KlinesRequest {
 const KLINES_PATH = '/api/v3/klines';
 const KLINES_TIMEOUT_MS = 8_000;
 const DEFAULT_PAGE_LIMIT = 1_000;
+const NO_CLOSED_CANDLES_MESSAGE = 'Failed to fetch klines: no closed candles in response';
+
+/**
+ * Sentinel thrown by fetchKlinesPage when a 200 response yields zero closed candles
+ * (empty array or every row unclosed/malformed). Callers branch on `instanceof`
+ * rather than matching message text, so rewording can never break control flow.
+ */
+export class NoClosedCandlesError extends Error {
+    constructor(message = NO_CLOSED_CANDLES_MESSAGE) {
+        super(message);
+        this.name = 'NoClosedCandlesError';
+    }
+}
 
 /**
  * Parse one raw Binance REST kline row into a candle.
@@ -96,7 +109,7 @@ export const fetchKlinesPage = async (request: KlinesRequest, signal?: AbortSign
         .filter((candle): candle is BacktestCandle => candle !== null);
 
     if (candles.length === 0) {
-        throw new Error('Failed to fetch klines: no closed candles in response');
+        throw new NoClosedCandlesError();
     }
     return candles;
 };
@@ -151,8 +164,13 @@ export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: Abo
                 signal,
             );
         } catch (error) {
-            // An exchange window with zero closed candles means history is exhausted here.
-            if (error instanceof Error && error.message.includes('no closed candles')) break;
+            // Mid-range semantics: the sentinel means legitimate history exhaustion
+            // ONLY before any candle is collected (the symbol simply lists after the
+            // requested window start). Mid-range, a zero-closed-candle page means data
+            // vanished inside the requested window — swallowing it would silently
+            // truncate the walk, so we propagate loudly ("gaps are reported, never
+            // filled"). requests === 0 ⇔ the failing call was the first request.
+            if (error instanceof NoClosedCandlesError && requests === 0) break;
             throw error;
         }
         requests += 1;

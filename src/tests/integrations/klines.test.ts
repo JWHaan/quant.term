@@ -5,6 +5,7 @@ import {
     parseKlineRow,
     fetchKlinesPage,
     fetchKlinesRange,
+    NoClosedCandlesError,
     buildDatasetMeta,
     detectGaps,
 } from '@/integrations/binance/klines';
@@ -77,12 +78,12 @@ describe('fetchKlinesPage', () => {
         await expect(fetchKlinesPage({ symbol: 'BTCUSDT', interval: '5m' })).rejects.toThrow('Failed to fetch klines (418)');
     });
 
-    it('throws when no rows parse as closed candles', async () => {
+    it('throws the NoClosedCandlesError sentinel when no rows parse as closed candles', async () => {
         // closeTime far in the future → unclosed → filtered out
         const unclosed = ['9223372036854760000', '1', '1', '1', '1', '1', 9223372036854760000, '0', 0, '0', '0', '0'];
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([unclosed]), { status: 200 })));
 
-        await expect(fetchKlinesPage({ symbol: 'BTCUSDT', interval: '5m' })).rejects.toThrow();
+        await expect(fetchKlinesPage({ symbol: 'BTCUSDT', interval: '5m' })).rejects.toBeInstanceOf(NoClosedCandlesError);
     });
 
     it('races the 8s timeout with the caller-provided abort signal', async () => {
@@ -190,6 +191,27 @@ describe('fetchKlinesRange', () => {
         for (let index = 1; index < candles.length; index += 1) {
             expect(candles[index]?.time).toBeGreaterThan(candles[index - 1]?.time ?? Number.NEGATIVE_INFINITY);
         }
+    });
+
+    it('returns empty candles when the very first window has no closed history', async () => {
+        // Symbol lists after the requested window start → zero closed candles on
+        // request #1 is legitimate history exhaustion, not an error.
+        servePages([[]]);
+
+        const { candles, requests } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', startTime: BASE_MS });
+
+        expect(candles).toEqual([]);
+        expect(requests).toBe(0);
+    });
+
+    it('propagates NoClosedCandlesError when a zero-closed-candle page hits mid-range', async () => {
+        // A full page followed by an empty window means data vanished inside the
+        // requested range — swallowing it would silently truncate the walk, so it
+        // must surface as the sentinel instead of ending collection early.
+        servePages([rowsFrom(BASE_MS, 1000), []]);
+
+        await expect(fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', startTime: BASE_MS }))
+            .rejects.toBeInstanceOf(NoClosedCandlesError);
     });
 
     it('derives the window from lookbackBars when no explicit start/end is given', async () => {
