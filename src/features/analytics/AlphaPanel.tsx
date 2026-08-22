@@ -223,7 +223,7 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
 
     if (!state.loaded) {
         return (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
+            <div className="panel-loading">
                 {error ? `[FACTOR_FEED_UNAVAILABLE] · ${error} · RETRYING` : <><Activity size={16} className="spin" style={{ marginRight: '8px' }} />[CALCULATING_ALPHA_FACTORS]…</>}
             </div>
         );
@@ -237,40 +237,40 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
     ];
 
     return (
-        <div style={{ padding: '12px', height: '100%', overflowY: 'auto', background: 'var(--bg-panel)', fontFamily: 'var(--font-mono)' }}>
+        <div className="panel-scroll panel-body">
             {error && (
-                <div className="freshness-line" style={{ color: 'var(--accent-warning)', marginBottom: '8px' }}>
+                <div className="freshness-line panel-degraded">
                     DEGRADED · Latest factors retained · {error}
                 </div>
             )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-                <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>MARKET_REGIME</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: getMarketConditionColor(state.marketCondition), display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div className="stat-card">
+                    <div className="stat-card__label">MARKET_REGIME</div>
+                    <div className="stat-card__value" style={{ color: getMarketConditionColor(state.marketCondition), display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {state.marketCondition === 'BULL' ? <TrendingUp size={14} /> : state.marketCondition === 'BEAR' ? <TrendingUp size={14} style={{ transform: 'scaleY(-1)' }} /> : state.marketCondition === 'VOLATILE' ? <Zap size={14} /> : <Activity size={14} />}
                         [{state.marketCondition}]
                     </div>
                 </div>
 
-                <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-color)' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px' }}>ALPHA_SCORE</div>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: getScoreColor(state.scores.total) }}>
+                <div className="stat-card">
+                    <div className="stat-card__label">ALPHA_SCORE</div>
+                    <div className="stat-card__value tnum" style={{ color: getScoreColor(state.scores.total) }}>
                         {state.scores.total > 0 ? '+' : ''}{state.scores.total.toFixed(0)}
                     </div>
                 </div>
             </div>
 
             <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '2px' }}>
+                <div className="panel-section-title">
                     &gt; FACTOR_ANALYSIS
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {factorRows.map((factor) => (
-                        <div key={factor.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', padding: '4px 8px', background: '#000', borderLeft: `2px solid ${getScoreColor(factor.score)}` }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>{factor.label}</span>
+                        <div key={factor.label} className="factor-row" style={{ borderLeft: `2px solid ${getScoreColor(factor.score)}` }}>
+                            <span className="factor-row__label">{factor.label}</span>
                             <div style={{ display: 'flex', gap: '12px' }}>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{factor.value}</span>
-                                <span style={{ color: getScoreColor(factor.score), fontWeight: 'bold', width: '30px', textAlign: 'right' }}>
+                                <span className="factor-row__meta tnum">{factor.value}</span>
+                                <span className="factor-row__score tnum" style={{ color: getScoreColor(factor.score) }}>
                                     {factor.score > 0 ? '+' : ''}{factor.score}
                                 </span>
                             </div>
@@ -280,17 +280,17 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
             </div>
 
             <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '2px' }}>
+                <div className="panel-section-title">
                     &gt; DEEP_DIVE
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px' }}>
-                    <div style={{ padding: '6px', background: '#000', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>HURST_EXP</div>
-                        <div style={{ color: 'var(--text-primary)' }}>{state.hurst.toFixed(3)}</div>
-                        <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{state.regime}</div>
+                    <div className="stat-card">
+                        <div className="stat-card__label">HURST_EXP</div>
+                        <div className="tnum" style={{ color: 'var(--text-primary)' }}>{state.hurst.toFixed(3)}</div>
+                        <div className="stat-card__sub">{state.regime}</div>
                     </div>
-                    <div style={{ padding: '6px', background: '#000', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>OBV_TREND</div>
+                    <div className="stat-card">
+                        <div className="stat-card__label">OBV_TREND</div>
                         <div style={{ color: state.obvTrend === 'BULLISH' ? 'var(--accent-success)' : state.obvTrend === 'BEARISH' ? 'var(--accent-danger)' : 'var(--text-muted)' }}>
                             [{state.obvTrend}]
                         </div>
@@ -299,21 +299,21 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
             </div>
 
             <div style={{ marginTop: '16px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '2px' }}>
+                <div className="panel-section-title">
                     &gt; ORDER_FLOW_IMBALANCE
                 </div>
                 <OFIIndicator symbol={symbol} />
             </div>
 
             <div style={{ marginTop: '16px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '2px' }}>
+                <div className="panel-section-title">
                     &gt; VOL_DELTA_CVD
                 </div>
                 <VolumeDeltaIndicator symbol={symbol} />
             </div>
 
             <div style={{ marginTop: '16px' }}>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '2px' }}>
+                <div className="panel-section-title">
                     &gt; VPIN_TOXICITY
                 </div>
                 <VPINIndicator symbol={symbol} />

@@ -2226,3 +2226,146 @@ code,
     grid-template-columns: 260px minmax(0, 1fr);
   }
 }
+
+/* ==========================================================================
+   Terminal panel utilities — shared vocabulary for panel interiors.
+   Numeric cells use tabular figures so live ticks never shift layout.
+   ========================================================================== */
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+.panel-body {
+  padding: 12px;
+  font-family: var(--font-mono);
+}
+
+.panel-body--flush {
+  padding: 0;
+}
+
+.panel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--bg-panel);
+}
+
+.panel-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 16px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+}
+
+.panel-degraded {
+  margin-bottom: 8px;
+  color: var(--accent-warning);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.panel-section-title {
+  margin-bottom: 8px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.stat-card {
+  padding: 8px;
+  background: var(--bg-panel-muted);
+  border: 1px solid var(--border-color);
+}
+
+.stat-card__label {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.stat-card__value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.stat-card__sub {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.factor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-panel-muted);
+}
+
+.factor-row__label { color: var(--text-secondary); }
+
+.factor-row__meta {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.factor-row__score {
+  min-width: 30px;
+  text-align: right;
+  font-weight: 700;
+}
+
+.gauge-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin-top: 6px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+}
+
+.gauge-track__marker {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 6px;
+  background: var(--text-primary);
+}
+
+.insight-box {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-panel-muted));
+  border: 1px solid var(--accent-primary);
+}
+
+.insight-box__title {
+  margin-bottom: 2px;
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.insight-box__body {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+}

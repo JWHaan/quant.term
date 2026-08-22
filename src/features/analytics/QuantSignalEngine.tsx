@@ -168,7 +168,7 @@ const QuantSignalEngine = () => {
 
     if (loading || !signals) {
         return (
-            <div style={{ padding: '16px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
+            <div className="panel-body">
                 {error ? `SIGNAL_ENGINE_UNAVAILABLE · ${error}` : 'INITIALIZING_QUANT_ENGINE…'}
             </div>
         );
@@ -178,37 +178,37 @@ const QuantSignalEngine = () => {
     const signalColor = getSignalColor(masterSignal);
 
     return (
-        <div style={{ height: '100%', padding: '16px', fontFamily: 'var(--font-mono)', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto', background: 'var(--bg-panel)' }}>
+        <div className="panel-scroll" style={{ fontFamily: 'var(--font-mono)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {error && (
-                <div className="freshness-line" style={{ color: 'var(--accent-warning)' }}>
+                <div className="freshness-line panel-degraded">
                     DEGRADED · Latest signal retained · {error}
                 </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+            <div className="panel-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                 <div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>HEURISTIC_SIGNAL · 15M</div>
-                    <div className={Math.abs(signals.score) > STRONG_BUY_SIGNAL_THRESHOLD ? 'text-glow' : ''} style={{ fontSize: '24px', fontWeight: 'bold', color: signalColor, letterSpacing: '-1px' }}>
+                    <div className="stat-card__label" style={{ color: 'var(--text-secondary)' }}>HEURISTIC_SIGNAL · 15M</div>
+                    <div className={`${Math.abs(signals.score) > STRONG_BUY_SIGNAL_THRESHOLD ? 'text-glow' : ''} tnum`} style={{ fontSize: '24px', fontWeight: 'bold', color: signalColor, letterSpacing: '-1px' }}>
                         [{masterSignal}]
                     </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-secondary)', marginBottom: '4px' }}>MODEL SCORE</div>
-                    <div style={{ fontSize: '18px', color: 'var(--text-primary)' }}>{Math.abs(signals.score)}%</div>
+                    <div className="stat-card__label" style={{ color: 'var(--text-secondary)' }}>MODEL SCORE</div>
+                    <div className="tnum" style={{ fontSize: '18px', color: 'var(--text-primary)' }}>{Math.abs(signals.score)}%</div>
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-subtle)' }}>
+            <div className="panel-body" style={{ paddingTop: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="stat-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
                         <span>RSI(14)</span>
-                        <span style={{ color: signals.rsi > 70 ? 'var(--accent-danger)' : signals.rsi < 30 ? 'var(--accent-success)' : 'var(--text-primary)' }}>{signals.rsi.toFixed(1)}</span>
+                        <span className="tnum" style={{ color: signals.rsi > 70 ? 'var(--accent-danger)' : signals.rsi < 30 ? 'var(--accent-success)' : 'var(--text-primary)' }}>{signals.rsi.toFixed(1)}</span>
                     </div>
-                    <div style={{ width: '100%', height: '4px', background: '#000', marginTop: '6px', position: 'relative', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ position: 'absolute', left: `${signals.rsi}%`, top: '-2px', width: '2px', height: '6px', background: 'var(--text-primary)' }} />
+                    <div className="gauge-track">
+                        <div className="gauge-track__marker" style={{ left: `${signals.rsi}%` }} />
                     </div>
                 </div>
 
-                <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div className="stat-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
                         <span>MOMENTUM</span>
                         <span style={{ color: signals.macdSignal === 'BULLISH' ? 'var(--accent-success)' : signals.macdSignal === 'BEARISH' ? 'var(--accent-danger)' : 'var(--text-secondary)' }}>
@@ -221,10 +221,10 @@ const QuantSignalEngine = () => {
                     </div>
                 </div>
 
-                <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div className="stat-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
                         <span>VOLATILITY</span>
-                        <span style={{ color: 'var(--text-primary)' }}>{signals.atrPercent.toFixed(2)}%</span>
+                        <span className="tnum" style={{ color: 'var(--text-primary)' }}>{signals.atrPercent.toFixed(2)}%</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                         <Zap size={12} color={signals.atrPercent > 1 ? 'var(--accent-warning)' : 'var(--text-secondary)'} />
@@ -234,22 +234,22 @@ const QuantSignalEngine = () => {
                     </div>
                 </div>
 
-                <div style={{ background: 'rgba(51, 255, 0, 0.05)', padding: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div className="stat-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-secondary)' }}>
                         <span>BB_POSITION</span>
-                        <span style={{ color: 'var(--text-primary)' }}>{(signals.bbPosition * 100).toFixed(0)}%</span>
+                        <span className="tnum" style={{ color: 'var(--text-primary)' }}>{(signals.bbPosition * 100).toFixed(0)}%</span>
                     </div>
-                    <div style={{ width: '100%', height: '4px', background: '#000', marginTop: '6px', position: 'relative', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ position: 'absolute', left: `${Math.min(Math.max(signals.bbPosition * 100, 0), 100)}%`, top: '-2px', width: '2px', height: '6px', background: 'var(--text-primary)' }} />
+                    <div className="gauge-track">
+                        <div className="gauge-track__marker" style={{ left: `${Math.min(Math.max(signals.bbPosition * 100, 0), 100)}%` }} />
                     </div>
                 </div>
             </div>
 
-            <div style={{ marginTop: 'auto', padding: '10px', background: 'rgba(51, 255, 0, 0.1)', border: '1px solid var(--accent-primary)', display: 'flex', gap: '8px' }}>
+            <div className="panel-body insight-box" style={{ marginTop: 'auto', paddingTop: 0 }}>
                 <Activity size={14} color="var(--accent-primary)" style={{ marginTop: '2px' }} />
                 <div>
-                    <div style={{ fontSize: '10px', color: 'var(--accent-primary)', fontWeight: 'bold', marginBottom: '2px' }}>&gt; QUANT_INSIGHT</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                    <div className="insight-box__title">&gt; QUANT_INSIGHT</div>
+                    <div className="insight-box__body">
                         {masterSignal.includes('BUY')
                             ? 'RSI, BOLLINGER POSITION, AND MACD INPUTS CURRENTLY LEAN BULLISH.'
                             : masterSignal.includes('SELL')
