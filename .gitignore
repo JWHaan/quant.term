@@ -35,3 +35,4 @@ engine/build
 # Agent/temporary files
 .agent/
 .agents/
+.hermes/
