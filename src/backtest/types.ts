@@ -1,5 +1,4 @@
-import type { Timeframe } from '@/types/common';
-import type { OHLCV } from '@/types/common';
+import type { OHLCV, Timeframe } from '@/types/common';
 
 export const BACKTEST_CONTRACT_VERSION = 'backtest-v1' as const;
 

@@ -204,13 +204,14 @@ describe('fetchKlinesRange', () => {
 
     it('returns empty candles when the very first window has no closed history', async () => {
         // Symbol lists after the requested window start → zero closed candles on
-        // request #1 is legitimate history exhaustion, not an error.
+        // request #1 is legitimate history exhaustion, not an error. The request
+        // still happened, so requests counts it.
         servePages([[]]);
 
         const { candles, requests } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', startTime: BASE_MS });
 
         expect(candles).toEqual([]);
-        expect(requests).toBe(0);
+        expect(requests).toBe(1);
     });
 
     it('propagates NoClosedCandlesError when a zero-closed-candle page hits mid-range', async () => {

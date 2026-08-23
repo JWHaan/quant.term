@@ -133,7 +133,7 @@ void test_interval_seconds_scales_sharpe_annualization() {
 void test_nonpositive_interval_seconds_is_rejected() {
     const auto candles = quant::make_synthetic_btcusdt_fixture();
 
-    for (const auto bad_interval : {0.0, -60.0}) {
+    for (const auto bad_interval : {0.0, -60.0, std::nan("")}) {
         bool threw = false;
         try {
             static_cast<void>(quant::run_sma_cross(

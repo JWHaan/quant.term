@@ -160,6 +160,7 @@ export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: Abo
         }
         const limit = Math.min(DEFAULT_PAGE_LIMIT, maxCandles - byTime.size);
         let page: BacktestCandle[];
+        requests += 1;
         try {
             page = await fetchKlinesPage(
                 { symbol: request.symbol, interval: request.interval, startTime: cursor, endTime: endMs, limit },
@@ -171,11 +172,10 @@ export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: Abo
             // requested window start). Mid-range, a zero-closed-candle page means data
             // vanished inside the requested window — swallowing it would silently
             // truncate the walk, so we propagate loudly ("gaps are reported, never
-            // filled"). requests === 0 ⇔ the failing call was the first request.
-            if (error instanceof NoClosedCandlesError && requests === 0) break;
+            // filled"). requests === 1 ⇔ the failing call was the first request.
+            if (error instanceof NoClosedCandlesError && requests === 1) break;
             throw error;
         }
-        requests += 1;
 
         for (const candle of page) byTime.set(candle.time, candle);
 
@@ -228,14 +228,16 @@ export interface GapReport {
 /**
  * Detect missing bars between consecutive candles. A step larger than
  * intervalSeconds + toleranceSeconds counts as a gap; missingBars sums the
- * whole bars absent inside each gap.
+ * whole bars absent inside each gap. `candles` must be sorted ascending by
+ * time (as fetchKlinesRange returns); unsorted input yields meaningless counts.
  */
 export const detectGaps = (candles: BacktestCandle[], intervalSeconds: number, toleranceSeconds = 5): GapReport => {
     const report: GapReport = { gapCount: 0, longestGapBars: 0, missingBars: 0 };
     for (let index = 1; index < candles.length; index += 1) {
         const deltaSeconds = candles[index]!.time - candles[index - 1]!.time;
         if (deltaSeconds <= intervalSeconds + toleranceSeconds) continue;
-        const gapBars = deltaSeconds / intervalSeconds;
+        // Round absorbs sub-interval clock jitter so counts stay whole bars.
+        const gapBars = Math.round(deltaSeconds / intervalSeconds);
         report.gapCount += 1;
         report.longestGapBars = Math.max(report.longestGapBars, gapBars);
         report.missingBars += gapBars - 1;

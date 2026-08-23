@@ -34,6 +34,8 @@ describe('backtest-v1 schema lockstep (dataset widening)', () => {
     it('widens symbol beyond BTCUSDT with a Binance pair-shaped pattern', () => {
         expect(datasetSchema.properties.symbol?.pattern).toBe('^[A-Z0-9]{5,20}$');
         expect('BTCUSDT').toMatch(new RegExp(datasetSchema.properties.symbol!.pattern!));
+        expect('btc-usdt').not.toMatch(new RegExp(datasetSchema.properties.symbol!.pattern!));
+        expect('BTC-USDT!').not.toMatch(new RegExp(datasetSchema.properties.symbol!.pattern!));
     });
 
     it('widens interval to the Binance spot interval enum', () => {
