@@ -1,3 +1,4 @@
+import type { Timeframe } from '@/types/common';
 import type { OHLCV } from '@/types/common';
 
 export const BACKTEST_CONTRACT_VERSION = 'backtest-v1' as const;
@@ -17,12 +18,14 @@ export interface BacktestDataset {
     id: string;
     name: string;
     symbol: string;
-    interval: '1m';
-    source: 'SYNTHETIC_FIXTURE';
+    interval: Timeframe;
+    source: 'SYNTHETIC_FIXTURE' | 'BINANCE_REST';
     checksum: string;
     candleCount: number;
     startTime: number;
     endTime: number;
+    intervalSeconds: number;
+    fetchedAt: number;
 }
 
 export interface BacktestTrade {

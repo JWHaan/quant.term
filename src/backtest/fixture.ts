@@ -76,6 +76,8 @@ export const createSyntheticBtcFixture = (): BacktestFixture => {
             candleCount: candles.length,
             startTime: first.time,
             endTime: last.time,
+            intervalSeconds: 60,
+            fetchedAt: 0,
         },
     };
 };

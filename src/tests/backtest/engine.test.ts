@@ -21,6 +21,8 @@ const testDataset: BacktestDataset = {
     candleCount: 0,
     startTime: 0,
     endTime: 0,
+    intervalSeconds: 60,
+    fetchedAt: 0,
 };
 
 const candlesFromCloses = (closes: number[], opens = closes): BacktestCandle[] => (
@@ -142,7 +144,36 @@ describe('deterministic SMA crossover backtester', () => {
         [{ ...defaultConfig, slippageBps: 1_001 }, 'Slippage'],
     ])('rejects invalid configuration %#', (config, message) => {
         const fixture = createSyntheticBtcFixture();
-        expect(() => validateBacktestInput(fixture.candles, config)).toThrow(message);
+        expect(() => validateBacktestInput(fixture.candles, config, testDataset)).toThrow(message);
+    });
+
+    it('rejects invalid dataset intervalSeconds', () => {
+        const fixture = createSyntheticBtcFixture();
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: 0 },
+        )).toThrow('Interval seconds must be finite and positive');
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: -60 },
+        )).toThrow('Interval seconds must be finite and positive');
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: Number.NaN },
+        )).toThrow('Interval seconds must be finite and positive');
+        expect(() => validateBacktestInput(
+            fixture.candles,
+            defaultConfig,
+            { ...testDataset, intervalSeconds: Number.POSITIVE_INFINITY },
+        )).toThrow('Interval seconds must be finite and positive');
+    });
+
+    it('accepts a valid dataset intervalSeconds', () => {
+        const fixture = createSyntheticBtcFixture();
+        expect(() => validateBacktestInput(fixture.candles, defaultConfig, testDataset)).not.toThrow();
     });
 
     it('rejects out-of-order timestamps', () => {
@@ -150,7 +181,7 @@ describe('deterministic SMA crossover backtester', () => {
         const invalid = fixture.candles.map((candle) => ({ ...candle }));
         invalid[20] = { ...invalid[20]!, time: invalid[19]!.time };
 
-        expect(() => validateBacktestInput(invalid, defaultConfig)).toThrow(
+        expect(() => validateBacktestInput(invalid, defaultConfig, testDataset)).toThrow(
             'strictly increasing',
         );
     });
@@ -160,8 +191,40 @@ describe('deterministic SMA crossover backtester', () => {
         const invalid = fixture.candles.map((candle) => ({ ...candle }));
         invalid[20] = { ...invalid[20]!, high: invalid[20]!.close - 1 };
 
-        expect(() => validateBacktestInput(invalid, defaultConfig)).toThrow(
+        expect(() => validateBacktestInput(invalid, defaultConfig, testDataset)).toThrow(
             'inconsistent OHLC bounds',
         );
+    });
+});
+
+describe('interval-aware metrics', () => {
+    it('keeps 1-minute golden values when intervalSeconds is 60', () => {
+        const fixture = createSyntheticBtcFixture();
+        const result = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
+        expect(result.metrics.finalEquity).toBeCloseTo(10_692.208640, 6);
+    });
+
+    it('derives Sharpe annualization from dataset.intervalSeconds', () => {
+        const fixture = createSyntheticBtcFixture();
+        const oneMinute = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
+        const hourlyDataset = { ...fixture.dataset, id: 'hourly-equivalent', intervalSeconds: 3_600 };
+        const hourly = runSmaCrossBacktest(fixture.candles, hourlyDataset, defaultConfig);
+        expect(hourly.metrics.sharpeRatio).toBeCloseTo(oneMinute.metrics.sharpeRatio * Math.sqrt(1 / 60), 10);
+    });
+
+    it('emits the synthetic disclaimer only for SYNTHETIC_FIXTURE datasets', () => {
+        const fixture = createSyntheticBtcFixture();
+        const binanceDataset = { ...fixture.dataset, id: 'binance-test', source: 'BINANCE_REST' as const, fetchedAt: 1_758_000_000_000 };
+
+        const synthetic = runSmaCrossBacktest(fixture.candles, fixture.dataset, defaultConfig);
+        const realData = runSmaCrossBacktest(fixture.candles, binanceDataset, defaultConfig);
+
+        // SYNTHETIC_FIXTURE pins BOTH synthetic warnings and NO real-data caveat…
+        expect(synthetic.diagnostics.warnings.some((w) => w.includes('Synthetic validation data'))).toBe(true);
+        expect(synthetic.diagnostics.warnings.some((w) => w.includes('long/flat market orders'))).toBe(true);
+        expect(synthetic.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(false);
+        // …while BINANCE_REST swaps the disclaimer for the exchange-outage caveat.
+        expect(realData.diagnostics.warnings.some((w) => w.includes('exchange outage'))).toBe(true);
+        expect(realData.diagnostics.warnings.some((w) => w.includes('Synthetic validation data'))).toBe(false);
     });
 });

@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Beaker, CheckCircle2, Play, ShieldCheck } from 'lucide-react';
+import { Activity, Beaker, CheckCircle2, Download, Play, ShieldCheck } from 'lucide-react';
 import { runSmaCrossBacktest } from '@/backtest/engine';
 import { createSyntheticBtcFixture } from '@/backtest/fixture';
-import type { BacktestConfig, BacktestResult } from '@/backtest/types';
+import type { BacktestConfig, BacktestFixture, BacktestResult } from '@/backtest/types';
+import {
+    INTERVAL_SECONDS,
+    buildDatasetMeta,
+    detectGaps,
+    fetchKlinesRange,
+} from '@/integrations/binance/klines';
+import type { GapReport } from '@/integrations/binance/klines';
+import type { Timeframe } from '@/types/common';
 import EquityCurveChart from '@/features/backtest/EquityCurveChart';
 import TabPanel from '@/ui/TabPanel';
 import { formatCurrency, formatPrice } from '@/utils/format';
@@ -14,6 +22,21 @@ const DEFAULT_CONFIG: BacktestConfig = {
     feeBps: 10,
     slippageBps: 5,
 };
+
+const DEFAULT_BINANCE_FORM = {
+    symbol: 'BTCUSDT',
+    interval: '1m' as Timeframe,
+    lookbackBars: 1_000,
+};
+
+// '1M' (calendar month) is excluded from the picker only: months vary 28–31 days
+// so there is no fixed bar length to drive gap detection or the paging cursor.
+// Monthly handling doesn't exist yet; INTERVAL_SECONDS and the Timeframe schema
+// still accept '1M' elsewhere.
+const TIMEFRAMES = (Object.keys(INTERVAL_SECONDS) as Timeframe[]).filter((timeframe) => timeframe !== '1M');
+
+type DatasetSource = 'FIXTURE' | 'BINANCE';
+type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
 interface StrategyLabProps {
     onResult?: (result: BacktestResult) => void;
@@ -27,6 +50,12 @@ const formatTimestamp = (time: number): string => (
     new Date(time * 1000).toISOString().replace('T', ' ').slice(0, 16)
 );
 
+const describeGapReport = (report: GapReport): string => (
+    report.gapCount > 0
+        ? `GAPS ${report.gapCount} · MISSING ${report.missingBars} bars`
+        : 'NO GAPS DETECTED'
+);
+
 const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
     const fixture = useMemo(() => createSyntheticBtcFixture(), []);
     const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
@@ -37,6 +66,33 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
     );
     const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
 
+    const [datasetSource, setDatasetSource] = useState<DatasetSource>('FIXTURE');
+    const [binanceForm, setBinanceForm] = useState(DEFAULT_BINANCE_FORM);
+    const [liveDataset, setLiveDataset] = useState<BacktestFixture | null>(null);
+    const [loadState, setLoadState] = useState<LoadState>('idle');
+    const [loadMessage, setLoadMessage] = useState('');
+    const loadAbortRef = useRef<AbortController | null>(null);
+
+    // Abort any in-flight history fetch when the form changes or the lab unmounts.
+    useEffect(() => {
+        return () => {
+            loadAbortRef.current?.abort();
+            loadAbortRef.current = null;
+            // An aborted walk never settles into state (its settlement paths bail
+            // on `signal.aborted`), so reset here or the button stays stuck.
+            setLoadState('idle');
+        };
+    }, [binanceForm.symbol, binanceForm.interval, binanceForm.lookbackBars]);
+
+    const activeFixture = liveDataset ?? fixture;
+    const activeGapReport = useMemo(
+        () => (activeFixture.dataset.source === 'BINANCE_REST'
+            ? detectGaps(activeFixture.candles, INTERVAL_SECONDS[activeFixture.dataset.interval])
+            : null),
+        [activeFixture],
+    );
+    const sourceChip = activeFixture.dataset.source === 'SYNTHETIC_FIXTURE' ? 'SOURCE: FIXTURE' : 'SOURCE: BINANCE REST';
+
     useEffect(() => {
         if (status === 'success') resultsHeadingRef.current?.focus();
     }, [status]);
@@ -45,14 +101,73 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
         setConfig((current) => ({ ...current, [key]: value }));
     };
 
+    const updateBinanceForm = (key: keyof typeof DEFAULT_BINANCE_FORM, value: string | number) => {
+        setBinanceForm((current) => ({ ...current, [key]: value }));
+    };
+
+    // Narrow at the boundary so binanceForm.interval keeps its Timeframe type.
+    const updateBinanceInterval = (value: string) => {
+        if ((TIMEFRAMES as readonly string[]).includes(value)) {
+            updateBinanceForm('interval', value);
+        }
+    };
+
+    const fetchBinanceHistory = async () => {
+        const symbol = binanceForm.symbol.trim().toUpperCase();
+        if (symbol.length === 0) {
+            setLoadState('error');
+            setLoadMessage('Enter a Binance symbol before fetching history.');
+            return;
+        }
+
+        // Cancel any prior walk so only the latest request can settle into state.
+        loadAbortRef.current?.abort();
+        const controller = new AbortController();
+        loadAbortRef.current = controller;
+
+        setLoadState('loading');
+        setLoadMessage(`Fetching ${binanceForm.lookbackBars} ${binanceForm.interval} candles for ${symbol}…`);
+        try {
+            const { candles } = await fetchKlinesRange(
+                { symbol, interval: binanceForm.interval, lookbackBars: binanceForm.lookbackBars },
+                controller.signal,
+            );
+            if (controller.signal.aborted) return;
+            if (candles.length === 0) {
+                // First-request exhaustion means no closed history exists for this window.
+                // The prior dataset is retained, matching the rejection path.
+                setLoadState('error');
+                setLoadMessage(`No closed candles available for ${symbol} ${binanceForm.interval}`);
+                return;
+            }
+            const dataset = buildDatasetMeta(candles, symbol, binanceForm.interval, Date.now());
+            setLiveDataset({ dataset, candles });
+            setLoadState('ready');
+            setLoadMessage(
+                `Loaded ${candles.length} closed candles of ${symbol} ${binanceForm.interval} history.`,
+            );
+        } catch (caught) {
+            if (controller.signal.aborted) return;
+            setLoadState('error');
+            setLoadMessage(caught instanceof Error ? caught.message : 'Failed to fetch Binance history');
+        }
+    };
+
     const runBacktest = () => {
         try {
-            const nextResult = runSmaCrossBacktest(fixture.candles, fixture.dataset, config);
+            const nextResult = runSmaCrossBacktest(activeFixture.candles, activeFixture.dataset, config);
             setResult(nextResult);
             setStatus('success');
-            setMessage(
-                `Replay completed deterministically: ${nextResult.metrics.totalTrades} closed trades across ${fixture.candles.length} candles.`,
-            );
+            let nextMessage =
+                `Replay completed deterministically: ${nextResult.metrics.totalTrades} closed trades across ${activeFixture.candles.length} candles.`;
+            if (activeFixture.dataset.source === 'BINANCE_REST') {
+                // Reuse the shared memo instead of recomputing detectGaps per run.
+                const report = activeGapReport;
+                if (report && report.gapCount > 0) {
+                    nextMessage += ` Warning: ${report.gapCount} data gap(s) detected (${report.missingBars} missing bars); results may be distorted.`;
+                }
+            }
+            setMessage(nextMessage);
             onResult?.(nextResult);
         } catch (caught) {
             setResult(null);
@@ -127,6 +242,12 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
         },
     ] : [];
 
+    const loadStatusClass = loadState === 'ready'
+        ? 'backtest-run-status backtest-run-status--success'
+        : loadState === 'error'
+            ? 'backtest-run-status backtest-run-status--error'
+            : 'backtest-run-status';
+
     return (
         <main className="strategy-lab" id="strategy-lab-workspace" tabIndex={-1}>
             <section className="strategy-lab__intro" aria-labelledby="strategy-lab-title">
@@ -134,7 +255,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                     <span className="eyebrow"><Beaker size={13} /> RESEARCH WORKSPACE</span>
                     <h2 id="strategy-lab-title">Deterministic Strategy Lab</h2>
                     <p>
-                        Validate a bounded SMA crossover against a fixed BTC/USDT candle fixture.
+                        Validate a bounded SMA crossover against a verified fixture or real Binance history.
                         Signals use closed candles and execute at the next candle open.
                     </p>
                 </div>
@@ -142,6 +263,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                     <span><ShieldCheck size={13} /> NO LOOK-AHEAD</span>
                     <span><CheckCircle2 size={13} /> FIXED DATASET</span>
                     <span><Activity size={13} /> EXPLICIT COSTS</span>
+                    <span><Download size={13} /> {sourceChip}</span>
                 </div>
             </section>
 
@@ -153,21 +275,124 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                     </div>
 
                     <fieldset>
+                        <legend>Dataset source</legend>
+                        <div className="backtest-form-grid">
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="dataset-source"
+                                    value="FIXTURE"
+                                    checked={datasetSource === 'FIXTURE'}
+                                    onChange={() => setDatasetSource('FIXTURE')}
+                                />
+                                <span>Verified fixture</span>
+                            </label>
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="dataset-source"
+                                    value="BINANCE"
+                                    checked={datasetSource === 'BINANCE'}
+                                    onChange={() => setDatasetSource('BINANCE')}
+                                />
+                                <span>Binance history</span>
+                            </label>
+                        </div>
+
+                        {datasetSource === 'BINANCE' && (
+                            <>
+                                <div className="backtest-form-grid">
+                                    <label>
+                                        <span>Symbol</span>
+                                        <input
+                                            aria-label="Binance symbol"
+                                            type="text"
+                                            spellCheck={false}
+                                            autoComplete="off"
+                                            value={binanceForm.symbol}
+                                            onChange={(event) => updateBinanceForm('symbol', event.target.value)}
+                                        />
+                                    </label>
+                                    <label>
+                                        <span>Interval</span>
+                                        <select
+                                            aria-label="Kline interval"
+                                            value={binanceForm.interval}
+                                            onChange={(event) => updateBinanceInterval(event.target.value)}
+                                        >
+                                            {TIMEFRAMES.map((timeframe) => (
+                                                <option key={timeframe} value={timeframe}>{timeframe}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="backtest-field--wide">
+                                        <span>Lookback bars</span>
+                                        <input
+                                            aria-label="Lookback bars"
+                                            type="number"
+                                            min="2"
+                                            max="50000"
+                                            step="1"
+                                            value={binanceForm.lookbackBars}
+                                            onChange={(event) => updateBinanceForm('lookbackBars', Number(event.target.value))}
+                                        />
+                                    </label>
+                                </div>
+                                <button
+                                    className="backtest-run-button"
+                                    type="button"
+                                    onClick={fetchBinanceHistory}
+                                    disabled={loadState === 'loading'}
+                                >
+                                    <Download size={14} />
+                                    Fetch Binance history
+                                </button>
+                                {loadState !== 'idle' && (
+                                    <div
+                                        className={loadStatusClass}
+                                        role={loadState === 'error' ? 'alert' : 'status'}
+                                        aria-live="polite"
+                                    >
+                                        {loadMessage}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </fieldset>
+
+                    <fieldset>
                         <legend>Dataset</legend>
                         <div className="dataset-card">
                             <div>
-                                <strong>{fixture.dataset.name}</strong>
-                                <span>{fixture.dataset.symbol} · {fixture.dataset.interval}</span>
+                                <strong>{activeFixture.dataset.name}</strong>
+                                <span>{activeFixture.dataset.symbol} · {activeFixture.dataset.interval}</span>
                             </div>
                             <dl>
-                                <div><dt>Candles</dt><dd>{fixture.dataset.candleCount}</dd></div>
-                                <div><dt>Source</dt><dd>Synthetic</dd></div>
-                                <div><dt>Checksum</dt><dd>{fixture.dataset.checksum.slice(-8)}</dd></div>
+                                <div><dt>Candles</dt><dd>{activeFixture.dataset.candleCount}</dd></div>
+                                <div>
+                                    <dt>Source</dt>
+                                    <dd>
+                                        {activeFixture.dataset.source === 'SYNTHETIC_FIXTURE'
+                                            ? 'Synthetic'
+                                            : 'Binance REST'}
+                                    </dd>
+                                </div>
+                                <div><dt>Checksum</dt><dd>{activeFixture.dataset.checksum.slice(-8)}</dd></div>
+                                <div>
+                                    <dt>Span</dt>
+                                    <dd>
+                                        {formatTimestamp(activeFixture.dataset.startTime)} → {formatTimestamp(activeFixture.dataset.endTime)}
+                                    </dd>
+                                </div>
                             </dl>
+                            {activeGapReport && (
+                                <p className="field-help">{describeGapReport(activeGapReport)}</p>
+                            )}
                         </div>
                         <p className="field-help">
-                            Deterministic regime data validates execution and accounting only. It is
-                            not evidence of future or historical returns.
+                            {activeFixture.dataset.source === 'SYNTHETIC_FIXTURE'
+                                ? 'Deterministic regime data validates execution and accounting only. It is not evidence of future or historical returns.'
+                                : 'Fetched history is replayed exactly as stored; gaps are reported and never filled.'}
                         </p>
                     </fieldset>
 
@@ -265,7 +490,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                                 not preload placeholder returns or simulated model evidence.
                             </p>
                             <ol>
-                                <li>Inspect the fixed dataset provenance.</li>
+                                <li>Inspect the dataset provenance.</li>
                                 <li>Choose SMA periods and execution costs.</li>
                                 <li>Run and inspect every generated trade.</li>
                             </ol>
@@ -293,7 +518,7 @@ const StrategyLab: React.FC<StrategyLabProps> = ({ onResult }) => {
                                 <div><dt>Max drawdown</dt><dd className="negative">-{metrics.maxDrawdownPct.toFixed(2)}%</dd></div>
                                 <div><dt>Closed trades</dt><dd>{metrics.totalTrades}</dd></div>
                                 <div><dt>Win rate</dt><dd>{metrics.winRatePct.toFixed(1)}%</dd></div>
-                                <div><dt>Sharpe · 1m annualized</dt><dd>{metrics.sharpeRatio.toFixed(2)}</dd></div>
+                                <div><dt>Sharpe · {result.dataset.interval} annualized</dt><dd>{metrics.sharpeRatio.toFixed(2)}</dd></div>
                                 <div><dt>Total fees</dt><dd>{formatCurrency(metrics.totalFees)}</dd></div>
                                 <div><dt>Exposure</dt><dd>{metrics.exposurePct.toFixed(1)}%</dd></div>
                             </dl>

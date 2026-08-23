@@ -10,7 +10,8 @@ import {
 } from '@/backtest/types';
 
 const BPS_DIVISOR = 10_000;
-const MINUTES_PER_YEAR = 365 * 24 * 60;
+/** 31_536_000 seconds per year (365 days). */
+const SECONDS_PER_YEAR = 31_536_000;
 
 interface OpenPosition {
     entryTime: number;
@@ -29,8 +30,15 @@ const assertFinitePositive = (value: number, label: string): void => {
 export const validateBacktestInput = (
     candles: BacktestCandle[],
     config: BacktestConfig,
+    dataset: BacktestDataset,
 ): void => {
     assertFinitePositive(config.initialCapital, 'Initial capital');
+
+    // Parity with the C++20 core: a non-positive or non-finite bar length would
+    // otherwise poison the Sharpe annualization (barsPerYear = year / interval).
+    if (!Number.isFinite(dataset.intervalSeconds) || dataset.intervalSeconds <= 0) {
+        throw new Error('Interval seconds must be finite and positive');
+    }
 
     if (!Number.isInteger(config.fastPeriod) || config.fastPeriod < 2) {
         throw new Error('Fast period must be an integer of at least 2');
@@ -104,7 +112,7 @@ const calculateSmaSpreads = (
     return spreads;
 };
 
-const calculateSharpe = (equityCurve: BacktestEquityPoint[]): number => {
+const calculateSharpe = (equityCurve: BacktestEquityPoint[], barsPerYear: number): number => {
     if (equityCurve.length < 3) return 0;
 
     const returns: number[] = [];
@@ -122,7 +130,7 @@ const calculateSharpe = (equityCurve: BacktestEquityPoint[]): number => {
         0,
     ) / (returns.length - 1);
     const deviation = Math.sqrt(variance);
-    return deviation === 0 ? 0 : (mean / deviation) * Math.sqrt(MINUTES_PER_YEAR);
+    return deviation === 0 ? 0 : (mean / deviation) * Math.sqrt(barsPerYear);
 };
 
 const closePosition = (
@@ -168,6 +176,7 @@ const calculateMetrics = (
     trades: BacktestTrade[],
     equityCurve: BacktestEquityPoint[],
     exposedBars: number,
+    barsPerYear: number,
 ): BacktestMetrics => {
     const finalEquity = equityCurve.at(-1)?.equity ?? config.initialCapital;
     const winningPnl = trades
@@ -187,7 +196,7 @@ const calculateMetrics = (
             ? 0
             : (trades.filter((trade) => trade.netPnl > 0).length / trades.length) * 100,
         profitFactor: losingPnl === 0 ? null : winningPnl / losingPnl,
-        sharpeRatio: calculateSharpe(equityCurve),
+        sharpeRatio: calculateSharpe(equityCurve, barsPerYear),
         totalFees: trades.reduce((sum, trade) => sum + trade.entryFee + trade.exitFee, 0),
         exposurePct: (exposedBars / equityCurve.length) * 100,
     };
@@ -198,7 +207,7 @@ export const runSmaCrossBacktest = (
     dataset: BacktestDataset,
     config: BacktestConfig,
 ): BacktestResult => {
-    validateBacktestInput(candles, config);
+    validateBacktestInput(candles, config, dataset);
 
     const feeRate = config.feeBps / BPS_DIVISOR;
     const slippageRate = config.slippageBps / BPS_DIVISOR;
@@ -287,7 +296,13 @@ export const runSmaCrossBacktest = (
         strategy: 'SMA_CROSS_LONG_FLAT',
         dataset,
         config: { ...config },
-        metrics: calculateMetrics(config, trades, equityCurve, exposedBars),
+        metrics: calculateMetrics(
+            config,
+            trades,
+            equityCurve,
+            exposedBars,
+            SECONDS_PER_YEAR / dataset.intervalSeconds,
+        ),
         trades,
         equityCurve,
         diagnostics: {
@@ -295,8 +310,13 @@ export const runSmaCrossBacktest = (
             executionTiming: 'NEXT_BAR_OPEN',
             priceModel: 'MARKET_WITH_BPS_COSTS',
             warnings: [
-                'Synthetic validation data is not evidence of live strategy performance.',
+                ...(dataset.source === 'SYNTHETIC_FIXTURE'
+                    ? ['Synthetic validation data is not evidence of live strategy performance.']
+                    : []),
                 'This first slice models long/flat market orders only.',
+                ...(dataset.source === 'BINANCE_REST'
+                    ? ['Real market data may contain exchange outage gaps; listed-pair history carries survivorship bias.']
+                    : []),
             ],
         },
     };

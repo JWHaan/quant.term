@@ -9,8 +9,14 @@
 
 namespace {
 
+// Throws instead of assert(): Release builds define NDEBUG, which would turn
+// assert() into a no-op and silently skip every golden comparison.
 void expect_near(double actual, double expected, double tolerance = 0.000001) {
-    assert(std::abs(actual - expected) <= tolerance);
+    if (!(std::abs(actual - expected) <= tolerance)) {
+        throw std::runtime_error{
+            "expect_near failed: actual=" + std::to_string(actual)
+            + " expected=" + std::to_string(expected)};
+    }
 }
 
 [[nodiscard]] std::vector<quant::Candle> candles_from_prices(
@@ -97,6 +103,52 @@ void test_invalid_timestamp_is_rejected() {
     assert(threw);
 }
 
+void test_interval_seconds_scales_sharpe_annualization() {
+    const auto candles = quant::make_synthetic_btcusdt_fixture();
+
+    // Default config: interval_seconds implicitly 60 -> 1m goldens must hold.
+    const auto one_minute = quant::run_sma_cross(candles, quant::BacktestConfig{});
+    expect_near(one_minute.metrics.final_equity, 10'692.208640);
+    expect_near(one_minute.metrics.total_return_pct, 6.922086);
+
+    const auto hourly = quant::run_sma_cross(
+        candles,
+        quant::BacktestConfig{.interval_seconds = 3'600.0}
+    );
+
+    // The equity curve itself is interval-independent: identical prices
+    // produce identical per-bar returns. Only the Sharpe annualization factor
+    // sqrt(seconds_per_year / interval_seconds) changes, so the two runs are
+    // pinned by sharpe_1h = sharpe_1m * sqrt(60 / 3600) = sharpe_1m * sqrt(1/60).
+    expect_near(
+        hourly.metrics.sharpe_ratio,
+        one_minute.metrics.sharpe_ratio * std::sqrt(1.0 / 60.0),
+        1e-9
+    );
+    // Equity/return metrics do not depend on the interval.
+    expect_near(hourly.metrics.final_equity, one_minute.metrics.final_equity);
+    expect_near(hourly.metrics.total_return_pct, one_minute.metrics.total_return_pct);
+}
+
+void test_nonpositive_interval_seconds_is_rejected() {
+    const auto candles = quant::make_synthetic_btcusdt_fixture();
+
+    for (const auto bad_interval : {0.0, -60.0}) {
+        bool threw = false;
+        try {
+            static_cast<void>(quant::run_sma_cross(
+                candles,
+                quant::BacktestConfig{.interval_seconds = bad_interval}
+            ));
+        } catch (const std::invalid_argument&) {
+            threw = true;
+        }
+        if (!threw) {
+            throw std::runtime_error{"non-positive interval_seconds was accepted"};
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -104,6 +156,8 @@ int main() {
     test_signal_executes_at_next_open();
     test_costs_reduce_equity();
     test_invalid_timestamp_is_rejected();
+    test_interval_seconds_scales_sharpe_annualization();
+    test_nonpositive_interval_seconds_is_rejected();
     std::cout << "quant backtest correctness tests passed\n";
     return 0;
 }

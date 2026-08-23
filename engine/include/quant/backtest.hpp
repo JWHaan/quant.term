@@ -24,6 +24,10 @@ struct BacktestConfig {
     std::size_t slow_period{36};
     double fee_bps{10.0};
     double slippage_bps{5.0};
+    // Bar spacing of the input dataset in seconds; drives Sharpe annualization
+    // via bars_per_year = k_seconds_per_year / interval_seconds. Defaults to
+    // 60 (1m) to keep the bundled fixture goldens unchanged.
+    double interval_seconds{60.0};
 };
 
 enum class ExitReason {
