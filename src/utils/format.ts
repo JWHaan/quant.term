@@ -66,3 +66,13 @@ export function formatLatency(latency: number | null, quality: string): string {
     if (latency === null || latency === 0) return '—';
     return `${latency}ms (${quality})`;
 }
+
+/** Format a value already expressed in basis points with an explicit sign. */
+export function formatBps(bps: number): string {
+    const sign = bps >= 0 ? '+' : '-';
+    // Stabilize the float error (e.g. 1.005 === 1.00499...) before rounding
+    // half-up to two decimals, then render with toFixed.
+    const stabilized = Number((Math.abs(bps) * 100).toFixed(6));
+    const rounded = (Math.round(stabilized) / 100).toFixed(2);
+    return `${sign}${rounded} bps`;
+}
