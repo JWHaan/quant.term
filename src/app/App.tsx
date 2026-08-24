@@ -124,6 +124,12 @@ const App: React.FC = () => {
                 action: () => openWorkspace('strategy-lab'),
                 category: 'navigation',
             },
+            {
+                key: '`',
+                description: 'Focus command line',
+                action: () => document.getElementById('qt-command-input')?.focus(),
+                category: 'actions',
+            },
         ],
     });
 
@@ -161,7 +167,9 @@ const App: React.FC = () => {
                             workspace={workspace}
                             onWorkspaceChange={(nextWorkspace) => openWorkspace(nextWorkspace)}
                             onToggleFullscreen={toggleFullscreen}
+                            commands={commands}
                             onOpenCommandPalette={() => setShowCommandPalette(true)}
+                            onSymbolArg={setSymbol}
                         />
 
                         {workspace === 'monitor' ? (
