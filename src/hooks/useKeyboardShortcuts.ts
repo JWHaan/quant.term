@@ -39,6 +39,17 @@ export const useKeyboardShortcuts = ({ shortcuts, enabled = true }: UseKeyboardS
                 return;
             }
 
+            // Ignore shortcuts while typing in editable fields (inputs,
+            // textareas, contentEditable) so characters like '`' and '?'
+            // are entered normally instead of triggering actions.
+            const target = event.target;
+            if (
+                target instanceof HTMLElement &&
+                (target.matches('input, textarea') || target.isContentEditable)
+            ) {
+                return;
+            }
+
             // Check registered shortcuts
             for (const shortcut of shortcuts) {
                 const ctrlMatch = shortcut.ctrl ? event.ctrlKey || event.metaKey : !event.ctrlKey && !event.metaKey;

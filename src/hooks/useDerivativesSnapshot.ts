@@ -18,7 +18,8 @@ const FETCH_TIMEOUT_MS = 8_000;
 
 /**
  * Polls Binance USDⓈ-M derivatives metrics for a spot symbol.
- * Shared by DerivativesPanel and MicrostructureRibbon so both never double-fetch.
+ * Each consumer instance (e.g. MicrostructureRibbon) runs its own independent
+ * fetch cycle — there is no shared cache or de-duplication between instances.
  */
 export function useDerivativesSnapshot(spotSymbol: string): DerivativesSnapshotState {
     const contract = getBinanceFuturesContract(spotSymbol);

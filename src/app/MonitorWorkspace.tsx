@@ -113,7 +113,7 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
 
                     <Panel defaultSize={57} minSize={42}>
                         <PanelGroup direction="vertical">
-                            <Panel defaultSize={58} minSize={40}>
+                            <Panel defaultSize={54} minSize={40}>
                                 <div id="panel-chart" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title={`Chart - ${selectedSymbol}`}>
                                         <PanelErrorBoundary>

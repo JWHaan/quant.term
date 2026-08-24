@@ -217,7 +217,6 @@ code,
 .logo-section,
 .header-controls,
 .header-tool-group,
-.command-trigger,
 .connection-status,
 .user-profile {
   display: flex;
@@ -279,46 +278,6 @@ code,
   min-width: 0;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.command-trigger {
-  width: clamp(190px, 24vw, 330px);
-  height: 30px;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 0 8px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--bg-panel-muted);
-  color: var(--text-muted);
-  font-family: var(--font-ui);
-}
-
-.command-trigger:hover {
-  border-color: var(--accent-primary);
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-
-.command-trigger__label {
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  font-size: 11px;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.command-trigger kbd {
-  padding: 1px 5px;
-  border: 1px solid var(--border-color);
-  border-bottom-color: var(--border-strong);
-  border-radius: 2px;
-  background: var(--bg-panel-raised);
-  color: var(--text-secondary);
-  font-size: 9px;
-  line-height: 16px;
 }
 
 .header-tool-group {
@@ -1285,10 +1244,6 @@ code,
     display: none;
   }
 
-  .command-trigger {
-    width: clamp(170px, 23vw, 250px);
-  }
-
   .status-item--exchange {
     display: none;
   }
@@ -1312,10 +1267,6 @@ code,
 
   .brand-mark {
     display: none;
-  }
-
-  .command-trigger {
-    width: 170px;
   }
 
   .status-item--rate {
