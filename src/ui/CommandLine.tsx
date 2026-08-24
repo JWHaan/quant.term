@@ -65,6 +65,11 @@ const CommandLine: React.FC<CommandLineProps> = ({ commands, onOpenPalette, onSy
         inputRef.current?.blur();
     };
 
+    /**
+     * Execute the resolved command for the current query.
+     * "TOP <sym>" routes through onSymbolArg when provided.
+     * Bad TOP arg shows feedback and does not fall back to the command action.
+     */
     const execute = (command: Command) => {
         const trimmedQuery = query.trim();
         const lower = trimmedQuery.toLowerCase();
@@ -92,7 +97,7 @@ const CommandLine: React.FC<CommandLineProps> = ({ commands, onOpenPalette, onSy
                     execute(resolved.command);
                     break;
                 }
-                if (items[safeIndex]) {
+                if (items[safeIndex] && query.trim()) {
                     execute(items[safeIndex]);
                     break;
                 }

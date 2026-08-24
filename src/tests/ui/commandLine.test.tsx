@@ -69,6 +69,36 @@ describe('CommandLine', () => {
         expect(setSymbol).toHaveBeenCalledWith('ETHUSDT');
     });
 
+    it('does not execute anything on Enter with an empty input', () => {
+        const actions = [makeCommand('monitor', 'MON'), makeCommand('news', 'NEWS'), makeCommand('lab', 'LAB')];
+        render(<CommandLine commands={actions} onOpenPalette={vi.fn()} />);
+        const input = screen.getByLabelText('Command line');
+        fireEvent.keyDown(input, { key: 'Enter' });
+        for (const command of actions) expect(command.action).not.toHaveBeenCalled();
+    });
+
+    it('shows feedback and does not fall back when the TOP argument is invalid', () => {
+        const action = vi.fn();
+        const setSymbol = vi.fn();
+        const topCommand: Command = {
+            ...makeCommand('analyze-top', 'TOP', 'Switch symbol'),
+            action,
+        };
+        render(
+            <CommandLine
+                commands={[topCommand]}
+                onOpenPalette={vi.fn()}
+                onSymbolArg={setSymbol}
+            />,
+        );
+        const input = screen.getByLabelText('Command line');
+        fireEvent.change(input, { target: { value: 'top !!!' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+        expect(action).not.toHaveBeenCalled();
+        expect(setSymbol).not.toHaveBeenCalled();
+        expect(screen.getByText(/no match/i)).toBeInTheDocument();
+    });
+
     it('Escape clears the query then blurs', () => {
         render(<CommandLine commands={[makeCommand('a', 'MON')]} onOpenPalette={vi.fn()} />);
         const input = screen.getByLabelText('Command line') as HTMLInputElement;
