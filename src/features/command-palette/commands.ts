@@ -8,6 +8,8 @@ export interface Command {
     icon: React.ReactNode;
     action: () => void;
     category: string;
+    /** Bloomberg-style short code shown in the command line. */
+    mnemonic?: string;
 }
 
 export interface CommandsConfig {
@@ -21,6 +23,19 @@ export interface CommandsConfig {
     scrollToNews: () => void;
 }
 
+const SYMBOL_PATTERN = /^[A-Z0-9]{2,10}(USDT|USD)?$/;
+const QUOTE_SUFFIX = /(?:USDT|USD)$/;
+
+/** Normalize free text like " btc " or "/sol" into a tradable spot symbol. */
+export function normalizeSymbolArg(raw: string): string | null {
+    const cleaned = raw.trim().replace(/^\//, '').toUpperCase();
+    if (!cleaned) return null;
+    const candidate = QUOTE_SUFFIX.test(cleaned)
+        ? cleaned
+        : `${cleaned}USDT`;
+    return SYMBOL_PATTERN.test(candidate) ? candidate : null;
+}
+
 export function buildCommands(cfg: CommandsConfig): Command[] {
     return [
         {
@@ -29,7 +44,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Switch to live market monitoring',
             icon: React.createElement(Monitor, { size: 16 }),
             action: cfg.openMonitor,
-            category: 'Workspaces'
+            category: 'Workspaces',
+            mnemonic: 'MON'
         },
         {
             id: 'open-strategy-lab',
@@ -37,7 +53,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Configure and run a deterministic candle replay',
             icon: React.createElement(Beaker, { size: 16 }),
             action: cfg.openStrategyLab,
-            category: 'Workspaces'
+            category: 'Workspaces',
+            mnemonic: 'LAB'
         },
         {
             id: 'focus-market',
@@ -45,7 +62,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Navigate to the market watch panel',
             icon: React.createElement(Activity, { size: 16 }),
             action: cfg.scrollToMarket,
-            category: 'Navigation'
+            category: 'Navigation',
+            mnemonic: 'MW'
         },
         {
             id: 'focus-chart',
@@ -53,7 +71,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Navigate to the main chart',
             icon: React.createElement(BarChart2, { size: 16 }),
             action: cfg.scrollToChart,
-            category: 'Navigation'
+            category: 'Navigation',
+            mnemonic: 'CHART'
         },
         {
             id: 'focus-alpha',
@@ -61,7 +80,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Navigate to alpha factors',
             icon: React.createElement(Flame, { size: 16 }),
             action: cfg.scrollToAlpha,
-            category: 'Navigation'
+            category: 'Navigation',
+            mnemonic: 'ALPHA'
         },
         {
             id: 'focus-news',
@@ -69,7 +89,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Navigate to news feed',
             icon: React.createElement(Newspaper, { size: 16 }),
             action: cfg.scrollToNews,
-            category: 'Navigation'
+            category: 'Navigation',
+            mnemonic: 'NEWS'
         },
         {
             id: 'toggle-help',
@@ -77,7 +98,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'View all available keyboard shortcuts',
             icon: React.createElement(Keyboard, { size: 16 }),
             action: () => cfg.setShowHelp(true),
-            category: 'Help'
+            category: 'Help',
+            mnemonic: 'KEYS'
         },
         {
             id: 'analyze-btc',
@@ -85,7 +107,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Switch symbol to Bitcoin',
             icon: React.createElement(Activity, { size: 16 }),
             action: () => cfg.setSymbol('BTCUSDT'),
-            category: 'Actions'
+            category: 'Actions',
+            mnemonic: 'TOP'
         },
         {
             id: 'analyze-eth',
@@ -93,7 +116,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Switch symbol to Ethereum',
             icon: React.createElement(Activity, { size: 16 }),
             action: () => cfg.setSymbol('ETHUSDT'),
-            category: 'Actions'
+            category: 'Actions',
+            mnemonic: 'TOP'
         },
         {
             id: 'analyze-sol',
@@ -101,7 +125,8 @@ export function buildCommands(cfg: CommandsConfig): Command[] {
             description: 'Switch symbol to Solana',
             icon: React.createElement(Activity, { size: 16 }),
             action: () => cfg.setSymbol('SOLUSDT'),
-            category: 'Actions'
+            category: 'Actions',
+            mnemonic: 'TOP'
         }
     ];
 }

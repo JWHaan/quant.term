@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency, formatPrice } from '@/utils/format';
+import { formatBps, formatCurrency, formatPrice } from '@/utils/format';
 
 describe('formatPrice', () => {
     it('preserves cent-level changes for high-priced assets', () => {
@@ -30,5 +30,23 @@ describe('formatCurrency', () => {
         expect(formatCurrency(125_000)).toBe('$125.00K');
         expect(formatCurrency(-1_250)).toBe('-$1.25K');
         expect(formatCurrency(Number.NaN)).toBe('—');
+    });
+});
+
+describe('formatBps', () => {
+    it('formats positive basis points with explicit sign', () => {
+        expect(formatBps(12.5)).toBe('+12.50 bps');
+    });
+
+    it('formats negative basis points', () => {
+        expect(formatBps(-0.004)).toBe('-0.00 bps');
+    });
+
+    it('signs zero as positive', () => {
+        expect(formatBps(0)).toBe('+0.00 bps');
+    });
+
+    it('rounds to two decimals', () => {
+        expect(formatBps(1.005)).toBe('+1.01 bps');
     });
 });

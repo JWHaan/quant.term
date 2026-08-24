@@ -39,6 +39,22 @@ export const useKeyboardShortcuts = ({ shortcuts, enabled = true }: UseKeyboardS
                 return;
             }
 
+            // Ignore shortcuts while typing in editable fields (inputs,
+            // textareas, contentEditable) so bare unmodified keys like '`'
+            // are entered normally instead of triggering actions ('?' is
+            // handled above and intentionally opens help from anywhere).
+            // Modifier combos (ctrl/cmd/alt+key) pass through so registered
+            // shortcuts such as ctrl+1..5 keep working while an input is
+            // focused.
+            const target = event.target;
+            if (
+                !(event.ctrlKey || event.metaKey || event.altKey) &&
+                target instanceof HTMLElement &&
+                (target.matches('input, textarea') || target.isContentEditable)
+            ) {
+                return;
+            }
+
             // Check registered shortcuts
             for (const shortcut of shortcuts) {
                 const ctrlMatch = shortcut.ctrl ? event.ctrlKey || event.metaKey : !event.ctrlKey && !event.metaKey;

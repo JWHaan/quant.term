@@ -36,3 +36,6 @@ engine/build
 .agent/
 .agents/
 .hermes/
+
+# TypeScript incremental build artifact
+tsconfig.tsbuildinfo
