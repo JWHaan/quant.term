@@ -1,13 +1,13 @@
 import React, { Suspense, useMemo } from 'react';
-import { Activity, BarChart2, Bell, BriefcaseBusiness, Flame, Newspaper, Radio, Waves } from 'lucide-react';
+import { Activity, BarChart2, Bell, BriefcaseBusiness, Flame, Newspaper, Waves } from 'lucide-react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import AlertPanel from '@/features/market/AlertPanel';
 import AlphaPanel from '@/features/analytics/AlphaPanel';
 import DashboardPanel from '@/ui/DashboardPanel';
-import DerivativesPanel from '@/features/market/DerivativesPanel';
 import LiquidationFeed from '@/features/market/LiquidationFeed';
 import LoadingSpinner from '@/ui/LoadingSpinner';
 import MarketGrid from '@/features/market/MarketGrid';
+import MicrostructureRibbon from '@/features/market/MicrostructureRibbon';
 import MarketOverviewBar from '@/ui/MarketOverviewBar';
 import NetworkPulsePanel from '@/features/news/NetworkPulsePanel';
 import NewsFeed from '@/features/news/NewsFeed';
@@ -67,12 +67,6 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
 
     const intelligenceTabs = useMemo(() => [
         {
-            id: 'derivatives',
-            label: 'Perps',
-            icon: <Radio size={12} />,
-            content: <DerivativesPanel symbol={selectedSymbol} />,
-        },
-        {
             id: 'portfolio',
             label: 'Paper',
             icon: <BriefcaseBusiness size={12} />,
@@ -119,13 +113,25 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
 
                     <Panel defaultSize={57} minSize={42}>
                         <PanelGroup direction="vertical">
-                            <Panel defaultSize={68} minSize={45}>
+                            <Panel defaultSize={58} minSize={40}>
                                 <div id="panel-chart" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title={`Chart - ${selectedSymbol}`}>
                                         <PanelErrorBoundary>
                                             <Suspense fallback={<LoadingSpinner />}>
                                                 <ChartContainer symbol={selectedSymbol} />
                                             </Suspense>
+                                        </PanelErrorBoundary>
+                                    </DashboardPanel>
+                                </div>
+                            </Panel>
+
+                            <PanelResizeHandle className="resize-handle" />
+
+                            <Panel defaultSize={14} minSize={10}>
+                                <div id="panel-ribbon" tabIndex={-1} style={{ height: '100%' }}>
+                                    <DashboardPanel title={`Microstructure - ${selectedSymbol}`}>
+                                        <PanelErrorBoundary>
+                                            <MicrostructureRibbon symbol={selectedSymbol} />
                                         </PanelErrorBoundary>
                                     </DashboardPanel>
                                 </div>
@@ -163,7 +169,7 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
                                 <div id="panel-intelligence" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title="Market Intelligence">
                                         <PanelErrorBoundary>
-                                            <TabPanel tabs={intelligenceTabs} defaultTab="derivatives" />
+                                            <TabPanel tabs={intelligenceTabs} defaultTab="portfolio" />
                                         </PanelErrorBoundary>
                                     </DashboardPanel>
                                 </div>
