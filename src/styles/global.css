@@ -3139,3 +3139,92 @@ code,
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
+
+/* TICK board (MarketGrid collapsible sections) */
+
+.tickboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.tickboard__scroller {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.tickboard__section {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tickboard__section-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: linear-gradient(180deg, var(--bg-panel-raised), var(--bg-panel-muted));
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.065em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tickboard__section-header:hover {
+  color: var(--accent-primary);
+}
+
+.tickboard__section-header:focus-visible {
+  outline: 1px solid var(--accent-primary);
+  outline-offset: -1px;
+}
+
+.tickboard__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tickboard__chevron {
+  flex: 0 0 auto;
+  transition: transform 150ms ease;
+}
+
+.tickboard__chevron--collapsed {
+  transform: rotate(-90deg);
+}
+
+.tickboard__section-body {
+  padding-bottom: 4px;
+}
+
+.tickboard__group + .tickboard__group {
+  margin-top: 8px;
+}
+
+.tickboard__group-label {
+  display: block;
+  padding: 2px 8px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tickboard__muted {
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}

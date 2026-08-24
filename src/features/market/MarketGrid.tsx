@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useReducer } from 'react';
 import { Search, X } from 'lucide-react';
-import { formatPrice, formatVolume, formatPercent } from '@/utils/format';
+import { formatPrice, formatVolume, formatPercent, formatBps } from '@/utils/format';
 import {
     recordLiveMarketEvent,
     releaseLiveConnection,
@@ -13,43 +13,142 @@ import {
     parseTicker,
     type WatchlistMarketData,
 } from '@/integrations/binance/watchlist';
+import { BINANCE_FUTURES_REST_URL } from '@/constants/config';
 import { useMarketStore } from '@/stores/marketStore';
 
 interface MarketGridProps {
     onSelectSymbol?: (symbol: string) => void;
 }
 
-type MarketData = WatchlistMarketData;
+export type MarketData = WatchlistMarketData;
 
-type SortKey = keyof MarketData;
+const MAJOR_BASES = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE'] as const;
+
+type MajorBase = (typeof MAJOR_BASES)[number];
+
+export type TickSectionId = 'majors' | 'perps' | 'movers';
+
+type SectionsState = Record<TickSectionId, boolean>;
+
+const DEFAULT_SECTIONS: SectionsState = { majors: true, perps: true, movers: true };
+
+const SECTIONS_STORAGE_KEY = 'qt.tickboard.sections';
+
+const PERPS_POLL_INTERVAL_MS = 60_000;
+
+const PERPS_UNAVAILABLE_MESSAGE = 'Perps data unavailable';
+
+/** One normalized row of the PERPS funding table. */
+interface PerpsRow {
+    symbol: string;
+    base: string;
+    markPrice: number;
+    fundingBps: number;
+    nextFundingTime: number;
+}
+
+type PerpsState = { rows: PerpsRow[] | null; error: string | null };
 
 type TickerRecord = Record<string, unknown>;
 
-const renderSortIndicator = (sortBy: SortKey, sortDir: 'asc' | 'desc', column: SortKey) =>
-    sortBy === column
-        ? <span className="market-grid__sort-indicator" aria-hidden="true">{sortDir === 'asc' ? '↑' : '↓'}</span>
-        : null;
+type PremiumIndexRecord = Record<string, unknown>;
 
-const getAriaSort = (
-    sortBy: SortKey,
-    sortDir: 'asc' | 'desc',
-    column: SortKey,
-): 'ascending' | 'descending' | 'none' => {
-    if (sortBy !== column) return 'none';
-    return sortDir === 'asc' ? 'ascending' : 'descending';
+/**
+ * Split the visible market data into TICK board sections:
+ * majors in canonical order plus top-5 gainers/losers excluding majors.
+ */
+// Exported as a pure helper for tests; react-refresh would prefer a separate module.
+// eslint-disable-next-line react-refresh/only-export-components
+export function partitionTickSections(data: MarketData[]): {
+    majors: MarketData[];
+    moversUp: MarketData[];
+    moversDown: MarketData[];
+} {
+    const byBase = new Map<string, MarketData>();
+    for (const item of data) {
+        const base = item.symbol.replace(/USDT$|USD$/, '');
+        if (!byBase.has(base)) byBase.set(base, item);
+    }
+
+    const majors: MarketData[] = [];
+    for (const base of MAJOR_BASES) {
+        const item = byBase.get(base);
+        if (item) majors.push(item);
+    }
+
+    const majorSymbols = new Set(majors.map((item) => item.symbol));
+    const movers = data.filter((item) => !majorSymbols.has(item.symbol));
+    const byChangeDesc = [...movers].sort(
+        (a, b) => b.priceChangePercent - a.priceChangePercent,
+    );
+
+    return {
+        majors,
+        moversUp: byChangeDesc.slice(0, 5),
+        moversDown: [...byChangeDesc].reverse().slice(0, 5),
+    };
+}
+
+const readInitialSections = (): SectionsState => {
+    if (typeof window === 'undefined') return { ...DEFAULT_SECTIONS };
+    try {
+        const raw = window.localStorage.getItem(SECTIONS_STORAGE_KEY);
+        if (!raw) return { ...DEFAULT_SECTIONS };
+        const parsed = JSON.parse(raw) as Partial<SectionsState>;
+        return { ...DEFAULT_SECTIONS, ...parsed };
+    } catch {
+        return { ...DEFAULT_SECTIONS };
+    }
+};
+
+type SectionsAction = { type: 'toggle'; id: TickSectionId };
+
+function sectionsReducer(state: SectionsState, action: SectionsAction): SectionsState {
+    switch (action.type) {
+        case 'toggle':
+            return { ...state, [action.id]: !state[action.id] };
+        default:
+            return state;
+    }
+}
+
+/** Format a remaining-time offset as mm:ss, clamped at 00:00. */
+const formatCountdown = (msRemaining: number): string => {
+    const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${seconds}`;
+};
+
+const toPerpsRows = (payload: PremiumIndexRecord[]): PerpsRow[] => {
+    const wantedSymbols = new Set<string>(MAJOR_BASES.map((base) => `${base as MajorBase}USDT`));
+    return payload
+        .filter((record) => typeof record['symbol'] === 'string' && wantedSymbols.has(record['symbol']))
+        .map((record) => ({
+            symbol: String(record['symbol']),
+            base: String(record['symbol']).replace(/USDT$/, ''),
+            markPrice: Number(record['markPrice']) || 0,
+            fundingBps: (Number(record['lastFundingRate']) || 0) * 10_000,
+            nextFundingTime: Number(record['nextFundingTime']) || 0,
+        }));
 };
 
 /**
- * MarketGrid — Terminal-style live watchlist.
+ * MarketGrid — Terminal-style live watchlist rendered as a collapsible TICK board.
  * Seeds only the configured markets, then consumes their mini-ticker streams.
  */
 const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
     const [marketData, setMarketData] = useState<Map<string, MarketData>>(new Map());
-    const [sortBy, setSortBy] = useState<SortKey>('quoteVolume');
-    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [expandedSections, dispatchSections] = useReducer(
+        sectionsReducer,
+        undefined,
+        readInitialSections,
+    );
+    const [perpsState, setPerpsState] = useState<PerpsState>({ rows: null, error: null });
+    const [now, setNow] = useState(() => Date.now());
     const connectionOwnerRef = React.useRef<object>({});
     const selectedSymbol = useMarketStore((state) => state.selectedSymbol);
     const setSelectedSymbol = useMarketStore((state) => state.setSymbol);
@@ -200,7 +299,58 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
         };
     }, []);
 
-    const sortedData = useMemo(() => {
+    // Bulk premiumIndex polling — on mount and every 60s while PERPS is expanded.
+    useEffect(() => {
+        if (!expandedSections.perps) return undefined;
+        let disposed = false;
+        const controller = new AbortController();
+
+        const pollPremiumIndex = async () => {
+            try {
+                const response = await fetch(`${BINANCE_FUTURES_REST_URL}/fapi/v1/premiumIndex`, {
+                    signal: controller.signal,
+                });
+                if (!response.ok) throw new Error(`Funding poll failed (${response.status})`);
+                const payload: unknown = await response.json();
+                if (!Array.isArray(payload)) throw new Error('Unexpected premiumIndex response');
+                if (!disposed) setPerpsState({ rows: toPerpsRows(payload), error: null });
+            } catch (caught: unknown) {
+                if (disposed || controller.signal.aborted) return;
+                console.error('[Binance futures] Funding poll failed:', caught);
+                setPerpsState({ rows: null, error: PERPS_UNAVAILABLE_MESSAGE });
+            }
+        };
+
+        pollPremiumIndex();
+        const pollTimer = setInterval(pollPremiumIndex, PERPS_POLL_INTERVAL_MS);
+
+        return () => {
+            disposed = true;
+            controller.abort();
+            clearInterval(pollTimer);
+        };
+    }, [expandedSections.perps]);
+
+    // Countdown ticker — recomputes once a second while PERPS is expanded.
+    useEffect(() => {
+        if (!expandedSections.perps) return undefined;
+        const ticker = setInterval(() => setNow(Date.now()), 1_000);
+        return () => clearInterval(ticker);
+    }, [expandedSections.perps]);
+
+    const handleToggleSection = useCallback((id: TickSectionId) => {
+        dispatchSections({ type: 'toggle', id });
+    }, []);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(SECTIONS_STORAGE_KEY, JSON.stringify(expandedSections));
+        } catch {
+            // Section persistence is an optional browser convenience.
+        }
+    }, [expandedSections]);
+
+    const visibleData = useMemo(() => {
         let data = Array.from(marketData.values());
 
         if (searchQuery) {
@@ -211,30 +361,13 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
             );
         }
 
-        data.sort((a, b) => {
-            const aVal = a[sortBy];
-            const bVal = b[sortBy];
-            if (typeof aVal === 'string' && typeof bVal === 'string') {
-                return sortDir === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-            }
-            const aNum = aVal as number;
-            const bNum = bVal as number;
-            return sortDir === 'asc' ? aNum - bNum : bNum - aNum;
-        });
-
         return data;
-    }, [marketData, sortBy, sortDir, searchQuery]);
+    }, [marketData, searchQuery]);
 
-    const handleSort = useCallback((key: SortKey) => {
-        setSortBy(prev => {
-            if (prev === key) {
-                setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-                return prev;
-            }
-            setSortDir('desc');
-            return key;
-        });
-    }, []);
+    const sections = useMemo(
+        () => partitionTickSections(visibleData),
+        [visibleData],
+    );
 
     const handleSelectSymbol = useCallback((symbol: string) => {
         if (onSelectSymbol) {
@@ -244,8 +377,102 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
         setSelectedSymbol(symbol);
     }, [onSelectSymbol, setSelectedSymbol]);
 
+    const renderQuoteTable = (
+        ariaLabel: string,
+        rows: MarketData[],
+    ): React.ReactElement => (
+        <table className="market-grid__table" aria-label={ariaLabel}>
+            <colgroup>
+                <col className="market-grid__col-symbol" />
+                <col className="market-grid__col-price" />
+                <col className="market-grid__col-change" />
+                <col className="market-grid__col-volume" />
+            </colgroup>
+            <thead>
+                <tr>
+                    <th scope="col">Symbol</th>
+                    <th scope="col">Last</th>
+                    <th scope="col">24H</th>
+                    <th scope="col">Vol</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((item) => (
+                    <MarketRow
+                        key={item.symbol}
+                        item={item}
+                        isSelected={selectedSymbol === item.symbol}
+                        onSelect={handleSelectSymbol}
+                    />
+                ))}
+            </tbody>
+        </table>
+    );
+
+    const moversBody = (
+        <>
+            <div className="tickboard__group">
+                <span className="tickboard__group-label">TOP ↑</span>
+                {renderQuoteTable('Top gaining assets', sections.moversUp)}
+            </div>
+            <div className="tickboard__group">
+                <span className="tickboard__group-label">TOP ↓</span>
+                {renderQuoteTable('Top losing assets', sections.moversDown)}
+            </div>
+        </>
+    );
+
+    const perpsBody = (() => {
+        if (perpsState.error && !perpsState.rows?.length) {
+            return (
+                <p className="tickboard__muted" role="status" aria-live="polite">
+                    {PERPS_UNAVAILABLE_MESSAGE}
+                </p>
+            );
+        }
+        if (!perpsState.rows?.length) {
+            return (
+                <p className="tickboard__muted" role="status" aria-live="polite">
+                    Loading funding rates
+                </p>
+            );
+        }
+        return (
+            <table className="market-grid__table" aria-label="Major perpetual funding">
+                <colgroup>
+                    <col className="market-grid__col-symbol" />
+                    <col className="market-grid__col-price" />
+                    <col className="market-grid__col-change" />
+                    <col className="market-grid__col-volume" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th scope="col">Symbol</th>
+                        <th scope="col">Mark</th>
+                        <th scope="col">Funding</th>
+                        <th scope="col">Next</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {perpsState.rows.map((row) => (
+                        <tr
+                            key={row.symbol}
+                            className="market-grid__row"
+                            aria-label={`${row.base} perpetual funding ${formatBps(row.fundingBps)}`}
+                        >
+                            <td className="market-grid__symbol">{row.base}</td>
+                            <td className="market-grid__price">{formatPrice(row.markPrice)}</td>
+                            <td className={row.fundingBps >= 0 ? 'market-grid__change positive' : 'market-grid__change negative'}>{formatBps(row.fundingBps)}</td>
+                            <td className="market-grid__volume">{formatCountdown(row.nextFundingTime - now)}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        );
+    })();
+
     return (
-        <div className="market-grid">
+        <div className="tickboard">
             <div className="market-grid__toolbar">
                 <div className="market-grid__search">
                     <Search size={13} aria-hidden="true" />
@@ -273,9 +500,9 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
                 <output
                     id="market-watch-count"
                     className="market-grid__count"
-                    aria-label={`${sortedData.length} assets shown`}
+                    aria-label={`${visibleData.length} assets shown`}
                 >
-                    {sortedData.length}
+                    {visibleData.length}
                 </output>
             </div>
 
@@ -286,58 +513,40 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
                 </div>
             )}
 
-            <div className="market-grid__scroller">
-                <table className="market-grid__table" aria-label="Live cryptocurrency watchlist" aria-describedby="market-watch-count">
-                    <colgroup>
-                        <col className="market-grid__col-symbol" />
-                        <col className="market-grid__col-price" />
-                        <col className="market-grid__col-change" />
-                        <col className="market-grid__col-volume" />
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th scope="col" aria-sort={getAriaSort(sortBy, sortDir, 'symbol')}>
-                                <button type="button" onClick={() => handleSort('symbol')}>
-                                    Symbol{renderSortIndicator(sortBy, sortDir, 'symbol')}
-                                </button>
-                            </th>
-                            <th scope="col" aria-sort={getAriaSort(sortBy, sortDir, 'price')}>
-                                <button type="button" onClick={() => handleSort('price')}>
-                                    Price{renderSortIndicator(sortBy, sortDir, 'price')}
-                                </button>
-                            </th>
-                            <th scope="col" aria-sort={getAriaSort(sortBy, sortDir, 'priceChangePercent')}>
-                                <button type="button" onClick={() => handleSort('priceChangePercent')}>
-                                    24H{renderSortIndicator(sortBy, sortDir, 'priceChangePercent')}
-                                </button>
-                            </th>
-                            <th scope="col" aria-sort={getAriaSort(sortBy, sortDir, 'quoteVolume')}>
-                                <button type="button" onClick={() => handleSort('quoteVolume')}>
-                                    Vol{renderSortIndicator(sortBy, sortDir, 'quoteVolume')}
-                                </button>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedData.map((item) => (
-                            <MarketRow
-                                key={item.symbol}
-                                item={item}
-                                isSelected={selectedSymbol === item.symbol}
-                                onSelect={handleSelectSymbol}
-                            />
-                        ))}
-                    </tbody>
-                </table>
+            <div className="tickboard__scroller">
+                <TickSection
+                    id="majors"
+                    title="MAJORS"
+                    expanded={expandedSections.majors}
+                    onToggle={handleToggleSection}
+                >
+                    {renderQuoteTable('Major asset watchlist', sections.majors)}
+                </TickSection>
+                <TickSection
+                    id="perps"
+                    title="PERPS"
+                    expanded={expandedSections.perps}
+                    onToggle={handleToggleSection}
+                >
+                    {perpsBody}
+                </TickSection>
+                <TickSection
+                    id="movers"
+                    title="MOVERS"
+                    expanded={expandedSections.movers}
+                    onToggle={handleToggleSection}
+                >
+                    {moversBody}
+                </TickSection>
 
-                {loading && sortedData.length === 0 && (
+                {loading && visibleData.length === 0 && (
                     <div className="market-grid__empty" role="status" aria-live="polite">
                         <span className="market-grid__loader" aria-hidden="true" />
                         Loading live markets
                     </div>
                 )}
 
-                {!loading && sortedData.length === 0 && (
+                {!loading && visibleData.length === 0 && (
                     <div className="market-grid__empty">
                         No assets match “{searchQuery}”
                     </div>
@@ -346,6 +555,34 @@ const MarketGrid: React.FC<MarketGridProps> = ({ onSelectSymbol }) => {
         </div>
     );
 };
+
+interface TickSectionProps {
+    id: TickSectionId;
+    title: string;
+    expanded: boolean;
+    onToggle: (id: TickSectionId) => void;
+    children: React.ReactNode;
+}
+
+const TickSection = ({ id, title, expanded, onToggle, children }: TickSectionProps) => (
+    <section className="tickboard__section" data-testid={`tick-section-${id}`}>
+        <button
+            type="button"
+            className="tickboard__section-header"
+            aria-expanded={expanded}
+            aria-controls={`tickboard-body-${id}`}
+            onClick={() => onToggle(id)}
+        >
+            <span className={`tickboard__chevron${expanded ? '' : ' tickboard__chevron--collapsed'}`} aria-hidden="true">▾</span>
+            <span className="tickboard__title">{title}</span>
+        </button>
+        {expanded && (
+            <div id={`tickboard-body-${id}`} className="tickboard__section-body">
+                {children}
+            </div>
+        )}
+    </section>
+);
 
 interface MarketRowProps {
     item: MarketData;
