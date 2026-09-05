@@ -5,12 +5,13 @@ import {
     Minimize2,
     Monitor,
     Moon,
-    Search,
     Sun,
     Wifi,
     WifiOff,
 } from 'lucide-react';
+import CommandLine from './CommandLine';
 import { ThemeContext } from './ThemeProvider';
+import type { Command } from '@/features/command-palette/commands';
 import type { WorkspaceMode } from '@/types/workspace';
 
 interface AppHeaderProps {
@@ -19,7 +20,10 @@ interface AppHeaderProps {
     workspace: WorkspaceMode;
     onWorkspaceChange: (workspace: WorkspaceMode) => void;
     onToggleFullscreen: () => void;
+    commands: Command[];
     onOpenCommandPalette: () => void;
+    /** Optional symbol-argument handler so "TOP <sym>" can switch symbols directly. */
+    onSymbolArg?: (symbol: string) => void;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -28,7 +32,9 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     workspace,
     onWorkspaceChange,
     onToggleFullscreen,
-    onOpenCommandPalette
+    commands,
+    onOpenCommandPalette,
+    onSymbolArg
 }) => {
     const { theme, toggleTheme } = React.useContext(ThemeContext);
     const isStrategyLab = workspace === 'strategy-lab';
@@ -70,17 +76,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({
             </nav>
 
             <div className="header-controls">
-                <button
-                    type="button"
-                    className="command-trigger"
-                    onClick={onOpenCommandPalette}
-                    aria-label="Search markets and open the command palette"
-                    aria-keyshortcuts="Meta+K Control+K"
-                >
-                    <Search size={14} aria-hidden="true" />
-                    <span className="command-trigger__label">Search markets &amp; commands</span>
-                    <kbd aria-hidden="true">⌘K</kbd>
-                </button>
+                <CommandLine
+                    commands={commands}
+                    onOpenPalette={onOpenCommandPalette}
+                    // exactOptionalPropertyTypes: only set the prop when provided.
+                    {...(onSymbolArg === undefined ? {} : { onSymbolArg })}
+                />
 
                 <div className="header-tool-group" aria-label="Display controls">
                     <button
