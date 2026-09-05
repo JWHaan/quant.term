@@ -44,7 +44,12 @@ const requestKlines = async (params: URLSearchParams, signal?: AbortSignal): Pro
     if (!response.ok) {
         throw new Error(`Failed to fetch klines (${response.status})`);
     }
-    return (await response.json()) as unknown[];
+
+    const rows: unknown = await response.json();
+    if (!Array.isArray(rows)) {
+        throw new Error('Unexpected kline response format');
+    }
+    return rows;
 };
 
 /**

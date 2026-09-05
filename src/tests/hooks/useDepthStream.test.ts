@@ -153,6 +153,24 @@ describe('useDepthStream', () => {
         expect(second.result.current.book?.lastUpdateId).toBe(200);
     });
 
+    it('hands a late-joining consumer the latest book immediately', () => {
+        const first = mountConsumer('BTCUSDT');
+        const socket = FakeWebSocket.last();
+        openAndDeliver(socket, { ...depthPayload, lastUpdateId: 300 });
+        expect(first.result.current.book?.lastUpdateId).toBe(300);
+
+        const second = mountConsumer('BTCUSDT');
+
+        expect(second.result.current.book?.lastUpdateId).toBe(300);
+        expect(FakeWebSocket.instances).toHaveLength(1);
+    });
+
+    it('opens no socket for an empty symbol', () => {
+        mountConsumer('');
+
+        expect(FakeWebSocket.instances).toHaveLength(0);
+    });
+
     it('reconnects after a server close and restores the live status', () => {
         const { result } = mountConsumer('BTCUSDT');
         const socket = FakeWebSocket.last();
@@ -188,7 +206,7 @@ describe('useDepthStream', () => {
             ({ value }: { value: string }) => useDepthStream(value),
             { initialProps: { value: 'BTCUSDT' } },
         );
-        FakeWebSocket.last().open();
+        act(() => { FakeWebSocket.last().open(); });
 
         rerender({ value: 'ETHUSDT' });
 

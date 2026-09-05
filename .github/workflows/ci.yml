@@ -62,11 +62,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Configure engine
-        run: cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build engine
-        run: cmake --build engine/build --config Release
-
-      - name: Run engine correctness tests
-        run: ctest --test-dir engine/build --output-on-failure -C Release
+      - name: Configure, build, and test the native core
+        run: npm run engine:check

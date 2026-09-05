@@ -112,6 +112,24 @@ describe('useKlineSnapshot', () => {
         expect(result.current.isLoading).toBe(false);
     });
 
+    it('does not raise isLoading during background refreshes once data exists', async () => {
+        const { result } = renderHook(() => useKlineSnapshot('BTCUSDT', '15m', 200, { pollMs: 30_000 }));
+
+        await settle();
+        expect(result.current.isLoading).toBe(false);
+
+        // Next poll hangs: the panel must keep rendering retained data instead
+        // of flipping back to a loading placeholder.
+        fetchMock.mockImplementation(() => new Promise<Response>(() => {}));
+        await act(async () => {
+            vi.advanceTimersByTime(30_000);
+            await Promise.resolve();
+        });
+
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.candles).toHaveLength(1);
+    });
+
     it('aborts the in-flight request when the symbol changes', async () => {
         const signals: AbortSignal[] = [];
         fetchMock.mockImplementation((_url: unknown, init?: { signal?: AbortSignal }) => {

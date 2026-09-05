@@ -314,6 +314,12 @@ describe('fetchKlinesSnapshot', () => {
 
         await expect(fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '1m' })).rejects.toThrow('no valid candles');
     });
+
+    it('throws a labelled error when a 200 response is not an array', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'gone' }), { status: 200 })));
+
+        await expect(fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '1m' })).rejects.toThrow('Unexpected kline response format');
+    });
 });
 
 describe('buildDatasetMeta', () => {

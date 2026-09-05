@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchKlinesSnapshot } from '@/integrations/binance/klines';
 import type { OHLCV } from '@/types/common';
 
@@ -19,12 +19,15 @@ export interface KlineSnapshotState {
 }
 
 const DEFAULT_TIMEOUT_MS = 8_000;
+const EMPTY_CANDLES: OHLCV[] = [];
 
 /**
  * Recent Binance klines for live signal panels, including the still-forming
  * candle. Centralizes the fetch/poll/abort/timeout/stale-guard loop that the
  * panels previously each hand-rolled, and retains the last good candles while
- * a poll fails so consumers can render a degraded state.
+ * a poll fails so consumers can render a degraded state. `isLoading` only
+ * covers the wait for a series' first data; background refreshes of existing
+ * data leave it false so consumers never blank retained content.
  */
 export const useKlineSnapshot = (
     symbol: string,
@@ -34,11 +37,11 @@ export const useKlineSnapshot = (
 ): KlineSnapshotState => {
     const { pollMs = 0, timeoutMs = DEFAULT_TIMEOUT_MS, label = 'Kline' } = options;
     const normalizedSymbol = symbol.toUpperCase();
-    const seriesKey = `${normalizedSymbol}:${interval}`;
+    const seriesKey = `${normalizedSymbol}:${interval}:${limit}`;
 
     const [candlesState, setCandlesState] = useState<{ key: string; candles: OHLCV[] }>({
         key: '',
-        candles: [],
+        candles: EMPTY_CANDLES,
     });
     const [errorState, setErrorState] = useState<{ key: string; message: string | null }>({
         key: '',
@@ -46,6 +49,7 @@ export const useKlineSnapshot = (
     });
     const [isLoading, setIsLoading] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+    const dataKeyRef = useRef('');
 
     useEffect(() => {
         let disposed = false;
@@ -57,8 +61,11 @@ export const useKlineSnapshot = (
             const controller = new AbortController();
             activeController = controller;
             timedOut = false;
-            // Reset the loading flag synchronously so each poll round shows a spinner.
-            setIsLoading(true);
+            // Only the first wait for a series shows a spinner; refresh rounds
+            // keep previously rendered candles on screen.
+            if (dataKeyRef.current !== seriesKey) {
+                setIsLoading(true);
+            }
             const timeoutId = window.setTimeout(() => {
                 timedOut = true;
                 controller.abort();
@@ -71,6 +78,7 @@ export const useKlineSnapshot = (
                 );
                 if (disposed || activeController !== controller) return;
 
+                dataKeyRef.current = seriesKey;
                 setCandlesState({ key: seriesKey, candles: rows });
                 setErrorState({ key: seriesKey, message: null });
                 setLastUpdated(Date.now());
@@ -103,7 +111,7 @@ export const useKlineSnapshot = (
     }, [interval, label, limit, normalizedSymbol, pollMs, seriesKey, timeoutMs]);
 
     return {
-        candles: candlesState.key === seriesKey ? candlesState.candles : [],
+        candles: candlesState.key === seriesKey ? candlesState.candles : EMPTY_CANDLES,
         isLoading,
         error: errorState.key === seriesKey ? errorState.message : null,
         lastUpdated,

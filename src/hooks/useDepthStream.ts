@@ -226,11 +226,14 @@ export const useDepthStream = (symbol: string): UseDepthStreamResult => {
     const [book, setBook] = useState<DepthBook | null>(null);
     const [connection, setConnection] = useState({ symbol: '', connected: false });
 
-    useEffect(() => subscribe(
-        normalizedSymbol,
-        setBook,
-        (connected) => setConnection({ symbol: normalizedSymbol, connected }),
-    ), [normalizedSymbol]);
+    useEffect(() => {
+        if (!normalizedSymbol) return undefined;
+        return subscribe(
+            normalizedSymbol,
+            setBook,
+            (connected) => setConnection({ symbol: normalizedSymbol, connected }),
+        );
+    }, [normalizedSymbol]);
 
     return {
         book: book?.symbol === normalizedSymbol ? book : null,
