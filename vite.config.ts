@@ -40,8 +40,9 @@ export default defineConfig(async (): Promise<UserConfig> => {
         // Disable sourcemaps in production for smaller/faster deploys.
         // Re-enable locally with `vite build --sourcemap` if you need to debug.
         sourcemap: false,
-        // Aggressively compress
-        minify: 'esbuild',
+        // Minifier intentionally unset: Vite 7 defaults to esbuild, Vite 8 to
+        // oxc. Pinning 'esbuild' breaks Vite 8, whose rolldown core no longer
+        // bundles the esbuild transformer.
         cssMinify: true,
         // Raise chunk size warning threshold so we don't get noisy logs
         chunkSizeWarningLimit: 700,
