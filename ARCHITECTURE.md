@@ -83,8 +83,8 @@ Only active runtime code lives under `src`. Research prototypes that are not com
 |---|---|---|
 | Market watch | REST seed + combined mini-ticker WebSocket | Last price, 24-hour change, and quote volume |
 | Chart feed | REST klines + selected-symbol WebSocket | Historical and live candles |
+| Depth consumers | One shared partial-depth WebSocket per selected symbol | Single `@depth20@100ms` subscription feeding the chart heatmap, DOM ladder, and OFI panel |
 | Chart heatmap | Selected-symbol depth snapshots | Bounded depth history and derived bins |
-| DOM / OFI | Partial-depth WebSocket | Top-20 bid and ask snapshots |
 | Volume delta / VPIN | Shared aggregate-trade WebSocket | Taker-side trade classification |
 
 ### Binance USDⓈ-M

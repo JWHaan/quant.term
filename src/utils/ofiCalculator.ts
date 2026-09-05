@@ -9,9 +9,14 @@
  * - Cont, R., Kukanov, A., & Stoikov, S. (2014). The Price Impact of Order Book Events
  */
 
+export interface OrderBookLevelSnapshot {
+    price: number;
+    quantity: number;
+}
+
 export interface OrderBookSnapshot {
-    bids: [string, string][]; // [price, quantity]
-    asks: [string, string][];
+    bids: OrderBookLevelSnapshot[];
+    asks: OrderBookLevelSnapshot[];
     timestamp: number;
 }
 
@@ -76,16 +81,16 @@ export class OFICalculator {
      * Calculate bid-side pressure (volume increase at bid levels)
      */
     private calculateBidPressure(
-        previousBids: [string, string][],
-        currentBids: [string, string][]
+        previousBids: OrderBookLevelSnapshot[],
+        currentBids: OrderBookLevelSnapshot[]
     ): number {
-        const prevMap = new Map<string, number>();
-        previousBids.forEach(([price, qty]) => {
-            prevMap.set(price, parseFloat(qty));
+        const prevMap = new Map<number, number>();
+        previousBids.forEach(({ price, quantity }) => {
+            prevMap.set(price, quantity);
         });
 
         let pressure = 0;
-        const currentMap = new Map(currentBids.map(([price, qty]) => [price, parseFloat(qty)]));
+        const currentMap = new Map(currentBids.map(({ price, quantity }) => [price, quantity]));
         const prices = new Set([...prevMap.keys(), ...currentMap.keys()]);
         prices.forEach((price) => { pressure += (currentMap.get(price) ?? 0) - (prevMap.get(price) ?? 0); });
 
@@ -96,16 +101,16 @@ export class OFICalculator {
      * Calculate ask-side pressure (volume decrease at ask levels)
      */
     private calculateAskPressure(
-        previousAsks: [string, string][],
-        currentAsks: [string, string][]
+        previousAsks: OrderBookLevelSnapshot[],
+        currentAsks: OrderBookLevelSnapshot[]
     ): number {
-        const prevMap = new Map<string, number>();
-        previousAsks.forEach(([price, qty]) => {
-            prevMap.set(price, parseFloat(qty));
+        const prevMap = new Map<number, number>();
+        previousAsks.forEach(({ price, quantity }) => {
+            prevMap.set(price, quantity);
         });
 
         let pressure = 0;
-        const currentMap = new Map(currentAsks.map(([price, qty]) => [price, parseFloat(qty)]));
+        const currentMap = new Map(currentAsks.map(({ price, quantity }) => [price, quantity]));
         const prices = new Set([...prevMap.keys(), ...currentMap.keys()]);
         prices.forEach((price) => { pressure += (currentMap.get(price) ?? 0) - (prevMap.get(price) ?? 0); });
 

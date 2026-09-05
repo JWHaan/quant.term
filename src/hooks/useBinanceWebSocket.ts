@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BINANCE_WS_URL } from '@/constants/config';
-import {
-    recordLiveMarketEvent,
-    releaseLiveConnection,
-    reportLiveConnection,
-} from '@/services/marketTelemetry';
+import { recordLiveMarketEvent, releaseLiveConnection, reportLiveConnection } from '@/services/marketTelemetry';
 import { provenanceRegistry } from '@/services/provenanceEngine';
 
 export interface Candle {
@@ -16,23 +12,8 @@ export interface Candle {
     volume: number;
 }
 
-export interface OrderBookLevel {
-    price: number;
-    size: number;
-    total?: number;
-}
-
-export interface OrderBook {
-    bids: OrderBookLevel[];
-    asks: OrderBookLevel[];
-    lastUpdateId: number;
-    timestamp: number;
-    isStale: boolean;
-}
-
 interface UseBinanceWebSocketReturn {
     candle: Candle | null;
-    orderBook: OrderBook | null;
     isConnected: boolean;
     lastUpdate: number;
     reconnectCount: number;
@@ -46,7 +27,6 @@ interface KeyedValue<T> {
 type JsonRecord = Record<string, unknown>;
 
 const MAX_RECONNECT_DELAY_MS = 30_000;
-const STALE_BOOK_AFTER_MS = 2_000;
 const STALE_SOCKET_AFTER_MS = 15_000;
 
 const asRecord = (value: unknown): JsonRecord | null => {
@@ -57,27 +37,6 @@ const asRecord = (value: unknown): JsonRecord | null => {
 const asFiniteNumber = (value: unknown): number | null => {
     const parsed = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(parsed) ? parsed : null;
-};
-
-const parsePriceLevels = (value: unknown, side: 'bid' | 'ask'): OrderBookLevel[] => {
-    if (!Array.isArray(value)) return [];
-
-    const levels: Array<{ price: number; size: number }> = [];
-    value.forEach((row) => {
-        if (!Array.isArray(row) || row.length < 2) return;
-        const price = asFiniteNumber(row[0]);
-        const size = asFiniteNumber(row[1]);
-        if (price === null || size === null || price <= 0 || size <= 0) return;
-        levels.push({ price, size });
-    });
-
-    levels.sort((a, b) => side === 'bid' ? b.price - a.price : a.price - b.price);
-
-    let cumulative = 0;
-    return levels.slice(0, 20).map((level) => {
-        cumulative += level.size;
-        return { ...level, total: cumulative };
-    });
 };
 
 const extractPayload = (raw: unknown): { stream: string | null; data: JsonRecord | null } => {
@@ -93,6 +52,11 @@ const extractPayload = (raw: unknown): { stream: string | null; data: JsonRecord
     };
 };
 
+/**
+ * Live kline feed for one symbol and interval. Depth order book data comes
+ * from the shared {@link useDepthStream} feed, so this hook owns exactly one
+ * socket purpose.
+ */
 export const useBinanceWebSocket = (
     symbol: string = 'btcusdt',
     interval: string = '1m',
@@ -102,7 +66,6 @@ export const useBinanceWebSocket = (
     const feedKey = `${normalizedSymbol}:${interval}`;
 
     const [candleState, setCandleState] = useState<KeyedValue<Candle | null>>({ key: '', value: null });
-    const [orderBookState, setOrderBookState] = useState<KeyedValue<OrderBook | null>>({ key: '', value: null });
     const [connectionState, setConnectionState] = useState<KeyedValue<boolean>>({ key: '', value: false });
     const [lastUpdateState, setLastUpdateState] = useState<KeyedValue<number>>({ key: '', value: 0 });
     const [reconnectState, setReconnectState] = useState<KeyedValue<number>>({ key: '', value: 0 });
@@ -118,16 +81,15 @@ export const useBinanceWebSocket = (
         let lastMessageAt = 0;
         const owner = ownerRef.current;
 
-        const sources = ['binance', 'depth'] as const;
-        const reportAll = (status: 'connecting' | 'connected' | 'error' | 'reconnecting') => {
-            sources.forEach((source) => reportLiveConnection(source, owner, status));
+        const report = (status: 'connecting' | 'connected' | 'error' | 'reconnecting') => {
+            reportLiveConnection('binance', owner, status);
         };
 
         const scheduleReconnect = (connect: () => void) => {
             if (disposed || reconnectTimer) return;
             const delay = Math.min(MAX_RECONNECT_DELAY_MS, 1_000 * (2 ** reconnectAttempts));
             reconnectAttempts += 1;
-            reportAll('reconnecting');
+            report('reconnecting');
             reconnectTimer = setTimeout(() => {
                 reconnectTimer = null;
                 connect();
@@ -137,12 +99,8 @@ export const useBinanceWebSocket = (
         const connect = () => {
             if (disposed) return;
 
-            reportAll(reconnectAttempts > 0 ? 'reconnecting' : 'connecting');
-            const streams = [
-                `${streamSymbol}@kline_${interval}`,
-                `${streamSymbol}@depth20@100ms`,
-            ].join('/');
-            const ws = new WebSocket(`${BINANCE_WS_URL}/stream?streams=${streams}`);
+            report(reconnectAttempts > 0 ? 'reconnecting' : 'connecting');
+            const ws = new WebSocket(`${BINANCE_WS_URL}/ws/${streamSymbol}@kline_${interval}`);
             wsRef.current = ws;
 
             ws.onopen = () => {
@@ -150,7 +108,7 @@ export const useBinanceWebSocket = (
                 lastMessageAt = Date.now();
                 reconnectAttempts = 0;
                 setConnectionState({ key: feedKey, value: true });
-                reportAll('connected');
+                report('connected');
 
                 if (hasOpened) {
                     setReconnectState((previous) => ({
@@ -181,52 +139,31 @@ export const useBinanceWebSocket = (
                         undefined;
                     recordLiveMarketEvent('binance', eventTimestamp, normalizedSymbol);
 
-                    if (data['e'] === 'kline' || stream?.includes('@kline_')) {
-                        const kline = asRecord(data['k']);
-                        if (!kline) return;
-                        const time = asFiniteNumber(kline['t']);
-                        const open = asFiniteNumber(kline['o']);
-                        const high = asFiniteNumber(kline['h']);
-                        const low = asFiniteNumber(kline['l']);
-                        const close = asFiniteNumber(kline['c']);
-                        const volume = asFiniteNumber(kline['v']);
-                        if ([time, open, high, low, close, volume].some((value) => value === null)) return;
+                    const isKline = data['e'] === 'kline' || stream?.includes('@kline_');
+                    if (!isKline) return;
 
-                        const nextCandle: Candle = {
-                            time: time! / 1000,
-                            open: open!,
-                            high: high!,
-                            low: low!,
-                            close: close!,
-                            volume: volume!,
-                        };
-                        setCandleState({ key: feedKey, value: nextCandle });
-                        provenanceRegistry
-                            .getEngine(normalizedSymbol)
-                            .augment(nextCandle, eventTimestamp ?? receivedAt);
+                    const kline = asRecord(data['k']);
+                    if (!kline) return;
+                    const time = asFiniteNumber(kline['t']);
+                    const open = asFiniteNumber(kline['o']);
+                    const high = asFiniteNumber(kline['h']);
+                    const low = asFiniteNumber(kline['l']);
+                    const close = asFiniteNumber(kline['c']);
+                    const volume = asFiniteNumber(kline['v']);
+                    if ([time, open, high, low, close, volume].some((value) => value === null)) return;
 
-                        return;
-                    }
-
-                    const isPartialDepth =
-                        stream?.includes('@depth20') ||
-                        (Array.isArray(data['bids']) && Array.isArray(data['asks']));
-                    if (isPartialDepth) {
-                        const bids = parsePriceLevels(data['bids'], 'bid');
-                        const asks = parsePriceLevels(data['asks'], 'ask');
-                        if (bids.length === 0 || asks.length === 0) return;
-
-                        setOrderBookState({
-                            key: feedKey,
-                            value: {
-                                bids,
-                                asks,
-                                lastUpdateId: asFiniteNumber(data['lastUpdateId']) ?? 0,
-                                timestamp: receivedAt,
-                                isStale: false,
-                            },
-                        });
-                    }
+                    const nextCandle: Candle = {
+                        time: time! / 1000,
+                        open: open!,
+                        high: high!,
+                        low: low!,
+                        close: close!,
+                        volume: volume!,
+                    };
+                    setCandleState({ key: feedKey, value: nextCandle });
+                    provenanceRegistry
+                        .getEngine(normalizedSymbol)
+                        .augment(nextCandle, eventTimestamp ?? receivedAt);
                 } catch (error) {
                     console.error('[Binance] Failed to parse market message:', error);
                 }
@@ -235,18 +172,13 @@ export const useBinanceWebSocket = (
             ws.onerror = () => {
                 if (disposed || wsRef.current !== ws) return;
                 setConnectionState({ key: feedKey, value: false });
-                reportAll('error');
+                report('error');
                 ws.close();
             };
 
             ws.onclose = () => {
                 if (disposed || wsRef.current !== ws) return;
                 setConnectionState({ key: feedKey, value: false });
-                setOrderBookState((previous) => (
-                    previous.key === feedKey && previous.value
-                        ? { key: feedKey, value: { ...previous.value, isStale: true } }
-                        : previous
-                ));
                 provenanceRegistry.getEngine(normalizedSymbol).markDisconnected();
                 scheduleReconnect(connect);
             };
@@ -256,24 +188,11 @@ export const useBinanceWebSocket = (
 
         const watchdog = setInterval(() => {
             if (disposed) return;
-            const now = Date.now();
-            setOrderBookState((previous) => {
-                if (
-                    previous.key !== feedKey ||
-                    !previous.value ||
-                    previous.value.isStale ||
-                    now - previous.value.timestamp <= STALE_BOOK_AFTER_MS
-                ) {
-                    return previous;
-                }
-                return { key: feedKey, value: { ...previous.value, isStale: true } };
-            });
-
             const ws = wsRef.current;
             if (
                 ws?.readyState === WebSocket.OPEN &&
                 lastMessageAt > 0 &&
-                now - lastMessageAt > STALE_SOCKET_AFTER_MS
+                Date.now() - lastMessageAt > STALE_SOCKET_AFTER_MS
             ) {
                 ws.close();
             }
@@ -296,13 +215,12 @@ export const useBinanceWebSocket = (
             }
             if (wsRef.current === ws) wsRef.current = null;
             provenanceRegistry.getEngine(normalizedSymbol).markDisconnected();
-            sources.forEach((source) => releaseLiveConnection(source, owner));
+            releaseLiveConnection('binance', owner);
         };
     }, [feedKey, interval, normalizedSymbol, streamSymbol]);
 
     return {
         candle: candleState.key === feedKey ? candleState.value : null,
-        orderBook: orderBookState.key === feedKey ? orderBookState.value : null,
         isConnected: connectionState.key === feedKey && connectionState.value,
         lastUpdate: lastUpdateState.key === feedKey ? lastUpdateState.value : 0,
         reconnectCount: reconnectState.key === feedKey ? reconnectState.value : 0,

@@ -5,6 +5,7 @@ import {
     parseKlineRow,
     fetchKlinesPage,
     fetchKlinesRange,
+    fetchKlinesSnapshot,
     NoClosedCandlesError,
     buildDatasetMeta,
     detectGaps,
@@ -260,6 +261,58 @@ describe('fetchKlinesRange', () => {
         controller.abort();
 
         await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    });
+});
+
+describe('fetchKlinesSnapshot', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('requests the klines endpoint with the requested symbol, interval, and limit', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify([ms(BASE_MS)]), { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '15m', limit: 200 });
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const url = String(fetchMock.mock.calls[0]?.[0]);
+        expect(url.startsWith('https://data-api.binance.vision/api/v3/klines')).toBe(true);
+        expect(urlParam(url, 'symbol')).toBe('BTCUSDT');
+        expect(urlParam(url, 'interval')).toBe('15m');
+        expect(urlParam(url, 'limit')).toBe('200');
+    });
+
+    it('returns parsed candles including the still-forming latest candle', async () => {
+        // Signal panels intentionally compute over the in-progress bar, unlike
+        // the backtest adapter which filters unclosed candles out.
+        const forming = ['9223372036854760000', '1', '1', '1', '1', '1', 9_223_372_036_854_776_000, '0', 0, '0', '0', '0'];
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([...rowsFrom(BASE_MS, 2), forming]), { status: 200 })));
+
+        const candles = await fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '1m', limit: 3 });
+
+        expect(candles).toHaveLength(3);
+        expect(candles.at(-1)?.time).toBe(9_223_372_036_854_760);
+    });
+
+    it('filters malformed rows but keeps the valid ones', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([['junk'], ms(BASE_MS)]), { status: 200 })));
+
+        const candles = await fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '1m', limit: 2 });
+
+        expect(candles).toEqual([{ time: BASE_MS / 1000, open: 42_000.1, high: 42_100.5, low: 41_900.25, close: 42_050.75, volume: 12.5 }]);
+    });
+
+    it('throws on HTTP failure with the status in the message', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 503 })));
+
+        await expect(fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '1m' })).rejects.toThrow('Failed to fetch klines (503)');
+    });
+
+    it('throws when no rows parse into candles', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([]), { status: 200 })));
+
+        await expect(fetchKlinesSnapshot({ symbol: 'BTCUSDT', interval: '1m' })).rejects.toThrow('no valid candles');
     });
 });
 

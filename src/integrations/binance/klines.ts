@@ -1,7 +1,7 @@
 import { BINANCE_REST_URL } from '@/constants/config';
 import type { BacktestCandle, BacktestDataset } from '@/backtest/types';
 import { checksumCandles } from '@/backtest/fixture';
-import type { Timeframe } from '@/types/common';
+import type { OHLCV, Timeframe } from '@/types/common';
 
 /** Bar duration in seconds for every supported Binance kline interval. */
 export const INTERVAL_SECONDS: Record<Timeframe, number> = {
@@ -33,6 +33,19 @@ const KLINES_PATH = '/api/v3/klines';
 const KLINES_TIMEOUT_MS = 8_000;
 const DEFAULT_PAGE_LIMIT = 1_000;
 const NO_CLOSED_CANDLES_MESSAGE = 'Failed to fetch klines: no closed candles in response';
+
+/** Shared klines GET: fixed 8s deadline raced against the caller's signal. */
+const requestKlines = async (params: URLSearchParams, signal?: AbortSignal): Promise<unknown[]> => {
+    const url = `${BINANCE_REST_URL}${KLINES_PATH}?${params.toString()}`;
+    const timeoutSignal = AbortSignal.timeout(KLINES_TIMEOUT_MS);
+    const response = await fetch(url, {
+        signal: signal ? AbortSignal.any([timeoutSignal, signal]) : timeoutSignal,
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to fetch klines (${response.status})`);
+    }
+    return (await response.json()) as unknown[];
+};
 
 /**
  * Sentinel thrown by fetchKlinesPage when a 200 response yields zero closed candles
@@ -92,17 +105,7 @@ export const fetchKlinesPage = async (request: KlinesRequest, signal?: AbortSign
     if (request.startTime !== undefined) params.set('startTime', String(request.startTime));
     if (request.endTime !== undefined) params.set('endTime', String(request.endTime));
 
-    const url = `${BINANCE_REST_URL}${KLINES_PATH}?${params.toString()}`;
-    // 8s deadline raced against the caller's signal: whichever fires first aborts the fetch.
-    const timeoutSignal = AbortSignal.timeout(KLINES_TIMEOUT_MS);
-    const response = await fetch(url, {
-        signal: signal ? AbortSignal.any([timeoutSignal, signal]) : timeoutSignal,
-    });
-    if (!response.ok) {
-        throw new Error(`Failed to fetch klines (${response.status})`);
-    }
-
-    const rows = (await response.json()) as unknown[];
+    const rows = await requestKlines(params, signal);
     const nowMs = Date.now();
     const intervalSeconds = INTERVAL_SECONDS[request.interval];
     const candles = rows
@@ -111,6 +114,56 @@ export const fetchKlinesPage = async (request: KlinesRequest, signal?: AbortSign
 
     if (candles.length === 0) {
         throw new NoClosedCandlesError();
+    }
+    return candles;
+};
+
+export interface KlinesSnapshotRequest {
+    symbol: string;
+    /** Any Binance kline interval; the snapshot path does no interval math. */
+    interval: string;
+    limit?: number;
+}
+
+/** Parse one raw kline row without the closed-candle filter, keeping the forming bar. */
+const parseSnapshotRow = (row: unknown): OHLCV | null => {
+    if (!Array.isArray(row) || row.length < 6) return null;
+    const openMs = Number(row[0]);
+    const values = [openMs, Number(row[1]), Number(row[2]), Number(row[3]), Number(row[4]), Number(row[5])];
+    if (!values.every((value) => Number.isFinite(value))) return null;
+
+    return {
+        time: Math.floor(openMs / 1_000),
+        open: values[1]!,
+        high: values[2]!,
+        low: values[3]!,
+        close: values[4]!,
+        volume: values[5]!,
+    };
+};
+
+/**
+ * Fetch the most recent candles INCLUDING the still-forming latest bar. Signal
+ * panels compute over live data, so unlike fetchKlinesPage the closed-candle
+ * filter is deliberately not applied here.
+ */
+export const fetchKlinesSnapshot = async (
+    request: KlinesSnapshotRequest,
+    signal?: AbortSignal,
+): Promise<OHLCV[]> => {
+    const params = new URLSearchParams({
+        symbol: request.symbol,
+        interval: request.interval,
+        limit: String(request.limit ?? DEFAULT_PAGE_LIMIT),
+    });
+
+    const rows = await requestKlines(params, signal);
+    const candles = rows
+        .map(parseSnapshotRow)
+        .filter((candle): candle is OHLCV => candle !== null);
+
+    if (candles.length === 0) {
+        throw new Error('Binance returned no valid candles');
     }
     return candles;
 };

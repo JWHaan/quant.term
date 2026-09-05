@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Activity, TrendingUp, Zap } from 'lucide-react';
 import { OFIIndicator } from './OFIIndicator';
 import { VolumeDeltaIndicator } from './VolumeDeltaIndicator';
@@ -14,24 +14,16 @@ import {
     calculateOBV,
     calculateVWAP,
 } from '@/utils/indicators';
-import { BINANCE_REST_URL, MARKET_POLL_INTERVAL_MS, DEFAULT_SYMBOL } from '@/constants/config';
-
-type CandlePoint = {
-    time: number;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-};
+import { useKlineSnapshot } from '@/hooks/useKlineSnapshot';
+import { MARKET_POLL_INTERVAL_MS, DEFAULT_SYMBOL } from '@/constants/config';
+import type { OHLCV } from '@/types/common';
 
 interface AlphaPanelProps {
     symbol?: string;
     interval?: string;
 }
 
-interface AlphaState {
-    loaded: boolean;
+interface AlphaFactors {
     regime: 'TRENDING' | 'MEAN_REVERSION' | 'RANDOM_WALK';
     marketCondition: 'BULL' | 'BEAR' | 'STATIC' | 'VOLATILE';
     hurst: number;
@@ -48,17 +40,8 @@ interface AlphaState {
     };
 }
 
-const INITIAL_STATE: AlphaState = {
-    loaded: false,
-    regime: 'RANDOM_WALK',
-    marketCondition: 'STATIC',
-    hurst: 0.5,
-    adx: 0,
-    rsi: 50,
-    atrPercent: 0,
-    obvTrend: 'NEUTRAL',
-    scores: { trend: 0, momentum: 0, volatility: 0, volume: 0, total: 0 },
-};
+const MIN_CANDLES_FOR_FACTORS = 200;
+const HISTORY_LIMIT = 500;
 
 const SCORE_COLORS = {
     positive: 'var(--accent-success)',
@@ -72,7 +55,7 @@ function getScoreColor(score: number): string {
     return SCORE_COLORS.neutral;
 }
 
-function getMarketConditionColor(condition: AlphaState['marketCondition']): string {
+function getMarketConditionColor(condition: AlphaFactors['marketCondition']): string {
     switch (condition) {
         case 'BULL':
             return 'var(--accent-success)';
@@ -85,20 +68,11 @@ function getMarketConditionColor(condition: AlphaState['marketCondition']): stri
     }
 }
 
-function parseKlineRow(d: [number, string, string, string, string, string]): CandlePoint {
-    return {
-        time: d[0] / 1000,
-        open: parseFloat(d[1]),
-        high: parseFloat(d[2]),
-        low: parseFloat(d[3]),
-        close: parseFloat(d[4]),
-        volume: parseFloat(d[5]),
-    };
-}
+function computeAlphaFactors(data: OHLCV[]): AlphaFactors | null {
+    if (data.length < MIN_CANDLES_FOR_FACTORS) return null;
 
-function computeAlphaFactors(data: CandlePoint[]): Omit<AlphaState, 'loaded'> {
     const hurst = calculateHurst(data);
-    let regime: AlphaState['regime'] = 'RANDOM_WALK';
+    let regime: AlphaFactors['regime'] = 'RANDOM_WALK';
     if (hurst > 0.55) regime = 'TRENDING';
     else if (hurst < 0.45) regime = 'MEAN_REVERSION';
 
@@ -143,9 +117,9 @@ function computeAlphaFactors(data: CandlePoint[]): Omit<AlphaState, 'loaded'> {
     volumeScore += obvChange > 0 ? 50 : -50;
     volumeScore += priceToVwap > 0 ? 25 : -25;
 
-    const obvTrend: AlphaState['obvTrend'] = obvChange > 0 ? 'BULLISH' : obvChange < 0 ? 'BEARISH' : 'NEUTRAL';
+    const obvTrend: AlphaFactors['obvTrend'] = obvChange > 0 ? 'BULLISH' : obvChange < 0 ? 'BEARISH' : 'NEUTRAL';
 
-    let marketCondition: AlphaState['marketCondition'] = 'STATIC';
+    let marketCondition: AlphaFactors['marketCondition'] = 'STATIC';
     if (atrPercent > 1.5) marketCondition = 'VOLATILE';
     else if (lastClose > lastEMA && rsi > 55) marketCondition = 'BULL';
     else if (lastClose <= lastEMA && rsi < 45) marketCondition = 'BEAR';
@@ -171,69 +145,33 @@ function computeAlphaFactors(data: CandlePoint[]): Omit<AlphaState, 'loaded'> {
 }
 
 const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interval = '15m' }) => {
-    const [state, setState] = useState<AlphaState>(INITIAL_STATE);
-    const [error, setError] = useState<string | null>(null);
+    const { candles, isLoading, error } = useKlineSnapshot(
+        symbol,
+        interval,
+        HISTORY_LIMIT,
+        { pollMs: MARKET_POLL_INTERVAL_MS, label: 'Factor' },
+    );
 
-    useEffect(() => {
-        let disposed = false;
-        let activeController: AbortController | null = null;
+    const factors = useMemo(() => computeAlphaFactors(candles), [candles]);
 
-        const fetchData = async () => {
-            activeController?.abort();
-            const controller = new AbortController();
-            activeController = controller;
-            let timedOut = false;
-            const timeout = window.setTimeout(() => {
-                timedOut = true;
-                controller.abort();
-            }, 8_000);
-
-            try {
-                const res = await fetch(
-                    `${BINANCE_REST_URL}/api/v3/klines?symbol=${encodeURIComponent(symbol.toUpperCase())}&interval=${encodeURIComponent(interval)}&limit=500`,
-                    { signal: controller.signal },
-                );
-                if (!res.ok) throw new Error(`Binance returned ${res.status}`);
-                const payload: unknown = await res.json();
-                if (!Array.isArray(payload) || payload.length < 200) throw new Error('Insufficient kline history');
-                const raw = payload as [number, string, string, string, string, string][];
-
-                const result = computeAlphaFactors(raw.map(parseKlineRow));
-                if (!disposed && !controller.signal.aborted && activeController === controller) {
-                    setState({ ...result, loaded: true });
-                    setError(null);
-                }
-            } catch (caught) {
-                if (disposed || (controller.signal.aborted && !timedOut) || activeController !== controller) return;
-                console.error('[AlphaPanel] Failed to fetch data:', caught);
-                setError(timedOut ? 'Factor request timed out' : caught instanceof Error ? caught.message : 'Factor data unavailable');
-            } finally {
-                window.clearTimeout(timeout);
-            }
-        };
-
-        fetchData();
-        const id = setInterval(fetchData, MARKET_POLL_INTERVAL_MS);
-        return () => {
-            disposed = true;
-            clearInterval(id);
-            activeController?.abort();
-        };
-    }, [symbol, interval]);
-
-    if (!state.loaded) {
+    if (!factors) {
+        const unavailable = error ?? (isLoading ? null : 'Insufficient kline history');
         return (
             <div className="panel-loading">
-                {error ? `[FACTOR_FEED_UNAVAILABLE] · ${error} · RETRYING` : <><Activity size={16} className="spin" style={{ marginRight: '8px' }} />[CALCULATING_ALPHA_FACTORS]…</>}
+                {unavailable
+                    ? `[FACTOR_FEED_UNAVAILABLE] · ${unavailable} · RETRYING`
+                    : <><Activity size={16} className="spin" style={{ marginRight: '8px' }} />[CALCULATING_ALPHA_FACTORS]…</>}
             </div>
         );
     }
 
+    const { regime, marketCondition, hurst, adx, rsi, atrPercent, obvTrend, scores } = factors;
+
     const factorRows = [
-        { label: 'TREND', score: state.scores.trend, value: `${state.adx.toFixed(1)} ADX` },
-        { label: 'MOMENTUM', score: state.scores.momentum, value: `${state.rsi.toFixed(1)} RSI` },
-        { label: 'VOLATILITY', score: state.scores.volatility, value: `${state.atrPercent.toFixed(2)}% ATR` },
-        { label: 'VOLUME', score: state.scores.volume, value: state.obvTrend },
+        { label: 'TREND', score: scores.trend, value: `${adx.toFixed(1)} ADX` },
+        { label: 'MOMENTUM', score: scores.momentum, value: `${rsi.toFixed(1)} RSI` },
+        { label: 'VOLATILITY', score: scores.volatility, value: `${atrPercent.toFixed(2)}% ATR` },
+        { label: 'VOLUME', score: scores.volume, value: obvTrend },
     ];
 
     return (
@@ -246,16 +184,16 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
                 <div className="stat-card">
                     <div className="stat-card__label">MARKET_REGIME</div>
-                    <div className="stat-card__value" style={{ color: getMarketConditionColor(state.marketCondition), display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {state.marketCondition === 'BULL' ? <TrendingUp size={14} /> : state.marketCondition === 'BEAR' ? <TrendingUp size={14} style={{ transform: 'scaleY(-1)' }} /> : state.marketCondition === 'VOLATILE' ? <Zap size={14} /> : <Activity size={14} />}
-                        [{state.marketCondition}]
+                    <div className="stat-card__value" style={{ color: getMarketConditionColor(marketCondition), display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {marketCondition === 'BULL' ? <TrendingUp size={14} /> : marketCondition === 'BEAR' ? <TrendingUp size={14} style={{ transform: 'scaleY(-1)' }} /> : marketCondition === 'VOLATILE' ? <Zap size={14} /> : <Activity size={14} />}
+                        [{marketCondition}]
                     </div>
                 </div>
 
                 <div className="stat-card">
                     <div className="stat-card__label">ALPHA_SCORE</div>
-                    <div className="stat-card__value tnum" style={{ color: getScoreColor(state.scores.total) }}>
-                        {state.scores.total > 0 ? '+' : ''}{state.scores.total.toFixed(0)}
+                    <div className="stat-card__value tnum" style={{ color: getScoreColor(scores.total) }}>
+                        {scores.total > 0 ? '+' : ''}{scores.total.toFixed(0)}
                     </div>
                 </div>
             </div>
@@ -286,13 +224,13 @@ const AlphaPanel: React.FC<AlphaPanelProps> = ({ symbol = DEFAULT_SYMBOL, interv
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px' }}>
                     <div className="stat-card">
                         <div className="stat-card__label">HURST_EXP</div>
-                        <div className="tnum" style={{ color: 'var(--text-primary)' }}>{state.hurst.toFixed(3)}</div>
-                        <div className="stat-card__sub">{state.regime}</div>
+                        <div className="tnum" style={{ color: 'var(--text-primary)' }}>{hurst.toFixed(3)}</div>
+                        <div className="stat-card__sub">{regime}</div>
                     </div>
                     <div className="stat-card">
                         <div className="stat-card__label">OBV_TREND</div>
-                        <div style={{ color: state.obvTrend === 'BULLISH' ? 'var(--accent-success)' : state.obvTrend === 'BEARISH' ? 'var(--accent-danger)' : 'var(--text-muted)' }}>
-                            [{state.obvTrend}]
+                        <div style={{ color: obvTrend === 'BULLISH' ? 'var(--accent-success)' : obvTrend === 'BEARISH' ? 'var(--accent-danger)' : 'var(--text-muted)' }}>
+                            [{obvTrend}]
                         </div>
                     </div>
                 </div>
