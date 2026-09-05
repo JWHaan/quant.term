@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { OrderBook } from '@/hooks/useBinanceWebSocket';
+import type { DepthBook } from '@/hooks/useDepthStream';
 
 export interface OrderBookSnapshot {
     timestamp: number;
@@ -66,24 +66,24 @@ export const useOrderBookHistoryStore = create<OrderBookHistoryState>((set, get)
     setCaptureInterval: (interval: number) => set({ captureInterval: interval }),
 }));
 
-// Helper function to convert OrderBook to OrderBookSnapshot
+// Helper function to convert DepthBook to OrderBookSnapshot
 export const orderBookToSnapshot = (
-    orderBook: OrderBook,
+    orderBook: DepthBook,
     symbol: string
 ): OrderBookSnapshot => {
     const bids = new Map<number, number>();
     const asks = new Map<number, number>();
 
     orderBook.bids.forEach(level => {
-        bids.set(level.price, level.size);
+        bids.set(level.price, level.quantity);
     });
 
     orderBook.asks.forEach(level => {
-        asks.set(level.price, level.size);
+        asks.set(level.price, level.quantity);
     });
 
     return {
-        timestamp: orderBook.timestamp || Date.now(),
+        timestamp: orderBook.receivedAt || Date.now(),
         bids,
         asks,
         symbol

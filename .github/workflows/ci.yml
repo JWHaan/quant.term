@@ -52,3 +52,15 @@ jobs:
           path: coverage
           if-no-files-found: warn
           retention-days: 7
+
+  engine:
+    name: Native engine gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Configure, build, and test the native core
+        run: npm run engine:check

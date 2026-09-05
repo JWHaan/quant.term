@@ -19,9 +19,9 @@ The roadmap is ordered by product risk and maintainability, not promised dates.
 
 ## Next
 
-- [ ] Share one selected-symbol depth subscription across chart, DOM, and OFI consumers
+- [x] Share one selected-symbol depth subscription across chart, DOM, and OFI consumers
 - [x] Split the chart renderer into data model, scales, drawing, and interaction modules (superseded: replaced the custom renderer with TradingView Lightweight Charts v5)
-- [ ] Move panel-owned network requests into typed integration clients and feature hooks
+- [x] Move panel-owned network requests into typed integration clients and feature hooks
 - [ ] Add component and browser smoke tests for chart loading, symbol switching, and degraded providers
 - [ ] Raise full-tree coverage floors as UI coverage lands
 - [ ] Add accessible compact and tablet layouts without weakening the desktop terminal

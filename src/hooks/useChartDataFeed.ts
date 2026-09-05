@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BINANCE_REST_URL } from '@/constants/config';
+import { fetchKlinesSnapshot } from '@/integrations/binance/klines';
 import { useBinanceWebSocket } from '@/hooks/useBinanceWebSocket';
+import { useDepthStream } from '@/hooks/useDepthStream';
 import { useChartDataStore } from '@/stores/chartDataStore';
 import { orderBookToSnapshot, useOrderBookHistoryStore } from '@/stores/orderBookHistoryStore';
 import type { OHLCV } from '@/types/common';
@@ -27,51 +28,6 @@ interface UseChartDataFeedResult {
     error: string | null;
     heatmap: HeatmapAggregationResult | null;
 }
-
-const parseHistoricalCandle = (row: unknown): OHLCV | null => {
-    if (!Array.isArray(row) || row.length < 6) return null;
-    const values = row.slice(0, 6).map(Number);
-    if (values.some((value) => !Number.isFinite(value))) return null;
-
-    return {
-        time: values[0]! / 1000,
-        open: values[1]!,
-        high: values[2]!,
-        low: values[3]!,
-        close: values[4]!,
-        volume: values[5]!,
-    };
-};
-
-const fetchHistoricalCandles = async (
-    symbol: string,
-    interval: string,
-    limit: number,
-    signal: AbortSignal,
-): Promise<OHLCV[]> => {
-    const response = await fetch(
-        `${BINANCE_REST_URL}/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${encodeURIComponent(interval)}&limit=${limit}`,
-        { signal },
-    );
-
-    if (!response.ok) {
-        throw new Error(`Failed to fetch candles (${response.status})`);
-    }
-
-    const rawData: unknown = await response.json();
-    if (!Array.isArray(rawData)) {
-        throw new Error('Unexpected kline response format');
-    }
-
-    const candles = rawData
-        .map(parseHistoricalCandle)
-        .filter((candle): candle is OHLCV => candle !== null);
-
-    if (candles.length === 0) {
-        throw new Error('Binance returned no valid candles');
-    }
-    return candles;
-};
 
 const normalizeFetchLimit = (requested: number | undefined): number => {
     if (requested === undefined || !Number.isFinite(requested)) return MAX_BINANCE_KLINES;
@@ -102,10 +58,11 @@ export const useChartDataFeed = (
     const buildHeatmap = useChartDataStore((state) => state.buildHeatmap);
     const setHeatmapConfig = useChartDataStore((state) => state.setHeatmapConfig);
 
-    const { candle, orderBook, isConnected, lastUpdate, reconnectCount } = useBinanceWebSocket(
+    const { candle, isConnected, lastUpdate, reconnectCount } = useBinanceWebSocket(
         normalizedSymbol,
         interval,
     );
+    const { book } = useDepthStream(normalizedSymbol);
 
     const candles = useChartDataStore(
         (state) => state.candles[normalizedSymbol]?.[interval] ?? EMPTY_CANDLES,
@@ -143,7 +100,10 @@ export const useChartDataFeed = (
             controller.abort();
         }, HISTORICAL_FETCH_TIMEOUT_MS);
 
-        fetchHistoricalCandles(normalizedSymbol, interval, fetchLimit, controller.signal)
+        fetchKlinesSnapshot(
+            { symbol: normalizedSymbol, interval, limit: fetchLimit },
+            controller.signal,
+        )
             .then((historicalCandles) => {
                 if (controller.signal.aborted || requestId !== requestIdRef.current) return;
                 setErrorState({ key: seriesKey, message: null });
@@ -182,13 +142,13 @@ export const useChartDataFeed = (
     }, [fetchLimit, interval, normalizedSymbol, seriesKey, setHistoricalCandles, setSeriesLoading, upsertCandle]);
 
     useEffect(() => {
-        if (!options.heatmapEnabled || !orderBook) return;
+        if (!options.heatmapEnabled || !book) return;
 
         const snapshotSymbol = options.orderBookSnapshotSymbol
             ? options.orderBookSnapshotSymbol.toUpperCase()
             : normalizedSymbol;
-        setHeatmapCapture(orderBookToSnapshot(orderBook, snapshotSymbol));
-    }, [orderBook, options.heatmapEnabled, options.orderBookSnapshotSymbol, normalizedSymbol, setHeatmapCapture]);
+        setHeatmapCapture(orderBookToSnapshot(book, snapshotSymbol));
+    }, [book, options.heatmapEnabled, options.orderBookSnapshotSymbol, normalizedSymbol, setHeatmapCapture]);
 
     useEffect(() => {
         if (!options.heatmapEnabled || !options.heatmapOverrides) return;

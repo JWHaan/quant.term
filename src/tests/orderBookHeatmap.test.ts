@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useOrderBookHistoryStore, orderBookToSnapshot, OrderBookSnapshot } from '@/stores/orderBookHistoryStore';
-import { OrderBook } from '@/hooks/useBinanceWebSocket';
+import { DepthBook } from '@/hooks/useDepthStream';
 
 describe('OrderBookHistoryStore', () => {
     beforeEach(() => {
@@ -125,19 +125,20 @@ describe('OrderBookHistoryStore', () => {
     });
 
     describe('orderBookToSnapshot', () => {
-        it('should convert OrderBook to OrderBookSnapshot', () => {
-            const orderBook: OrderBook = {
+        it('should convert DepthBook to OrderBookSnapshot', () => {
+            const orderBook: DepthBook = {
+                symbol: 'BTCUSDT',
                 bids: [
-                    { price: 100, size: 1.5, total: 1.5 },
-                    { price: 99, size: 2.0, total: 3.5 }
+                    { price: 100, quantity: 1.5 },
+                    { price: 99, quantity: 2.0 }
                 ],
                 asks: [
-                    { price: 101, size: 1.0, total: 1.0 },
-                    { price: 102, size: 1.5, total: 2.5 }
+                    { price: 101, quantity: 1.0 },
+                    { price: 102, quantity: 1.5 }
                 ],
                 lastUpdateId: 12345,
-                timestamp: Date.now(),
-                isStale: false
+                eventTime: null,
+                receivedAt: Date.now()
             };
 
             const snapshot = orderBookToSnapshot(orderBook, 'BTCUSDT');
@@ -150,12 +151,13 @@ describe('OrderBookHistoryStore', () => {
         });
 
         it('should handle empty order book', () => {
-            const orderBook: OrderBook = {
+            const orderBook: DepthBook = {
+                symbol: 'BTCUSDT',
                 bids: [],
                 asks: [],
                 lastUpdateId: 0,
-                timestamp: Date.now(),
-                isStale: false
+                eventTime: null,
+                receivedAt: Date.now()
             };
 
             const snapshot = orderBookToSnapshot(orderBook, 'BTCUSDT');

@@ -1,5 +1,6 @@
 import React, { useMemo, memo } from 'react';
-import { useOrderBook, type OrderBookLevel } from '@/hooks/useOrderBook';
+import { useOrderBook } from '@/hooks/useOrderBook';
+import type { OrderBookLevel } from '@/hooks/useOrderBook';
 import { formatPrice } from '@/utils/format';
 import { getAdaptiveBookStep } from '@/utils/orderBookFormatting';
 
@@ -84,12 +85,12 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
     }>({ symbol, level: 0 });
     const aggregationLevel = aggregationState.symbol === symbol ? aggregationState.level : 0;
     const referencePrice = useMemo(() => {
-        const bestBid = Number(bids[0]?.[0]);
-        const bestAsk = Number(asks[0]?.[0]);
-        if (Number.isFinite(bestBid) && Number.isFinite(bestAsk) && bestBid > 0 && bestAsk > 0) {
+        const bestBid = bids[0]?.price;
+        const bestAsk = asks[0]?.price;
+        if (bestBid !== undefined && bestAsk !== undefined && bestBid > 0 && bestAsk > 0) {
             return (bestBid + bestAsk) / 2;
         }
-        return Number.isFinite(bestBid) && bestBid > 0 ? bestBid : bestAsk;
+        return bestBid !== undefined && bestBid > 0 ? bestBid : (bestAsk ?? Number.NaN);
     }, [asks, bids]);
     const baseAggregationStep = getAdaptiveBookStep(referencePrice);
     const aggregationStep = aggregationLevel === 0
@@ -103,11 +104,9 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
         // Helper to aggregate levels
         const aggregate = (levels: readonly OrderBookLevel[], prec: number, side: 'bid' | 'ask') => {
             const map = new Map<number, number>();
-            levels.forEach(([p, v]) => {
-                const price = parseFloat(p);
-                const vol = parseFloat(v);
+            levels.forEach(({ price, quantity }) => {
                 const bucket = (side === 'ask' ? Math.ceil(price / prec) : Math.floor(price / prec)) * prec;
-                map.set(bucket, (map.get(bucket) || 0) + vol);
+                map.set(bucket, (map.get(bucket) || 0) + quantity);
             });
             return Array.from(map.entries()).sort((a, b) => b[0] - a[0]); // Descending price
         };
@@ -124,8 +123,8 @@ const OrderBookDOM: React.FC<OrderBookDOMProps> = ({ symbol = 'BTCUSDT' }) => {
             processedBids = aggBids.slice(0, DEPTH).map(([p, v]) => ({ price: p, vol: v, type: 'bid' as const }));
         } else {
             // Raw
-            processedAsks = asks.slice(0, DEPTH).reverse().map(([p, v]) => ({ price: parseFloat(p), vol: parseFloat(v), type: 'ask' as const }));
-            processedBids = bids.slice(0, DEPTH).map(([p, v]) => ({ price: parseFloat(p), vol: parseFloat(v), type: 'bid' as const }));
+            processedAsks = asks.slice(0, DEPTH).reverse().map((level) => ({ price: level.price, vol: level.quantity, type: 'ask' as const }));
+            processedBids = bids.slice(0, DEPTH).map((level) => ({ price: level.price, vol: level.quantity, type: 'bid' as const }));
         }
 
         let max = 0;

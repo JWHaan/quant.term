@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Activity, TrendingUp, TrendingDown, Zap } from 'lucide-react';
 import { useSelectedSymbol } from '@/stores/marketStore';
 import { useCheckMarketConditions } from '@/stores/alertStore';
+import { useKlineSnapshot } from '@/hooks/useKlineSnapshot';
 import { calculateRSI, calculateBollingerBands, calculateMACD, calculateATR } from '@/utils/indicators';
-import { BINANCE_REST_URL } from '@/constants/config';
+import type { OHLCV } from '@/types/common';
 
 const ANALYSIS_INTERVAL = '15m';
 const ANALYSIS_LIMIT = 200;
 const ANALYSIS_POLL_INTERVAL_MS = 30_000;
+const MIN_CANDLES_FOR_SIGNALS = 50;
 const BUY_SIGNAL_THRESHOLD = 10;
 const STRONG_BUY_SIGNAL_THRESHOLD = 40;
 const SELL_SIGNAL_THRESHOLD = -10;
@@ -22,8 +24,6 @@ export interface QuantSignal {
     price: number;
 }
 
-type CandleRow = [number, string, string, string, string, string];
-
 type MarketAlertPayload = {
     symbol: string;
     price: number;
@@ -34,17 +34,6 @@ type MarketAlertPayload = {
     ofi?: number;
     liquidation?: number;
 };
-
-function parseCandle(d: CandleRow) {
-    return {
-        time: d[0] / 1000,
-        open: parseFloat(d[1]),
-        high: parseFloat(d[2]),
-        low: parseFloat(d[3]),
-        close: parseFloat(d[4]),
-        volume: parseFloat(d[5]),
-    };
-}
 
 function getSignalLabel(score: number): 'STRONG BUY' | 'BUY' | 'SELL' | 'STRONG SELL' | 'NEUTRAL' {
     if (score > STRONG_BUY_SIGNAL_THRESHOLD) return 'STRONG BUY';
@@ -68,108 +57,64 @@ function getSignalColor(signal: ReturnType<typeof getMasterSignal>): string {
     return 'var(--text-secondary)';
 }
 
+function computeQuantSignals(data: OHLCV[]): QuantSignal | null {
+    if (data.length < MIN_CANDLES_FOR_SIGNALS) return null;
+
+    const lastClose = data.at(-1)?.close ?? 0;
+    const rsi = calculateRSI(data, 14).at(-1)?.value ?? 50;
+
+    const bb = calculateBollingerBands(data, 20, 2).at(-1);
+    const bbPosition = bb ? (lastClose - bb.lower) / (bb.upper - bb.lower) : 0.5;
+
+    const macd = calculateMACD(data, 12, 26, 9).at(-1);
+    const macdSignal: QuantSignal['macdSignal'] = macd ? (macd.histogram > 0 ? 'BULLISH' : 'BEARISH') : 'NEUTRAL';
+
+    const atr = calculateATR(data, 14).at(-1)?.value ?? 0;
+    const atrPercent = lastClose !== 0 ? (atr / lastClose) * 100 : 0;
+
+    let score = 0;
+    if (rsi < 30) score += 30;
+    else if (rsi > 70) score -= 30;
+    if (bbPosition < 0.1) score += 20;
+    else if (bbPosition > 0.9) score -= 20;
+    if (macdSignal === 'BULLISH') score += 20;
+    else if (macdSignal === 'BEARISH') score -= 20;
+
+    return { rsi, bbPosition, macdSignal, atrPercent, score, price: lastClose };
+}
+
 const QuantSignalEngine = () => {
     const selectedSymbol = useSelectedSymbol();
     const checkMarketConditions = useCheckMarketConditions();
-    const [signals, setSignals] = useState<QuantSignal | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+    const { candles, isLoading, error, lastUpdated } = useKlineSnapshot(
+        selectedSymbol,
+        ANALYSIS_INTERVAL,
+        ANALYSIS_LIMIT,
+        { pollMs: ANALYSIS_POLL_INTERVAL_MS, label: 'Signal' },
+    );
+
+    const signals = useMemo(() => computeQuantSignals(candles), [candles]);
 
     useEffect(() => {
-        let disposed = false;
-        let activeController: AbortController | null = null;
-
-        const analyzeMarket = async () => {
-            activeController?.abort();
-            const controller = new AbortController();
-            activeController = controller;
-            let timedOut = false;
-            const timeout = window.setTimeout(() => {
-                timedOut = true;
-                controller.abort();
-            }, 8_000);
-
-            try {
-                const response = await fetch(
-                    `${BINANCE_REST_URL}/api/v3/klines?symbol=${encodeURIComponent(selectedSymbol)}&interval=${ANALYSIS_INTERVAL}&limit=${ANALYSIS_LIMIT}`,
-                    { signal: controller.signal },
-                );
-                if (!response.ok) throw new Error(`Binance returned ${response.status}`);
-                const payload: unknown = await response.json();
-                if (!Array.isArray(payload)) throw new Error('Unexpected kline response');
-                const rawData = payload as CandleRow[];
-                const data = rawData.map(parseCandle);
-                if (data.length < 50) throw new Error('Insufficient kline history');
-
-                const lastClose = data.at(-1)?.close ?? 0;
-                const rsi = calculateRSI(data, 14).at(-1)?.value ?? 50;
-
-                const bb = calculateBollingerBands(data, 20, 2).at(-1);
-                const bbPosition = bb ? (lastClose - bb.lower) / (bb.upper - bb.lower) : 0.5;
-
-                const macd = calculateMACD(data, 12, 26, 9).at(-1);
-                const macdSignal: QuantSignal['macdSignal'] = macd ? (macd.histogram > 0 ? 'BULLISH' : 'BEARISH') : 'NEUTRAL';
-
-                const atr = calculateATR(data, 14).at(-1)?.value ?? 0;
-                const atrPercent = lastClose !== 0 ? (atr / lastClose) * 100 : 0;
-
-                let score = 0;
-                if (rsi < 30) score += 30;
-                else if (rsi > 70) score -= 30;
-                if (bbPosition < 0.1) score += 20;
-                else if (bbPosition > 0.9) score -= 20;
-                if (macdSignal === 'BULLISH') score += 20;
-                else if (macdSignal === 'BEARISH') score -= 20;
-
-                const nextSignals: QuantSignal = { rsi, bbPosition, macdSignal, atrPercent, score, price: lastClose };
-                if (disposed || controller.signal.aborted || activeController !== controller) return;
-
-                setSignals((prev) => {
-                    if (!prev) return nextSignals;
-                    const meaningfulChange =
-                        Math.abs(prev.rsi - nextSignals.rsi) > 0.5 ||
-                        Math.abs(prev.bbPosition - nextSignals.bbPosition) > 0.02 ||
-                        Math.abs(prev.atrPercent - nextSignals.atrPercent) > 0.1 ||
-                        Math.abs(prev.score - nextSignals.score) >= 1 ||
-                        prev.macdSignal !== nextSignals.macdSignal;
-                    return meaningfulChange ? nextSignals : prev;
-                });
-
-                const alertPayload: MarketAlertPayload = {
-                    symbol: selectedSymbol,
-                    price: lastClose,
-                    rsi,
-                    signal: getSignalLabel(score),
-                    volumeRatio: 1,
-                    ofi: 0,
-                };
-                checkMarketConditions(alertPayload);
-                setLastUpdated(Date.now());
-                setError(null);
-            } catch (caught) {
-                if (disposed || (controller.signal.aborted && !timedOut) || activeController !== controller) return;
-                console.error('[QuantSignalEngine] Error:', caught);
-                setError(timedOut ? 'Signal request timed out' : caught instanceof Error ? caught.message : 'Signal data unavailable');
-            } finally {
-                window.clearTimeout(timeout);
-                if (!disposed && activeController === controller) setLoading(false);
-            }
+        if (!signals) return;
+        const alertPayload: MarketAlertPayload = {
+            symbol: selectedSymbol,
+            price: signals.price,
+            rsi: signals.rsi,
+            signal: getSignalLabel(signals.score),
+            volumeRatio: 1,
+            ofi: 0,
         };
+        checkMarketConditions(alertPayload);
+    }, [signals, selectedSymbol, checkMarketConditions]);
 
-        analyzeMarket();
-        const interval = setInterval(analyzeMarket, ANALYSIS_POLL_INTERVAL_MS);
-        return () => {
-            disposed = true;
-            clearInterval(interval);
-            activeController?.abort();
-        };
-    }, [selectedSymbol, checkMarketConditions]);
-
-    if (loading || !signals) {
+    if (isLoading || !signals) {
+        const unavailable = error ?? (isLoading ? null : 'Insufficient kline history');
         return (
             <div className="panel-body">
-                {error ? `SIGNAL_ENGINE_UNAVAILABLE · ${error}` : 'INITIALIZING_QUANT_ENGINE…'}
+                {unavailable
+                    ? `SIGNAL_ENGINE_UNAVAILABLE · ${unavailable}`
+                    : 'INITIALIZING_QUANT_ENGINE…'}
             </div>
         );
     }

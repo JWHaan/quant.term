@@ -17,6 +17,7 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Deterministic BTC/USDT SMA replay with next-bar fills, fees, slippage, and trade inspection
 - Native C++20 replay core, CTest suite, and `backtest-v1` contract schema
 - Golden browser/native result checks for the bundled synthetic fixture
+- Native engine CTest correctness gate as a CI job
 
 ### Changed
 
@@ -28,6 +29,8 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Corrected deployment output and documentation to match the generated artifacts
 - Replaced historical project claims with an evidence-based capability and roadmap description
 - Made the application header, footer, skip link, shortcuts, and command palette workspace-aware
+- Consolidated the selected symbol's depth into one shared `@depth20@100ms` subscription feeding the chart heatmap, DOM ladder, and OFI panel
+- Routed chart history, signal, and factor kline requests through the typed klines client with a shared snapshot hook
 
 ### Fixed
 
