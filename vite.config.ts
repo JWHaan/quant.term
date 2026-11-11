@@ -1,7 +1,7 @@
 import { defineConfig, type UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import { sites } from './build/sites-vite-plugin'
+import { sites } from './build/sites-vite-plugin.ts'
 
 // https://vitejs.dev/config/
 export default defineConfig(async (): Promise<UserConfig> => {
@@ -21,7 +21,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
     ],
     resolve: {
         alias: {
-            '@': path.resolve(__dirname, './src'),
+            '@': path.resolve(import.meta.dirname, './src'),
         }
     },
     server: {
