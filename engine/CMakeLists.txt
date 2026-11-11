@@ -31,3 +31,10 @@ add_executable(quant-backtest-tests tests/backtest_test.cpp)
 target_link_libraries(quant-backtest-tests PRIVATE quant_backtest)
 
 add_test(NAME quant-backtest-correctness COMMAND quant-backtest-tests)
+
+# The CLI derives dataset provenance from the fixture; pin it to the shared golden values.
+add_test(NAME quant-backtest-cli-provenance COMMAND quant-backtest)
+set_tests_properties(quant-backtest-cli-provenance PROPERTIES
+    PASS_REGULAR_EXPRESSION
+        "\"checksum\": \"fnv1a-3b3cacbb\",[\r\n ]+\"candleCount\": 480,[\r\n ]+\"startTime\": 1704067200,[\r\n ]+\"endTime\": 1704095940,[\r\n ]+\"intervalSeconds\": 60,"
+)

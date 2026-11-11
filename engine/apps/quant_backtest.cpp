@@ -1,6 +1,7 @@
 #include "quant/backtest.hpp"
 #include "quant/fixture.hpp"
 
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 
@@ -9,6 +10,11 @@ int main() {
     const quant::BacktestConfig config{};
     const auto result = quant::run_sma_cross(candles, config);
     const auto& metrics = result.metrics;
+    // Dataset provenance is derived from the candles so it cannot drift from the fixture.
+    const auto checksum = quant::checksum_candles(candles);
+    const auto start_time = static_cast<std::int64_t>(candles.front().time);
+    const auto end_time = static_cast<std::int64_t>(candles.back().time);
+    const auto interval_seconds = static_cast<std::int64_t>(config.interval_seconds);
 
     std::cout << std::fixed << std::setprecision(6)
               << "{\n"
@@ -21,11 +27,11 @@ int main() {
               << "    \"symbol\": \"BTCUSDT\",\n"
               << "    \"interval\": \"1m\",\n"
               << "    \"source\": \"SYNTHETIC_FIXTURE\",\n"
-              << "    \"checksum\": \"fnv1a-3b3cacbb\",\n"
-              << "    \"candleCount\": 480,\n"
-              << "    \"startTime\": 1704067200,\n"
-              << "    \"endTime\": 1704095940,\n"
-              << "    \"intervalSeconds\": 60,\n"
+              << "    \"checksum\": \"" << checksum << "\",\n"
+              << "    \"candleCount\": " << candles.size() << ",\n"
+              << "    \"startTime\": " << start_time << ",\n"
+              << "    \"endTime\": " << end_time << ",\n"
+              << "    \"intervalSeconds\": " << interval_seconds << ",\n"
               << "    \"fetchedAt\": 0\n"
               << "  },\n"
               << "  \"metrics\": {\n"

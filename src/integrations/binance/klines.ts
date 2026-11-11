@@ -118,7 +118,7 @@ export const fetchKlinesPage = async (request: KlinesRequest, signal?: AbortSign
 export interface KlinesRangeRequest {
     symbol: string;
     interval: Timeframe;
-    /** Bars to walk back from the latest closed bar; ignored when startTime is given. */
+    /** Exact number of closed bars to return, ending at the latest closed bar; ignored when startTime is given. */
     lookbackBars?: number;
     startTime?: number;
     endTime?: number;
@@ -145,16 +145,23 @@ export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: Abo
     const maxCandles = request.maxCandles ?? DEFAULT_MAX_CANDLES;
     // The parse predicate above is the sole unclosed-bar filter, so end at now:
     // backing off a full interval here would silently drop the freshest candle(s).
-    const endMs = request.endTime ?? Date.now();
-    // Window of exactly lookbackBars bars ending at endMs when no explicit start is given.
+    const nowMs = Date.now();
+    const endMs = request.endTime ?? nowMs;
     const lookbackBars = Math.max(request.lookbackBars ?? DEFAULT_LOOKBACK_BARS, 1);
-    const startMs = request.startTime ?? endMs - ((lookbackBars - 1) * intervalMs);
+    // A bar is closed once open + interval <= now, so the newest closed bar opens at or
+    // before now - interval (and at or before endMs). Bars open one interval apart, so
+    // the half-open window (newest - lookbackBars * interval, newest] holds exactly
+    // lookbackBars opens wherever the exchange anchors its bar grid.
+    const newestClosedOpenMs = Math.min(endMs, nowMs - intervalMs);
+    const startMs = request.startTime ?? newestClosedOpenMs - (lookbackBars * intervalMs) + 1;
 
     const byTime = new Map<number, BacktestCandle>();
     let requests = 0;
     let cursor = startMs;
 
-    while (byTime.size < maxCandles && cursor <= endMs) {
+    // A bar opening after now - interval cannot have closed yet, so the walk also stops
+    // there: asking for it would return only the in-flight bar, which reads as a mid-range hole.
+    while (byTime.size < maxCandles && cursor <= Math.min(endMs, Date.now() - intervalMs)) {
         if (requests >= HARD_PAGE_CAP) {
             throw new Error(`Failed to fetch klines range: exceeded hard page cap (${HARD_PAGE_CAP} requests)`);
         }
@@ -184,7 +191,13 @@ export const fetchKlinesRange = async (request: KlinesRangeRequest, signal?: Abo
         cursor = last.time * 1_000 + intervalMs;
     }
 
-    return { candles: [...byTime.values()].sort((a, b) => a.time - b.time), requests };
+    const candles = [...byTime.values()].sort((a, b) => a.time - b.time);
+    // A bar that closes while the walk is in flight would add one extra candle;
+    // keep the newest lookbackBars so the lookback stays exact.
+    return {
+        candles: request.startTime === undefined ? candles.slice(-lookbackBars) : candles,
+        requests,
+    };
 };
 
 const pad2 = (value: number): string => String(value).padStart(2, '0');

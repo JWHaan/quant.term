@@ -60,7 +60,9 @@ describe('kline adapter primitives', () => {
 
 describe('fetchKlinesPage', () => {
     afterEach(() => {
+        vi.useRealTimers();
         vi.unstubAllGlobals();
+        vi.restoreAllMocks();
     });
 
     it('requests the right URL and returns parsed closed candles', async () => {
@@ -115,6 +117,40 @@ describe('fetchKlinesPage', () => {
         expect(received).not.toBe(controller.signal);
         controller.abort();
         expect(received?.aborted).toBe(true);
+    });
+
+    it('fires the 8s deadline on its own when the caller never aborts', async () => {
+        vi.useFakeTimers();
+        // happy-dom arms AbortSignal.timeout on its own window timer, which fake
+        // timers cannot advance, so back the deadline with a fake-able setTimeout.
+        const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockImplementation((delayMs: number) => {
+            const deadline = new AbortController();
+            setTimeout(() => deadline.abort(new DOMException('The operation timed out.', 'TimeoutError')), delayMs);
+            return deadline.signal;
+        });
+        const controller = new AbortController();
+        let received: AbortSignal | undefined;
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockImplementation((_url: unknown, init?: { signal?: AbortSignal }) => {
+                received = init?.signal;
+                return new Promise<Response>((_resolve, reject) => {
+                    init?.signal?.addEventListener('abort', () => reject(init.signal?.reason as Error));
+                });
+            }),
+        );
+
+        const pending = fetchKlinesPage({ symbol: 'BTCUSDT', interval: '5m' }, controller.signal);
+        const outcome = expect(pending).rejects.toMatchObject({ name: 'TimeoutError' });
+
+        expect(timeoutSpy).toHaveBeenCalledExactlyOnceWith(8_000);
+        await vi.advanceTimersByTimeAsync(7_999);
+        expect(received?.aborted).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(received?.aborted).toBe(true);
+        expect(controller.signal.aborted).toBe(false);
+        await outcome;
     });
 });
 
@@ -224,16 +260,106 @@ describe('fetchKlinesRange', () => {
             .rejects.toBeInstanceOf(NoClosedCandlesError);
     });
 
-    it('derives the window from lookbackBars when no explicit start/end is given', async () => {
-        const MOCK_NOW = 1_800_000_000_000;
-        vi.spyOn(Date, 'now').mockReturnValue(MOCK_NOW);
-        const fetchMock = servePages([rowsFrom(BASE_MS, 1)]);
-        // endTime = now; startTime = endTime - (lookbackBars - 1) * interval.
-        const expectedStartMs = MOCK_NOW - (90 - 1) * MIN_MS;
+    it('forwards an explicit endTime on every page and stops once the cursor passes it', async () => {
+        const endTime = BASE_MS + 1999 * MIN_MS;
+        const fetchMock = servePages([rowsFrom(BASE_MS, 1000), rowsFrom(BASE_MS + 1000 * MIN_MS, 1000)]);
 
-        await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 90 });
+        const { candles, requests } = await fetchKlinesRange({
+            symbol: 'BTCUSDT',
+            interval: '1m',
+            startTime: BASE_MS,
+            endTime,
+        });
 
-        expect(urlParam(String(fetchMock.mock.calls[0]?.[0]), 'startTime')).toBe(String(expectedStartMs));
+        // The second page is full, so only the cursor moving past endTime ends the walk.
+        expect(requests).toBe(2);
+        expect(candles).toHaveLength(2000);
+        expect(fetchMock.mock.calls.map((call) => urlParam(String(call[0]), 'endTime')))
+            .toEqual([String(endTime), String(endTime)]);
+    });
+
+    it('anchors the lookback window to an explicit historical endTime', async () => {
+        const endTime = BASE_MS + 30_000;
+        const fetchMock = servePages([rowsFrom(BASE_MS - 89 * MIN_MS, 90)]);
+
+        const { candles } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 90, endTime });
+
+        const url = String(fetchMock.mock.calls[0]?.[0]);
+        expect(urlParam(url, 'endTime')).toBe(String(endTime));
+        expect(urlParam(url, 'startTime')).toBe(String(endTime - 90 * MIN_MS + 1));
+        expect(candles).toHaveLength(90);
+    });
+
+    describe('lookbackBars without an explicit window', () => {
+        /** Serve 1m bars the way Binance does: every bar opening inside [startTime, endTime]. */
+        const serveGrid = (): ReturnType<typeof vi.fn> => {
+            const fetchMock = vi.fn().mockImplementation((url: unknown) => {
+                const startTime = Number(urlParam(String(url), 'startTime'));
+                const endTime = Number(urlParam(String(url), 'endTime'));
+                const limit = Number(urlParam(String(url), 'limit'));
+                const rows: unknown[][] = [];
+                for (
+                    let openMs = Math.ceil(startTime / MIN_MS) * MIN_MS;
+                    openMs <= endTime && rows.length < limit;
+                    openMs += MIN_MS
+                ) {
+                    rows.push(ms(openMs));
+                }
+                return Promise.resolve(new Response(JSON.stringify(rows), { status: 200 }));
+            });
+            vi.stubGlobal('fetch', fetchMock);
+            return fetchMock;
+        };
+
+        it.each([
+            ['mid-bar', BASE_MS + 30_000],
+            ['exactly on a bar boundary', BASE_MS],
+            ['one millisecond before a bar boundary', BASE_MS - 1],
+        ])('returns exactly lookbackBars closed candles when now is %s', async (_label, nowMs) => {
+            vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+            const fetchMock = serveGrid();
+
+            const { candles } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 90 });
+
+            const newestClosedOpenMs = (Math.floor(nowMs / MIN_MS) - 1) * MIN_MS;
+            expect(candles).toHaveLength(90);
+            expect(candles.at(-1)?.time).toBe(newestClosedOpenMs / 1000);
+            expect(candles[0]?.time).toBe((newestClosedOpenMs - 89 * MIN_MS) / 1000);
+            const url = String(fetchMock.mock.calls[0]?.[0]);
+            expect(urlParam(url, 'startTime')).toBe(String(nowMs - 91 * MIN_MS + 1));
+            expect(urlParam(url, 'endTime')).toBe(String(nowMs));
+        });
+
+        it('pages a lookback longer than one page to the exact bar count', async () => {
+            vi.spyOn(Date, 'now').mockReturnValue(BASE_MS + 30_000);
+            serveGrid();
+
+            const { candles, requests } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 1_500 });
+
+            expect(requests).toBe(2);
+            expect(candles).toHaveLength(1_500);
+        });
+
+        it('does not chase the in-flight bar when the closed bars fill the last page exactly', async () => {
+            vi.spyOn(Date, 'now').mockReturnValue(BASE_MS + 30_000);
+            serveGrid();
+
+            const { candles, requests } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 1_000 });
+
+            expect(requests).toBe(1);
+            expect(candles).toHaveLength(1_000);
+        });
+
+        it('keeps the newest lookbackBars when a bar closes while the walk is in flight', async () => {
+            // The window is planned mid-bar, then the clock crosses the boundary before parsing.
+            vi.spyOn(Date, 'now').mockReturnValueOnce(BASE_MS + 59_000).mockReturnValue(BASE_MS + MIN_MS);
+            serveGrid();
+
+            const { candles } = await fetchKlinesRange({ symbol: 'BTCUSDT', interval: '1m', lookbackBars: 90 });
+
+            expect(candles).toHaveLength(90);
+            expect(candles.at(-1)?.time).toBe(BASE_MS / 1000);
+        });
     });
 
     it('throws once the hard page cap is hit on a cursor that never advances', async () => {

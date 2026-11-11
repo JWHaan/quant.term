@@ -1,7 +1,11 @@
 #include "quant/fixture.hpp"
 
 #include <algorithm>
+#include <array>
+#include <charconv>
 #include <cmath>
+#include <cstdint>
+#include <stdexcept>
 
 namespace quant {
 namespace {
@@ -27,7 +31,48 @@ constexpr std::size_t fixture_candle_count = 480U;
     return 43'680.0 - (static_cast<double>(index - 360U) * 10.0);
 }
 
+// Shortest round-trip decimal without an exponent: the same digits JavaScript's
+// Number-to-string conversion produces inside the documented range.
+void hash_number(std::uint32_t& hash, double value) {
+    std::array<char, 512> buffer{};
+    const auto [end, error] = std::to_chars(
+        buffer.data(), buffer.data() + buffer.size(), value, std::chars_format::fixed
+    );
+    if (error != std::errc{}) {
+        throw std::invalid_argument{"candle value cannot be checksummed"};
+    }
+    for (const auto* cursor = buffer.data(); cursor != end; ++cursor) {
+        hash ^= static_cast<unsigned char>(*cursor);
+        hash *= 16'777'619U;
+    }
+}
+
 }  // namespace
+
+std::string checksum_candles(std::span<const Candle> candles) {
+    std::uint32_t hash = 2'166'136'261U;
+    for (const auto& candle : candles) {
+        const std::array fields{
+            candle.time, candle.open, candle.high, candle.low, candle.close, candle.volume,
+        };
+        for (std::size_t index = 0; index < fields.size(); ++index) {
+            if (index > 0U) {
+                hash ^= static_cast<unsigned char>('|');
+                hash *= 16'777'619U;
+            }
+            hash_number(hash, fields[index]);
+        }
+    }
+
+    constexpr std::array digits{
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+    };
+    std::string checksum{"fnv1a-"};
+    for (int shift = 28; shift >= 0; shift -= 4) {
+        checksum.push_back(digits[(hash >> shift) & 0xFU]);
+    }
+    return checksum;
+}
 
 std::vector<Candle> make_synthetic_btcusdt_fixture() {
     std::vector<Candle> candles;

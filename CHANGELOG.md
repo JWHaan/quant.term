@@ -38,6 +38,8 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Recovered live market prices and chart candles through Binance's public market-data hosts
 - Corrected indicator-alert condition evaluation
 - Made paper leverage reserve initial margin and reject positions beyond free simulated equity
+- Made the Strategy Lab kline lookback return exactly the requested number of closed bars instead of one or two fewer
+- Kept native correctness checks active in Release builds and derived the CLI dataset checksum, candle count, and time span from the fixture
 
 ### Removed
 
