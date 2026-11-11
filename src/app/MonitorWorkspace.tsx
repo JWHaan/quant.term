@@ -1,6 +1,6 @@
 import React, { Suspense, useMemo } from 'react';
 import { Activity, BarChart2, Bell, BriefcaseBusiness, Flame, Newspaper, Waves } from 'lucide-react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 import AlertPanel from '@/features/market/AlertPanel';
 import AlphaPanel from '@/features/analytics/AlphaPanel';
 import DashboardPanel from '@/ui/DashboardPanel';
@@ -98,8 +98,8 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
             <NewsTicker />
 
             <main className="main-content" id="terminal-workspace" tabIndex={-1}>
-                <PanelGroup direction="horizontal">
-                    <Panel defaultSize={18} minSize={14} maxSize={25} collapsible>
+                <Group orientation="horizontal">
+                    <Panel defaultSize="18%" minSize="14%" maxSize="25%" collapsible>
                         <div id="panel-market-watch" tabIndex={-1} style={{ height: '100%' }}>
                             <DashboardPanel title="Market Watch">
                                 <PanelErrorBoundary>
@@ -109,11 +109,11 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
                         </div>
                     </Panel>
 
-                    <PanelResizeHandle className="resize-handle" />
+                    <Separator className="resize-handle" />
 
-                    <Panel defaultSize={57} minSize={42}>
-                        <PanelGroup direction="vertical">
-                            <Panel defaultSize={54} minSize={40}>
+                    <Panel defaultSize="57%" minSize="42%">
+                        <Group orientation="vertical">
+                            <Panel defaultSize="54%" minSize="40%">
                                 <div id="panel-chart" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title={`Chart - ${selectedSymbol}`}>
                                         <PanelErrorBoundary>
@@ -125,9 +125,9 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
                                 </div>
                             </Panel>
 
-                            <PanelResizeHandle className="resize-handle" />
+                            <Separator className="resize-handle" />
 
-                            <Panel defaultSize={14} minSize={10}>
+                            <Panel defaultSize="14%" minSize="10%">
                                 <div id="panel-ribbon" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title={`Microstructure - ${selectedSymbol}`}>
                                         <PanelErrorBoundary>
@@ -137,23 +137,23 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
                                 </div>
                             </Panel>
 
-                            <PanelResizeHandle className="resize-handle" />
+                            <Separator className="resize-handle" />
 
-                            <Panel defaultSize={32} minSize={20}>
+                            <Panel defaultSize="32%" minSize="20%">
                                 <DashboardPanel title="Market Depth">
                                     <PanelErrorBoundary>
                                         <TabPanel tabs={marketDepthTabs} defaultTab="orderbook" />
                                     </PanelErrorBoundary>
                                 </DashboardPanel>
                             </Panel>
-                        </PanelGroup>
+                        </Group>
                     </Panel>
 
-                    <PanelResizeHandle className="resize-handle" />
+                    <Separator className="resize-handle" />
 
-                    <Panel defaultSize={25} minSize={20} maxSize={35}>
-                        <PanelGroup direction="vertical">
-                            <Panel defaultSize={52}>
+                    <Panel defaultSize="25%" minSize="20%" maxSize="35%">
+                        <Group orientation="vertical">
+                            <Panel defaultSize="52%">
                                 <div id="panel-research" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title="Research Monitor">
                                         <PanelErrorBoundary>
@@ -163,9 +163,9 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
                                 </div>
                             </Panel>
 
-                            <PanelResizeHandle className="resize-handle" />
+                            <Separator className="resize-handle" />
 
-                            <Panel defaultSize={48}>
+                            <Panel defaultSize="48%">
                                 <div id="panel-intelligence" tabIndex={-1} style={{ height: '100%' }}>
                                     <DashboardPanel title="Market Intelligence">
                                         <PanelErrorBoundary>
@@ -174,9 +174,9 @@ const MonitorWorkspace: React.FC<MonitorWorkspaceProps> = ({
                                     </DashboardPanel>
                                 </div>
                             </Panel>
-                        </PanelGroup>
+                        </Group>
                     </Panel>
-                </PanelGroup>
+                </Group>
             </main>
         </>
     );

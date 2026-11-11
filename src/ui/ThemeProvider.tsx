@@ -1,15 +1,5 @@
-// ThemeProvider.jsx – provides light/dark theme toggle
-import React, { createContext, useEffect, useState } from 'react';
-
-interface ThemeContextType {
-    theme: string;
-    toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType>({
-    theme: 'dark',
-    toggleTheme: () => { }
-});
+import React, { useEffect, useState } from 'react';
+import { ThemeContext } from './ThemeContext';
 
 interface ThemeProviderProps {
     children: React.ReactNode;
@@ -37,5 +27,4 @@ const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     );
 };
 
-export { ThemeContext };
 export default ThemeProvider;

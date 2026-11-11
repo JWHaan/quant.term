@@ -6,9 +6,8 @@ const appStyles = readFileSync(resolve(process.cwd(), 'src/styles/global.css'), 
 
 describe('nested resizable panel handles', () => {
     it('targets orientation on each handle instead of every nested descendant', () => {
-        expect(appStyles).toMatch(/\.resize-handle\[data-panel-group-direction='vertical'\]/);
-        expect(appStyles).toMatch(/\.resize-handle\[data-panel-group-direction='horizontal'\]/);
-        expect(appStyles).not.toMatch(/\[data-panel-group-direction='vertical'\]\s+\.resize-handle/);
-        expect(appStyles).not.toMatch(/\[data-panel-group-direction='horizontal'\]\s+\.resize-handle/);
+        expect(appStyles).toMatch(/\.resize-handle\[aria-orientation='horizontal'\]/);
+        expect(appStyles).toMatch(/\.resize-handle\[aria-orientation='vertical'\]/);
+        expect(appStyles).not.toMatch(/\[aria-orientation='(horizontal|vertical)'\]\s+\.resize-handle/);
     });
 });

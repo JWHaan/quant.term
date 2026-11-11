@@ -16,6 +16,7 @@
         "module": "ESNext",
         "moduleResolution": "bundler",
         "resolveJsonModule": true,
+        "allowImportingTsExtensions": true,
         // Type Checking - STRICT for financial accuracy
         "strict": true,
         "noUncheckedIndexedAccess": true,

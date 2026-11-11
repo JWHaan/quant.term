@@ -1210,7 +1210,7 @@ code,
 
 .resize-handle:hover,
 .resize-handle:focus-visible,
-.resize-handle[data-resize-handle-active] {
+.resize-handle[data-separator='active'] {
   background: var(--accent-primary);
 }
 
@@ -1221,14 +1221,15 @@ code,
 }
 
 /* Match the handle itself. An ancestor selector also matches the outer
-   horizontal group and collapses nested vertical panels to zero height. */
-.resize-handle[data-panel-group-direction='vertical'] {
+   horizontal group and collapses nested vertical panels to zero height.
+   A separator's orientation is perpendicular to its group's. */
+.resize-handle[aria-orientation='horizontal'] {
   width: 100%;
   height: 3px;
   cursor: row-resize;
 }
 
-.resize-handle[data-panel-group-direction='horizontal'] {
+.resize-handle[aria-orientation='vertical'] {
   width: 3px;
   height: 100%;
   cursor: col-resize;

@@ -25,6 +25,8 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Expanded type checking to the Worker, Vercel adapter, build helpers, and config
 - Made zero lint warnings a required quality gate
 - Refreshed build and test dependencies to patched releases with a clean npm audit
+- Migrated the Monitor workspace to react-resizable-panels v4 (`Group`/`Separator`, percentage string sizes)
+- Refreshed dependencies again to clear the high-severity npm advisories (Vite, undici, zod, happy-dom, brace-expansion, Vitest)
 - Corrected deployment output and documentation to match the generated artifacts
 - Replaced historical project claims with an evidence-based capability and roadmap description
 - Made the application header, footer, skip link, shortcuts, and command palette workspace-aware

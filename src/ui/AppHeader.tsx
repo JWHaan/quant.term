@@ -10,7 +10,7 @@ import {
     WifiOff,
 } from 'lucide-react';
 import CommandLine from './CommandLine';
-import { ThemeContext } from './ThemeProvider';
+import { ThemeContext } from './ThemeContext';
 import type { Command } from '@/features/command-palette/commands';
 import type { WorkspaceMode } from '@/types/workspace';
 
