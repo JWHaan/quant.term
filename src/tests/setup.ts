@@ -20,6 +20,58 @@ if (!global.WebSocket) {
     global.WebSocket = vi.fn();
 }
 
+// Vitest's happy-dom environment does not copy `localStorage` or
+// `sessionStorage` onto the test global: modern Node defines them on
+// `globalThis`, and Vitest only overrides a fixed key list that omits both.
+// Provide deterministic in-memory implementations so storage-backed stores
+// behave the same on every host runtime.
+class MemoryStorage {
+    private readonly items = new Map<string, string>();
+
+    get length(): number {
+        return this.items.size;
+    }
+
+    clear(): void {
+        this.items.clear();
+    }
+
+    getItem(key: string): string | null {
+        return this.items.get(String(key)) ?? null;
+    }
+
+    key(index: number): string | null {
+        return Array.from(this.items.keys())[index] ?? null;
+    }
+
+    removeItem(key: string): void {
+        this.items.delete(String(key));
+    }
+
+    setItem(key: string, value: string): void {
+        this.items.set(String(key), String(value));
+    }
+}
+
+function installStorage(name: 'localStorage' | 'sessionStorage'): void {
+    const storage = new MemoryStorage();
+    Object.defineProperty(globalThis, name, {
+        configurable: true,
+        enumerable: true,
+        value: storage,
+        writable: false,
+    });
+    if (typeof window !== 'undefined' && (window as unknown) !== globalThis) {
+        Object.defineProperty(window, name, {
+            configurable: true,
+            value: storage,
+        });
+    }
+}
+
+installStorage('localStorage');
+installStorage('sessionStorage');
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
     writable: true,

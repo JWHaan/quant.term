@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Activity, Database, TrendingDown, TrendingUp } from 'lucide-react';
 import { useCheckMarketConditions } from '@/stores/alertStore';
 import { useMarketData } from '@/stores/marketStore';
+import { useTickFlash } from '@/hooks/useTickFlash';
 import { formatPercent, formatPrice, formatVolume } from '@/utils/format';
 
 interface MarketOverviewBarProps {
@@ -11,6 +12,7 @@ interface MarketOverviewBarProps {
 
 const MarketOverviewBar: React.FC<MarketOverviewBarProps> = ({ symbol, isConnected }) => {
     const market = useMarketData(symbol);
+    const tickFlash = useTickFlash(market?.price, symbol);
     const checkMarketConditions = useCheckMarketConditions();
     const [now, setNow] = useState(() => Date.now());
 
@@ -39,7 +41,12 @@ const MarketOverviewBar: React.FC<MarketOverviewBarProps> = ({ symbol, isConnect
                 </span>
             </div>
             <div className="instrument-price">
-                <strong>{market ? formatPrice(market.price) : '—'}</strong>
+                <strong
+                    key={tickFlash.nonce}
+                    className={tickFlash.direction ? `tick-flash--${tickFlash.direction}` : undefined}
+                >
+                    {market ? formatPrice(market.price) : '—'}
+                </strong>
                 <span className={positive ? 'positive' : 'negative'}>
                     {positive ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
                     {market ? formatPercent(market.priceChangePercent) : '—'}

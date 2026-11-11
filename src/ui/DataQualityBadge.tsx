@@ -32,13 +32,14 @@ const DataQualityBadge: React.FC<DataQualityBadgeProps> = ({
     const [showTooltip, setShowTooltip] = useState(false);
     const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-    // Determine color based on latency
+    // Determine color based on latency. Theme tokens keep this readable on both
+    // the dark and light surfaces the badge sits on.
     const getLatencyColor = (): string => {
-        if (feedStatus === 'DISCONNECTED') return '#666666';
-        if (feedStatus === 'STALE') return '#FF3B30';
-        if (latency < 100) return '#00FF9D'; // Green
-        if (latency < 500) return '#FFD700'; // Yellow/Gold
-        return '#FF3B30'; // Red
+        if (feedStatus === 'DISCONNECTED') return 'var(--text-muted)';
+        if (feedStatus === 'STALE') return 'var(--accent-danger)';
+        if (latency < 100) return 'var(--accent-success)';
+        if (latency < 500) return 'var(--accent-warning)';
+        return 'var(--accent-danger)';
     };
 
     // Get status icon
@@ -95,12 +96,12 @@ const DataQualityBadge: React.FC<DataQualityBadgeProps> = ({
                     alignItems: 'center',
                     gap: '4px',
                     padding: '3px 6px',
-                    backgroundColor: `${color}15`,
-                    border: `1px solid ${color}`,
-                    borderRadius: '3px',
+                    backgroundColor: 'color-mix(in srgb, currentColor 12%, transparent)',
+                    border: '1px solid currentColor',
+                    borderRadius: 'var(--radius-sm)',
                     fontSize: '9px',
                     fontFamily: 'var(--font-mono)',
-                    color: color,
+                    color,
                     cursor: 'help',
                     transition: 'all 0.2s ease'
                 }}
@@ -112,7 +113,7 @@ const DataQualityBadge: React.FC<DataQualityBadgeProps> = ({
                 <span style={{ fontWeight: 600 }}>{latency}ms</span>
                 <span style={{ opacity: 0.8 }}>{qualityLabel}</span>
                 {hasGap && (
-                    <AlertTriangle size={10} style={{ color: '#FFA500' }} />
+                    <AlertTriangle size={10} style={{ color: 'var(--accent-warning)' }} />
                 )}
             </div>
 
@@ -124,47 +125,47 @@ const DataQualityBadge: React.FC<DataQualityBadgeProps> = ({
                         left: tooltipPosition.x + 10,
                         top: tooltipPosition.y + 10,
                         zIndex: 10000,
-                        backgroundColor: '#1A1A1A',
-                        border: '1px solid #FF8000',
-                        borderRadius: '4px',
+                        backgroundColor: 'var(--bg-panel-raised)',
+                        border: '1px solid var(--border-strong)',
+                        borderRadius: 'var(--radius-md)',
                         padding: '8px',
                         minWidth: '200px',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+                        boxShadow: 'var(--shadow-elevated)',
                         pointerEvents: 'none'
                     }}
                 >
                     <div style={{
                         fontSize: '10px',
                         fontFamily: 'var(--font-mono)',
-                        color: '#FF8000',
+                        color: 'var(--accent-primary)',
                         marginBottom: '6px',
                         fontWeight: 600
                     }}>
                         {symbol} Data Quality
                     </div>
 
-                    <div style={{ fontSize: '9px', color: '#CCCCCC', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '9px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span>Current:</span>
-                            <span style={{ color: color, fontWeight: 600 }}>{latency}ms</span>
+                            <span style={{ color, fontWeight: 600 }}>{latency}ms</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span>P50 (Median):</span>
-                            <span style={{ color: '#00FF9D' }}>{latencyDistribution.p50.toFixed(1)}ms</span>
+                            <span style={{ color: 'var(--accent-success)' }}>{latencyDistribution.p50.toFixed(1)}ms</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span>P95:</span>
-                            <span style={{ color: '#FFD700' }}>{latencyDistribution.p95.toFixed(1)}ms</span>
+                            <span style={{ color: 'var(--accent-warning)' }}>{latencyDistribution.p95.toFixed(1)}ms</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                             <span>P99:</span>
-                            <span style={{ color: '#FF3B30' }}>{latencyDistribution.p99.toFixed(1)}ms</span>
+                            <span style={{ color: 'var(--accent-danger)' }}>{latencyDistribution.p99.toFixed(1)}ms</span>
                         </div>
                     </div>
 
                     {/* Mini histogram */}
                     <div style={{ marginTop: '6px' }}>
-                        <div style={{ fontSize: '8px', color: '#888', marginBottom: '3px' }}>
+                        <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '3px' }}>
                             Latency Distribution
                         </div>
                         <LatencyHistogram samples={latencyDistribution.samples} />
@@ -172,14 +173,14 @@ const DataQualityBadge: React.FC<DataQualityBadgeProps> = ({
 
                     <div style={{
                         fontSize: '8px',
-                        color: '#666',
+                        color: 'var(--text-muted)',
                         marginTop: '6px',
                         paddingTop: '6px',
-                        borderTop: '1px solid #333'
+                        borderTop: '1px solid var(--border-subtle)'
                     }}>
-                        Status: <span style={{ color: color }}>{feedStatus}</span>
+                        Status: <span style={{ color }}>{feedStatus}</span>
                         {hasGap && (
-                            <span style={{ color: '#FFA500', marginLeft: '8px' }}>⚠ Gap Detected</span>
+                            <span style={{ color: 'var(--accent-warning)', marginLeft: '8px' }}>⚠ Gap Detected</span>
                         )}
                     </div>
                 </div>
@@ -226,9 +227,9 @@ const LatencyHistogram: React.FC<{ samples: number[] }> = ({ samples }) => {
                 const bucketMax = min + ((index + 1) * bucketSize);
 
                 // Color based on latency range
-                let barColor = '#00FF9D';
-                if (bucketMax > 500) barColor = '#FF3B30';
-                else if (bucketMax > 100) barColor = '#FFD700';
+                let barColor = 'var(--accent-success)';
+                if (bucketMax > 500) barColor = 'var(--accent-danger)';
+                else if (bucketMax > 100) barColor = 'var(--accent-warning)';
 
                 return (
                     <div

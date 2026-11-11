@@ -7,7 +7,7 @@
 **A crypto research terminal for live market intelligence and deterministic strategy replay.**
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![React](https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
@@ -46,8 +46,8 @@ The browser reference engine and native C++20 core share a versioned `backtest-v
 
 ### Requirements
 
-- Node.js 22.x (22.12 or newer)
-- npm 10 or newer
+- Node.js 24.x LTS (24.15 or newer)
+- npm 11 or newer
 - A current desktop browser
 - CMake 3.20+ and a C++20 compiler for the complete native quality gate
 

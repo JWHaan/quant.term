@@ -15,6 +15,7 @@ import {
 } from '@/integrations/binance/watchlist';
 import { BINANCE_FUTURES_REST_URL } from '@/constants/config';
 import { useMarketStore } from '@/stores/marketStore';
+import { useTickFlash } from '@/hooks/useTickFlash';
 
 interface MarketGridProps {
     onSelectSymbol?: (symbol: string) => void;
@@ -112,12 +113,14 @@ function sectionsReducer(state: SectionsState, action: SectionsAction): Sections
     }
 }
 
-/** Format a remaining-time offset as mm:ss, clamped at 00:00. */
+/** Format a remaining-time offset as mm:ss (h:mm:ss past an hour), floored at 00:00. */
 const formatCountdown = (msRemaining: number): string => {
     const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
-    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
     const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-    return `${minutes}:${seconds}`;
+    // Funding intervals can exceed an hour, so minutes alone would read as 468:08.
+    return hours > 0 ? `${hours}:${minutes}:${seconds}` : `${minutes}:${seconds}`;
 };
 
 const toPerpsRows = (payload: PremiumIndexRecord[]): PerpsRow[] => {
@@ -593,6 +596,7 @@ interface MarketRowProps {
 const MarketRow = React.memo(({ item, isSelected, onSelect }: MarketRowProps) => {
     const isPositive = (item.priceChangePercent ?? 0) >= 0;
     const baseSymbol = item.symbol.replace(/USDT$|USD$/, '');
+    const tickFlash = useTickFlash(item.price, item.symbol);
 
     const selectRow = () => onSelect(item.symbol);
 
@@ -613,7 +617,14 @@ const MarketRow = React.memo(({ item, isSelected, onSelect }: MarketRowProps) =>
             title={`${item.name} · ${item.category}`}
         >
             <td className="market-grid__symbol">{baseSymbol}</td>
-            <td className="market-grid__price">{formatPrice(item.price)}</td>
+            <td
+                key={tickFlash.nonce}
+                className={tickFlash.direction
+                    ? `market-grid__price tick-flash--${tickFlash.direction}`
+                    : 'market-grid__price'}
+            >
+                {formatPrice(item.price)}
+            </td>
             <td className={isPositive ? 'market-grid__change market-grid__change--positive' : 'market-grid__change market-grid__change--negative'}>
                 {formatPercent(item.priceChangePercent)}
             </td>

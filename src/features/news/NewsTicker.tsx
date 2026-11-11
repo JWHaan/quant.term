@@ -86,7 +86,7 @@ const NewsTicker: React.FC = () => {
             <div className="news-ticker__brand">
                 <span className="cursor-blink news-ticker__dot">●</span>
                 <span className="news-ticker__label">NEWSWIRE</span>
-                <span style={{ color: 'var(--border-color)' }}>&gt;&gt;</span>
+                <span className="news-ticker__bracket">&gt;&gt;</span>
             </div>
 
             {/* Scrolling news */}

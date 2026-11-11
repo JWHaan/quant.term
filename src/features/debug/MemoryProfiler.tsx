@@ -37,17 +37,18 @@ export const MemoryProfiler: React.FC = () => {
     return (
         <div style={{
             position: 'fixed',
-            bottom: 10,
+            // Sits above the status rail so it never covers footer readouts.
+            bottom: 36,
             right: 10,
-            background: 'rgba(0,0,0,0.8)',
-            color: isWarning ? '#ff3b30' : '#00ff9d',
+            background: 'rgba(0,0,0,0.85)',
+            color: isWarning ? '#ff6673' : '#36c98f',
             padding: '5px 10px',
-            borderRadius: '4px',
+            borderRadius: 'var(--radius-sm)',
             fontFamily: 'JetBrains Mono, monospace',
             fontSize: '10px',
             zIndex: 9999,
             pointerEvents: 'none',
-            border: '1px solid rgba(255,255,255,0.1)'
+            border: '1px solid var(--border-strong)'
         }}>
             MEM: {usedMB}MB / {limitMB}MB ({percent}%)
         </div>

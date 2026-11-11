@@ -23,4 +23,11 @@ describe('amber theme tokens', () => {
     it('defines the dark dim-border amber', () => {
         expect(css).toMatch(/#8a6516/i);
     });
+
+    it('flashes ticks with directional tokens only', () => {
+        expect(css).toMatch(/@keyframes tick-flash-up\s*\{[^}]*var\(--accent-success\)/);
+        expect(css).toMatch(/@keyframes tick-flash-down\s*\{[^}]*var\(--accent-danger\)/);
+        expect(css).toMatch(/\.tick-flash--up\s*\{\s*animation:\s*tick-flash-up/);
+        expect(css).toMatch(/\.tick-flash--down\s*\{\s*animation:\s*tick-flash-down/);
+    });
 });

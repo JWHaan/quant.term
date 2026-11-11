@@ -31,11 +31,13 @@ const FALLBACK = {
 export const resolveChartTheme = (getVar: (name: string) => string): ChartTheme => ({
     background: getVar('--chart-bg').trim() || FALLBACK.background,
     textColor: getVar('--text-secondary').trim() || FALLBACK.textColor,
-    gridColor: FALLBACK.gridColor,
-    borderColor: FALLBACK.borderColor,
+    // Grid, frame and crosshair are tokenised so the light theme does not paint
+    // white-on-white hairlines over the chart canvas.
+    gridColor: getVar('--chart-grid').trim() || FALLBACK.gridColor,
+    borderColor: getVar('--chart-border').trim() || FALLBACK.borderColor,
     upColor: getVar('--accent-success').trim() || FALLBACK.upColor,
     downColor: getVar('--accent-danger').trim() || FALLBACK.downColor,
-    crosshairColor: FALLBACK.crosshairColor,
+    crosshairColor: getVar('--chart-crosshair').trim() || FALLBACK.crosshairColor,
     ema9: FALLBACK.ema9,
     ema21: FALLBACK.ema21,
     macd: FALLBACK.macd,

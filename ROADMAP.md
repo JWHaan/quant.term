@@ -26,6 +26,7 @@ The roadmap is ordered by product risk and maintainability, not promised dates.
 - [ ] Raise full-tree coverage floors as UI coverage lands
 - [ ] Add accessible compact and tablet layouts without weakening the desktop terminal
 - [ ] Add a mechanical byte-parity harness over shared request/result fixtures for byte-stable browser/native output
+- [ ] Adopt TypeScript 7 (native compiler) once `typescript-eslint` widens its `<6.1.0` peer range; the toolchain is currently capped at 5.9
 - [ ] Publish the first tagged release after deployment and migration verification
 
 ## Later
