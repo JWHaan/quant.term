@@ -1,16 +1,26 @@
 #include "quant/backtest.hpp"
 #include "quant/fixture.hpp"
 
-#include <cassert>
+#include <algorithm>
 #include <cmath>
+#include <exception>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace {
 
-// Throws instead of assert(): Release builds define NDEBUG, which would turn
-// assert() into a no-op and silently skip every golden comparison.
+// The checks throw instead of using assert(): Release builds define NDEBUG, which
+// would turn assert() into a no-op and silently skip every comparison.
+void expect_true(bool condition, const char* expression) {
+    if (!condition) {
+        throw std::runtime_error{std::string{"EXPECT failed: "} + expression};
+    }
+}
+
+#define EXPECT(condition) expect_true((condition), #condition)
+
 void expect_near(double actual, double expected, double tolerance = 0.000001) {
     if (!(std::abs(actual - expected) <= tolerance)) {
         throw std::runtime_error{
@@ -46,17 +56,31 @@ void test_fixture_is_reproducible() {
     const auto first = quant::run_sma_cross(candles, config);
     const auto second = quant::run_sma_cross(candles, config);
 
-    assert(!first.trades.empty());
-    assert(first.trades.size() == second.trades.size());
-    assert(first.equity_curve.size() == candles.size());
-    assert(first.metrics.final_equity == second.metrics.final_equity);
-    assert(first.metrics.total_fees == second.metrics.total_fees);
+    EXPECT(!first.trades.empty());
+    EXPECT(first.trades.size() == second.trades.size());
+    EXPECT(first.equity_curve.size() == candles.size());
+    EXPECT(first.metrics.final_equity == second.metrics.final_equity);
+    EXPECT(first.metrics.total_fees == second.metrics.total_fees);
     // Golden values are shared with the TypeScript browser reference test.
     expect_near(first.metrics.final_equity, 10'692.208640);
     expect_near(first.metrics.total_return_pct, 6.922086);
     expect_near(first.metrics.max_drawdown_pct, 0.917863);
-    assert(first.metrics.total_trades == 2U);
+    EXPECT(first.metrics.total_trades == 2U);
     expect_near(first.metrics.total_fees, 41.248917);
+}
+
+void test_fixture_metadata_is_derived_from_candles() {
+    const auto candles = quant::make_synthetic_btcusdt_fixture();
+
+    // Golden values shared with the browser fixture test (src/tests/backtest/engine.test.ts).
+    EXPECT(candles.size() == 480U);
+    EXPECT(quant::checksum_candles(candles) == "fnv1a-3b3cacbb");
+
+    auto mutated = candles;
+    mutated.back().close += 0.01;
+    EXPECT(quant::checksum_candles(mutated) != quant::checksum_candles(candles));
+    // No candles leaves the hash at the FNV-1a offset basis.
+    EXPECT(quant::checksum_candles(std::vector<quant::Candle>{}) == "fnv1a-811c9dc5");
 }
 
 void test_signal_executes_at_next_open() {
@@ -73,9 +97,9 @@ void test_signal_executes_at_next_open() {
     };
     const auto result = quant::run_sma_cross(candles, config);
 
-    assert(!result.trades.empty());
-    assert(result.trades.front().entry_time == candles[5].time);
-    assert(result.trades.front().entry_price == 20.0);
+    EXPECT(!result.trades.empty());
+    EXPECT(result.trades.front().entry_time == candles[5].time);
+    EXPECT(result.trades.front().entry_price == 20.0);
 }
 
 void test_costs_reduce_equity() {
@@ -86,8 +110,8 @@ void test_costs_reduce_equity() {
     );
     const auto costly = quant::run_sma_cross(candles, quant::BacktestConfig{});
 
-    assert(costly.metrics.final_equity < free.metrics.final_equity);
-    assert(costly.metrics.total_fees > 0.0);
+    EXPECT(costly.metrics.final_equity < free.metrics.final_equity);
+    EXPECT(costly.metrics.total_fees > 0.0);
 }
 
 void test_invalid_timestamp_is_rejected() {
@@ -100,7 +124,7 @@ void test_invalid_timestamp_is_rejected() {
     } catch (const std::invalid_argument&) {
         threw = true;
     }
-    assert(threw);
+    EXPECT(threw);
 }
 
 void test_interval_seconds_scales_sharpe_annualization() {
@@ -152,12 +176,18 @@ void test_nonpositive_interval_seconds_is_rejected() {
 }  // namespace
 
 int main() {
-    test_fixture_is_reproducible();
-    test_signal_executes_at_next_open();
-    test_costs_reduce_equity();
-    test_invalid_timestamp_is_rejected();
-    test_interval_seconds_scales_sharpe_annualization();
-    test_nonpositive_interval_seconds_is_rejected();
+    try {
+        test_fixture_is_reproducible();
+        test_fixture_metadata_is_derived_from_candles();
+        test_signal_executes_at_next_open();
+        test_costs_reduce_equity();
+        test_invalid_timestamp_is_rejected();
+        test_interval_seconds_scales_sharpe_annualization();
+        test_nonpositive_interval_seconds_is_rejected();
+    } catch (const std::exception& error) {
+        std::cerr << "quant backtest correctness tests failed: " << error.what() << '\n';
+        return 1;
+    }
     std::cout << "quant backtest correctness tests passed\n";
     return 0;
 }
