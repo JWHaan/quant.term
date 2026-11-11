@@ -31,7 +31,14 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
         rsi: false,
     });
     const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
-    const [visibleRange, setVisibleRange] = useState<{ fromTime: number; toTime: number } | null>(null);
+    const [rangeState, setRangeState] = useState<{
+        key: string;
+        range: { fromTime: number; toTime: number } | null;
+    }>({
+        key: `${symbol}:${interval}`,
+        range: null,
+    });
+    const visibleRange = rangeState.key === `${symbol}:${interval}` ? rangeState.range : null;
 
     // Data quality tracking is populated by the shared provenance registry.
     const [dataQuality, setDataQuality] = useState<{
@@ -46,13 +53,14 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
 
     const feed = useChartDataFeed(symbol, interval, { heatmapEnabled: showHeatmap });
     const handleVisibleRangeChange = useCallback(
-        (range: { fromTime: number; toTime: number } | null) => setVisibleRange(range),
-        [],
+        (range: { fromTime: number; toTime: number } | null) =>
+            setRangeState({ key: `${symbol}:${interval}`, range }),
+        [symbol, interval],
     );
 
     useEffect(() => {
         const engine = provenanceRegistry.getEngine(symbol.toUpperCase());
-        const intervalId = window.setInterval(() => {
+        const updateQuality = () => {
             const distribution = engine.getLatencyDistribution();
             const status = engine.getFeedStatus();
             setDataQuality({
@@ -60,7 +68,9 @@ const ChartContainer: React.FC<ChartContainerProps> = ({ symbol = 'btcusdt' }) =
                 feedStatus: status,
                 hasGap: false,
             });
-        }, 1000);
+        };
+        updateQuality();
+        const intervalId = window.setInterval(updateQuality, 1000);
         return () => window.clearInterval(intervalId);
     }, [symbol]);
 

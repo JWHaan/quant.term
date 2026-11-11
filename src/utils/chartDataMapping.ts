@@ -11,6 +11,31 @@ export interface VolumeColors {
     down: string;
 }
 
+export interface PriceFormatConfig {
+    type: 'price';
+    precision: number;
+    minMove: number;
+}
+
+export const getPriceFormatConfig = (price: number | undefined): PriceFormatConfig => {
+    if (price === undefined || !Number.isFinite(price) || price <= 0) {
+        return { type: 'price', precision: 2, minMove: 0.01 };
+    }
+    if (price < 0.0001) {
+        return { type: 'price', precision: 8, minMove: 0.00000001 };
+    }
+    if (price < 0.01) {
+        return { type: 'price', precision: 6, minMove: 0.000001 };
+    }
+    if (price < 1) {
+        return { type: 'price', precision: 4, minMove: 0.0001 };
+    }
+    if (price < 10) {
+        return { type: 'price', precision: 3, minMove: 0.001 };
+    }
+    return { type: 'price', precision: 2, minMove: 0.01 };
+};
+
 const DEFAULT_VOLUME_COLORS: VolumeColors = { up: '#22c55e', down: '#ef4444' };
 
 const toUnixSecond = (time: number): UTCTimestamp => Math.floor(time) as UTCTimestamp;

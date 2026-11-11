@@ -20,6 +20,7 @@ import {
     type UTCTimestamp,
 } from 'lightweight-charts';
 import {
+    getPriceFormatConfig,
     nextChartAction,
     toCandlestickData,
     toLineData,
@@ -49,6 +50,7 @@ interface TerminalChartProps {
 }
 
 interface IndicatorMeta {
+    seriesKey: string;
     len: number;
     lastTime: number;
 }
@@ -60,7 +62,8 @@ const MACD_PANE_HEIGHT_PX = 110;
 
 const formatNumber = (value: number | undefined, digits: number = 2) => {
     if (value === undefined || !Number.isFinite(value)) return '—';
-    const resolvedDigits = value < 1 ? Math.max(digits, 4) : digits;
+    const resolvedDigits =
+        value < 0.0001 ? 8 : value < 0.01 ? 6 : value < 1 ? 4 : value < 10 ? 3 : digits;
     return value.toLocaleString('en-US', {
         minimumFractionDigits: resolvedDigits,
         maximumFractionDigits: resolvedDigits + 2,
@@ -87,6 +90,9 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
     const prevSeriesRef = useRef<{ key: string; candles: readonly OHLCV[] }>({ key: '', candles: [] });
     const indicatorMetaRef = useRef<Record<string, IndicatorMeta>>({});
     const onRangeChangeRef = useRef(onVisibleRangeChange);
+    useEffect(() => {
+        onRangeChangeRef.current = onVisibleRangeChange;
+    }, [onVisibleRangeChange]);
 
     const readTheme = useCallback(
         () =>
@@ -107,12 +113,13 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
         return () => observer.disconnect();
     }, [readTheme]);
 
-    useEffect(() => {
-        candlesRef.current = candles;
-    }, [candles]);
-
-    const seriesKey = `${symbol}:${interval}`;
+    const normalizedSymbol = symbol.toUpperCase();
+    const seriesKey = `${normalizedSymbol}:${interval}`;
     const sortedCandles = useMemo<OHLCV[]>(() => [...candles].sort((a, b) => a.time - b.time), [candles]);
+
+    useEffect(() => {
+        candlesRef.current = sortedCandles;
+    }, [sortedCandles]);
 
     const ema9Values = useMemo(
         () => (indicatorToggles.ema9 && sortedCandles.length >= 9 ? calculateEMA(sortedCandles, 9) : []),
@@ -176,6 +183,9 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
         macdLine?.applyOptions({ color: chartTheme.macd });
         macdSignal?.applyOptions({ color: chartTheme.signal });
         rsi?.applyOptions({ color: chartTheme.rsi });
+        rsiGuideLinesRef.current.forEach((line) => {
+            line.applyOptions({ color: chartTheme.crosshairColor });
+        });
     }, []);
 
     // Chart lifecycle: created once, re-themed in place on theme changes.
@@ -253,20 +263,46 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
     useEffect(() => {
         const candleSeries = candleSeriesRef.current;
         const volumeSeries = volumeSeriesRef.current;
-        if (!candleSeries || !volumeSeries || sortedCandles.length === 0) return;
+        if (!candleSeries || !volumeSeries) return;
 
         const previous = prevSeriesRef.current;
         const isSameSeries = previous.key === seriesKey;
+
+        // When switching series and candles haven't loaded yet, clear stale data.
+        if (!isSameSeries && sortedCandles.length === 0) {
+            candleSeries.setData([]);
+            volumeSeries.setData([]);
+            (['ema9', 'ema21', 'macdHistogram', 'macdLine', 'macdSignal', 'rsi'] as const).forEach((id) => {
+                const s = indicatorSeriesRef.current.get(id);
+                if (s) s.setData([]);
+            });
+            indicatorMetaRef.current = {};
+            prevSeriesRef.current = { key: seriesKey, candles: [] };
+            onRangeChangeRef.current?.(null);
+            return;
+        }
+
+        if (sortedCandles.length === 0) return;
+
         const action = isSameSeries ? nextChartAction(previous.candles, sortedCandles) : { type: 'reload' as const };
 
         if (action.type === 'reload') {
+            const lastCandle = sortedCandles[sortedCandles.length - 1];
+            const priceFormat = getPriceFormatConfig(lastCandle?.close);
+            candleSeries.applyOptions({ priceFormat });
+            const ema9 = indicatorSeriesRef.current.get('ema9');
+            ema9?.applyOptions({ priceFormat });
+            const ema21 = indicatorSeriesRef.current.get('ema21');
+            ema21?.applyOptions({ priceFormat });
+
             candleSeries.setData(toCandlestickData(sortedCandles));
             volumeSeries.setData(
                 toVolumeHistogramData(sortedCandles, { up: theme.upColor, down: theme.downColor }),
             );
-            if (!isSameSeries) {
-                chartRef.current?.timeScale().fitContent();
-            }
+
+            candleSeries.priceScale().applyOptions({ autoScale: true });
+            volumeSeries.priceScale().applyOptions({ autoScale: true });
+            chartRef.current?.timeScale().fitContent();
         } else {
             candleSeries.update(action.candle);
             volumeSeries.update(action.volume);
@@ -280,6 +316,9 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
         const chart = chartRef.current;
         if (!chart) return;
 
+        const lastCandle = sortedCandles[sortedCandles.length - 1];
+        const priceFormat = getPriceFormatConfig(lastCandle?.close);
+
         const ensureLine = (id: IndicatorId, color: string, paneIndex?: number) => {
             const existing = indicatorSeriesRef.current.get(id);
             if (existing) return existing;
@@ -291,6 +330,7 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
                     lastValueVisible: false,
                     priceLineVisible: false,
                     crosshairMarkerVisible: false,
+                    ...(id === 'ema9' || id === 'ema21' ? { priceFormat } : {}),
                 },
                 paneIndex ?? chart.panes().length,
             );
@@ -315,6 +355,7 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
                 chart.removeSeries(rsi);
                 indicatorSeriesRef.current.delete('rsi');
                 rsiGuideLinesRef.current = [];
+                delete indicatorMetaRef.current.rsi;
             }
         }
 
@@ -346,6 +387,7 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
                     indicatorSeriesRef.current.delete(id);
                 }
             });
+            delete indicatorMetaRef.current.macd;
         }
 
         if (indicatorToggles.ema9) ensureLine('ema9', theme.ema9, 0);
@@ -354,6 +396,8 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
             if (ema9) {
                 chart.removeSeries(ema9);
                 indicatorSeriesRef.current.delete('ema9');
+                delete indicatorMetaRef.current.ema9;
+                candleSeriesRef.current?.priceScale().applyOptions({ autoScale: true });
             }
         }
 
@@ -363,28 +407,40 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
             if (ema21) {
                 chart.removeSeries(ema21);
                 indicatorSeriesRef.current.delete('ema21');
+                delete indicatorMetaRef.current.ema21;
+                candleSeriesRef.current?.priceScale().applyOptions({ autoScale: true });
             }
         }
-    }, [indicatorToggles.ema9, indicatorToggles.ema21, indicatorToggles.macd, indicatorToggles.rsi, theme]);
+    }, [indicatorToggles.ema9, indicatorToggles.ema21, indicatorToggles.macd, indicatorToggles.rsi, sortedCandles, theme]);
 
     // Push computed indicator values into their series.
     useEffect(() => {
+        const lastCandle = sortedCandles[sortedCandles.length - 1];
+        const priceFormat = getPriceFormatConfig(lastCandle?.close);
+
         const pushLine = (id: IndicatorId, values: { time: number; value: number }[]) => {
             const series = indicatorSeriesRef.current.get(id) as ISeriesApi<'Line'> | undefined;
             if (!series) return;
-            const meta = indicatorMetaRef.current[id] ?? { len: 0, lastTime: 0 };
+            if (id === 'ema9' || id === 'ema21') {
+                series.applyOptions({ priceFormat });
+            }
+            const meta = indicatorMetaRef.current[id];
             const last = values[values.length - 1];
-            if (
+            const isSame = meta?.seriesKey === seriesKey;
+            const trailingOnly =
+                isSame &&
                 values.length > 0 &&
                 meta.len > 0 &&
                 (values.length === meta.len || values.length === meta.len + 1) &&
-                last!.time === meta.lastTime
-            ) {
-                series.update({ time: Math.floor(last!.time) as UTCTimestamp, value: last!.value });
+                last!.time === meta.lastTime;
+
+            if (trailingOnly && last) {
+                series.update({ time: Math.floor(last.time) as UTCTimestamp, value: last.value });
             } else {
                 series.setData(toLineData(values));
             }
             indicatorMetaRef.current[id] = {
+                seriesKey,
                 len: values.length,
                 lastTime: last?.time ?? 0,
             };
@@ -396,9 +452,11 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
             const signalLine = indicatorSeriesRef.current.get('macdSignal') as ISeriesApi<'Line'> | undefined;
             if (!histogram || !macdLine || !signalLine) return;
 
-            const meta = indicatorMetaRef.current.macd ?? { len: 0, lastTime: 0 };
+            const meta = indicatorMetaRef.current.macd;
             const last = values[values.length - 1];
+            const isSame = meta?.seriesKey === seriesKey;
             const trailingOnly =
+                isSame &&
                 values.length > 0 &&
                 meta.len > 0 &&
                 (values.length === meta.len || values.length === meta.len + 1) &&
@@ -424,14 +482,14 @@ const TerminalChart: React.FC<TerminalChartProps> = ({
                 macdLine.setData(toLineData(values.map((row) => ({ time: row.time, value: row.macd }))));
                 signalLine.setData(toLineData(values.map((row) => ({ time: row.time, value: row.signal }))));
             }
-            indicatorMetaRef.current.macd = { len: values.length, lastTime: last?.time ?? 0 };
+            indicatorMetaRef.current.macd = { seriesKey, len: values.length, lastTime: last?.time ?? 0 };
         };
 
         pushLine('ema9', ema9Values);
         pushLine('ema21', ema21Values);
         pushMacd(macdValues);
         pushLine('rsi', rsiValues);
-    }, [ema9Values, ema21Values, macdValues, rsiValues, theme]);
+    }, [seriesKey, ema9Values, ema21Values, macdValues, rsiValues, sortedCandles, theme]);
 
     const latest = sortedCandles[sortedCandles.length - 1];
     const showOverlay = sortedCandles.length === 0;

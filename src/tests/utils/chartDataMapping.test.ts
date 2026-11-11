@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { OHLCV } from '@/types/common';
 import {
+    getPriceFormatConfig,
     nextChartAction,
     toCandlestickData,
     toLineData,
@@ -98,5 +99,37 @@ describe('nextChartAction', () => {
         const previous = [candle(1, 100), candle(60, 200)];
         const next = [candle(1, 150), candle(60, 200)];
         expect(nextChartAction(previous, next).type).toBe('reload');
+    });
+});
+
+describe('getPriceFormatConfig', () => {
+    it('returns default 2-digit precision for undefined, NaN, or non-positive numbers', () => {
+        expect(getPriceFormatConfig(undefined)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
+        expect(getPriceFormatConfig(NaN)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
+        expect(getPriceFormatConfig(0)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
+        expect(getPriceFormatConfig(-10)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
+    });
+
+    it('returns 8-digit precision for sub-0.0001 micro assets (e.g. SHIB, PEPE)', () => {
+        expect(getPriceFormatConfig(0.000025)).toEqual({ type: 'price', precision: 8, minMove: 0.00000001 });
+    });
+
+    it('returns 6-digit precision for sub-0.01 assets', () => {
+        expect(getPriceFormatConfig(0.005)).toEqual({ type: 'price', precision: 6, minMove: 0.000001 });
+    });
+
+    it('returns 4-digit precision for sub-1 dollar assets (e.g. DOGE, ADA, XRP)', () => {
+        expect(getPriceFormatConfig(0.1234)).toEqual({ type: 'price', precision: 4, minMove: 0.0001 });
+        expect(getPriceFormatConfig(0.35)).toEqual({ type: 'price', precision: 4, minMove: 0.0001 });
+    });
+
+    it('returns 3-digit precision for single-digit assets (< 10)', () => {
+        expect(getPriceFormatConfig(3.456)).toEqual({ type: 'price', precision: 3, minMove: 0.001 });
+    });
+
+    it('returns 2-digit precision for standard assets >= 10 (e.g. SOL, ETH, BTC)', () => {
+        expect(getPriceFormatConfig(150.25)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
+        expect(getPriceFormatConfig(3500)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
+        expect(getPriceFormatConfig(65000)).toEqual({ type: 'price', precision: 2, minMove: 0.01 });
     });
 });
