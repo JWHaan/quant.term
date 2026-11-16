@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it, expect, vi } from 'vitest';
 import { calculateOFI, calculateOBV, calculateADX, calculateHurst } from '@/utils/indicators';
 

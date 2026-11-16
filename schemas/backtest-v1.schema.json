@@ -22,7 +22,8 @@
     "engine": {
       "enum": [
         "TYPESCRIPT_REFERENCE",
-        "CPP20_NATIVE"
+        "CPP20_NATIVE",
+        "RUST_WASM"
       ]
     },
     "strategy": {

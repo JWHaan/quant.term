@@ -1,0 +1,57 @@
+[package]
+name = "quant-ui"
+version = "0.1.0"
+edition = "2021"
+description = "Leptos/WASM frontend for quant.term — full Rust rewrite of the React terminal"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+quant-core = { path = "../rust" }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = [
+    "console",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "Window",
+    "Storage",
+    "HtmlInputElement",
+    "Event",
+    "KeyboardEvent",
+    "MouseEvent",
+    "WebSocket",
+    "MessageEvent",
+    "BinaryType",
+    "HtmlAudioElement",
+    "Notification",
+    "NotificationOptions",
+    "HtmlCanvasElement",
+    "CanvasRenderingContext2d",
+    "CanvasGradient",
+    "Path2d",
+    "DomRect",
+    "Request",
+    "RequestInit",
+    "RequestMode",
+    "Response",
+    "Headers",
+    "Url",
+    "HtmlDivElement",
+    "CssStyleDeclaration",
+    "ScrollBehavior",
+] }
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+serde_json = "1"
+console_error_panic_hook = "0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

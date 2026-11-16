@@ -39,3 +39,8 @@ engine/build
 
 # TypeScript incremental build artifact
 tsconfig.tsbuildinfo
+
+# Rust/WASM core build artifacts
+rust/target/
+ui/target/
+src/wasm/

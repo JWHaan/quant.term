@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it, expect } from 'vitest';
 import { calculateATR } from '../../utils/indicators';
 import type { OHLCV } from '../../types/common';

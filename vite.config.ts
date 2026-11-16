@@ -1,5 +1,4 @@
 import { defineConfig, type UserConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import path from 'path'
 import { sites } from './build/sites-vite-plugin.ts'
 
@@ -15,7 +14,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 
     const config: UserConfig = {
     plugins: [
-        react(),
         sites(),
         ...cloudflare({ viteEnvironment: { name: 'server' } }),
     ],
@@ -48,47 +46,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
         chunkSizeWarningLimit: 700,
         rollupOptions: {
             output: {
-                // Function-based manualChunks: smarter than the object form.
-                // The object form was mislabeling a shared React/zustand chunk
-                // as "three" even though three.js is never imported in production.
-                manualChunks: (id: string) => {
-                    if (!id.includes('node_modules')) return undefined;
-
-                    // React core runtime — kept stable for fast cache hits
-                    if (
-                        id.includes('node_modules/react/') ||
-                        id.includes('node_modules/react-dom/') ||
-                        id.includes('node_modules/scheduler/')
-                    ) {
-                        return 'react-vendor';
-                    }
-
-                    // State management
-                    if (id.includes('node_modules/zustand/')) {
-                        return 'state';
-                    }
-
-                    // Data viz
-                    if (
-                        id.includes('node_modules/d3/') ||
-                        id.includes('node_modules/decimal.js/')
-                    ) {
-                        return 'data-viz';
-                    }
-
-                    // Icons — separate so they don't bloat the main bundle
-                    if (id.includes('node_modules/lucide-react/')) {
-                        return 'icons';
-                    }
-
-                    // Resizable workspace panels
-                    if (id.includes('node_modules/react-resizable-panels/')) {
-                        return 'ui-utils';
-                    }
-
-                    // Everything else from node_modules goes to a generic vendor chunk
-                    return 'vendor';
-                },
                 // Use shorter hash for cleaner URLs (still unique per build)
                 hashCharacters: 'base36',
             }

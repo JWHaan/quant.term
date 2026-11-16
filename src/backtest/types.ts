@@ -73,7 +73,7 @@ export interface BacktestDiagnostics {
 
 export interface BacktestResult {
     contractVersion: typeof BACKTEST_CONTRACT_VERSION;
-    engine: 'TYPESCRIPT_REFERENCE';
+    engine: 'TYPESCRIPT_REFERENCE' | 'RUST_WASM';
     strategy: 'SMA_CROSS_LONG_FLAT';
     dataset: BacktestDataset;
     config: BacktestConfig;

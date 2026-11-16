@@ -1,21 +1,25 @@
 /**
  * VPIN (Volume-Synchronized Probability of Informed Trading)
- * 
+ *
  * Measures the probability of informed trading (toxicity) in the order flow.
  * High VPIN indicates:
  * - Presence of informed traders
  * - Increased likelihood of volatility
  * - Potential liquidation cascades
- * 
+ *
  * Unlike traditional indicators that use time buckets, VPIN uses volume buckets,
  * making it more robust to varying market activity levels.
- * 
+ *
+ * Implementation lives in the Rust/WASM core (`rust/quant-core`); this class is
+ * a thin TypeScript wrapper preserving the original public API.
+ *
  * References:
  * - Easley, D., López de Prado, M. M., & O'Hara, M. (2012). Flow toxicity and liquidity in a high-frequency world
  * - Easley, D., López de Prado, M. M., & O'Hara, M. (2011). The microstructure of the "Flash Crash"
  */
 
-import { ClassifiedTrade } from './tradeClassifier';
+import { VpinCalculatorCore } from '../wasm/quant-core/quant_core';
+import type { ClassifiedTrade } from './tradeClassifier';
 
 export interface VPINBucket {
     bucketNumber: number;
@@ -35,188 +39,55 @@ export interface VPINResult {
 }
 
 export class VPINCalculator {
-    private buckets: VPINBucket[] = [];
-    private currentBucket: VPINBucket;
-    private bucketNumber = 0;
-    private readonly bucketSize: number;        // Volume per bucket (e.g., 100 BTC)
-    private readonly numBuckets: number;        // Number of buckets for VPIN calculation (e.g., 50)
-    private readonly maxHistorySize = 1000;
+    private readonly core: VpinCalculatorCore;
 
     /**
      * @param bucketSize - Volume threshold for each bucket (e.g., 100 for 100 BTC)
      * @param numBuckets - Number of buckets to use for VPIN calculation (default: 50)
      */
     constructor(bucketSize: number = 100, numBuckets: number = 50) {
-        this.bucketSize = bucketSize;
-        this.numBuckets = numBuckets;
-        this.currentBucket = this.createNewBucket();
+        this.core = new VpinCalculatorCore(bucketSize, numBuckets);
     }
 
     /**
      * Add a classified trade and update VPIN
      */
     addTrade(trade: ClassifiedTrade): VPINResult | null {
-        let remainingVolume = trade.quantity;
-        let latestResult: VPINResult | null = null;
-
-        // Split trades that cross bucket boundaries so every completed bucket
-        // has the same volume and no overflow is discarded.
-        while (remainingVolume > 0) {
-            const capacity = this.bucketSize - this.currentBucket.totalVolume;
-            const allocated = Math.min(remainingVolume, capacity);
-            this.currentBucket.totalVolume += allocated;
-            if (trade.side === 'buy') this.currentBucket.buyVolume += allocated;
-            else this.currentBucket.sellVolume += allocated;
-            this.currentBucket.timestamp = trade.timestamp;
-            remainingVolume -= allocated;
-
-            if (this.currentBucket.totalVolume >= this.bucketSize) {
-                this.currentBucket.imbalance = Math.abs(this.currentBucket.buyVolume - this.currentBucket.sellVolume);
-                this.buckets.push(this.currentBucket);
-                if (this.buckets.length > this.maxHistorySize) this.buckets.shift();
-                this.bucketNumber += 1;
-                this.currentBucket = this.createNewBucket();
-                if (this.buckets.length >= this.numBuckets) latestResult = this.calculateVPIN();
-            }
-        }
-
-        return latestResult;
-    }
-
-    /**
-     * Calculate VPIN from recent buckets
-     */
-    private calculateVPIN(): VPINResult {
-        // Use last N buckets
-        const recentBuckets = this.buckets.slice(-this.numBuckets);
-
-        // Sum of absolute order imbalances
-        const sumImbalance = recentBuckets.reduce((sum, bucket) => sum + bucket.imbalance, 0);
-
-        // Sum of total volume
-        const sumVolume = recentBuckets.reduce((sum, bucket) => sum + bucket.totalVolume, 0);
-
-        // VPIN = Sum(|Buy - Sell|) / Sum(Total Volume)
-        const vpin = sumVolume > 0 ? sumImbalance / sumVolume : 0;
-
-        // Classify toxicity level
-        let toxicity: 'low' | 'medium' | 'high' | 'extreme';
-        if (vpin < 0.3) {
-            toxicity = 'low';
-        } else if (vpin < 0.5) {
-            toxicity = 'medium';
-        } else if (vpin < 0.7) {
-            toxicity = 'high';
-        } else {
-            toxicity = 'extreme';
-        }
-
-        return {
-            vpin,
-            toxicity,
-            bucketsFilled: this.buckets.length,
-            currentBucket: { ...this.currentBucket },
-            timestamp: Date.now()
-        };
+        return this.core.addTrade(trade) as VPINResult | null;
     }
 
     /**
      * Get VPIN history for visualization
      */
     getVPINHistory(count: number = 100): Array<{ timestamp: number; vpin: number }> {
-        const result: Array<{ timestamp: number; vpin: number }> = [];
-
-        if (this.buckets.length < this.numBuckets) {
-            return result;
-        }
-
-        // Calculate VPIN for each point in history
-        for (let i = this.numBuckets; i <= this.buckets.length; i++) {
-            const bucketSlice = this.buckets.slice(i - this.numBuckets, i);
-
-            const sumImbalance = bucketSlice.reduce((sum, b) => sum + b.imbalance, 0);
-            const sumVolume = bucketSlice.reduce((sum, b) => sum + b.totalVolume, 0);
-            const vpin = sumVolume > 0 ? sumImbalance / sumVolume : 0;
-
-            const lastBucket = bucketSlice[bucketSlice.length - 1];
-            if (lastBucket) {
-                result.push({
-                    timestamp: lastBucket.timestamp,
-                    vpin
-                });
-            }
-        }
-
-        return result.slice(-count);
+        return this.core.getVPINHistory(count) as Array<{ timestamp: number; vpin: number }>;
     }
 
     /**
      * Detect VPIN spike (potential flash crash warning)
      */
     detectSpike(threshold: number = 0.7): boolean {
-        if (this.buckets.length < this.numBuckets) {
-            return false;
-        }
-
-        const current = this.calculateVPIN();
-        return current.vpin > threshold;
+        return this.core.detectSpike(threshold);
     }
 
     /**
      * Get VPIN trend (increasing/decreasing toxicity)
      */
     getVPINTrend(lookback: number = 10): 'increasing' | 'decreasing' | 'stable' {
-        const history = this.getVPINHistory(lookback * 2);
-
-        if (history.length < lookback * 2) {
-            return 'stable';
-        }
-
-        const recent = history.slice(-lookback);
-        const older = history.slice(-lookback * 2, -lookback);
-
-        const recentAvg = recent.reduce((sum, h) => sum + h.vpin, 0) / recent.length;
-        const olderAvg = older.reduce((sum, h) => sum + h.vpin, 0) / older.length;
-
-        const change = recentAvg - olderAvg;
-        const threshold = 0.05; // 5% threshold
-
-        if (change > threshold) {
-            return 'increasing';
-        } else if (change < -threshold) {
-            return 'decreasing';
-        } else {
-            return 'stable';
-        }
-    }
-
-    /**
-     * Create a new bucket
-     */
-    private createNewBucket(): VPINBucket {
-        return {
-            bucketNumber: this.bucketNumber,
-            buyVolume: 0,
-            sellVolume: 0,
-            totalVolume: 0,
-            imbalance: 0,
-            timestamp: Date.now()
-        };
+        return this.core.getVPINTrend(lookback) as 'increasing' | 'decreasing' | 'stable';
     }
 
     /**
      * Get current bucket progress
      */
     getCurrentBucketProgress(): number {
-        return (this.currentBucket.totalVolume / this.bucketSize) * 100;
+        return this.core.getCurrentBucketProgress();
     }
 
     /**
      * Reset calculator
      */
     reset(): void {
-        this.buckets = [];
-        this.bucketNumber = 0;
-        this.currentBucket = this.createNewBucket();
+        this.core.reset();
     }
 }

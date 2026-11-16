@@ -29,33 +29,18 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "engine:configure": "cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release",
-    "engine:build": "cmake --build engine/build --config Release",
-    "engine:test": "ctest --test-dir engine/build --output-on-failure -C Release",
-    "engine:check": "npm run engine:configure && npm run engine:build && npm run engine:test",
-    "check": "npm run lint && npm run type-check && npm run test:coverage && npm run engine:check && npm run build"
+    "wasm:build": "./scripts/build-wasm.sh",
+    "wasm:check": "./scripts/check-wasm.sh",
+    "check": "npm run lint && npm run type-check && npm run test:coverage && npm run build"
   },
   "dependencies": {
-    "decimal.js": "^10.6.0",
-    "lightweight-charts": "^5.3.0",
-    "lucide-react": "^1.72.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "react-resizable-panels": "^4.21.0",
-    "zustand": "^5.1.0"
+    "decimal.js": "^10.6.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.68.0",
-    "@testing-library/jest-dom": "^7.0.1",
-    "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.2",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.3.0",
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.14.0",
     "happy-dom": "^21.0.4",
     "playwright": "^1.65.0",

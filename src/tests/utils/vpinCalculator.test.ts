@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest';
 import { VPINCalculator } from '@/utils/vpinCalculator';
 import type { ClassifiedTrade } from '@/utils/tradeClassifier';
