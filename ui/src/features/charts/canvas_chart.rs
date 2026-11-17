@@ -433,9 +433,6 @@ fn draw_chart(
     if canvas.width() != pw || canvas.height() != ph {
         canvas.set_width(pw);
         canvas.set_height(ph);
-        let style = web_sys::HtmlElement::style(&canvas);
-        let _ = style.set_property("width", &format!("{css_w}px"));
-        let _ = style.set_property("height", &format!("{css_h}px"));
     }
     let _ = ctx.set_transform(dpr, 0.0, 0.0, dpr, 0.0, 0.0);
 
@@ -909,7 +906,7 @@ pub fn TerminalChart(
         }
     });
 
-    // Window resize → redraw tick (no ResizeObserver in web-sys features).
+    // Window + panel ResizeObserver → redraw tick.
     #[cfg(target_arch = "wasm32")]
     Effect::new(move |_| {
         let cb = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
@@ -919,6 +916,27 @@ pub fn TerminalChart(
             let _ = w.add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref());
         }
         cb.forget();
+
+        if let Some(canvas) = canvas_ref.get() {
+            let ro_cb = wasm_bindgen::closure::Closure::<dyn FnMut(js_sys::Array)>::new(move |_entries: js_sys::Array| {
+                tick.update(|t| *t = t.wrapping_add(1));
+            });
+            if let Some(w) = window() {
+                if let Ok(ro_val) = js_sys::Reflect::get(&w, &"ResizeObserver".into()) {
+                    if let Ok(ro_ctor) = ro_val.dyn_into::<js_sys::Function>() {
+                        if let Ok(observer) = js_sys::Reflect::construct(&ro_ctor, &js_sys::Array::of1(ro_cb.as_ref())) {
+                            if let Ok(observe_fn) = js_sys::Reflect::get(&observer, &"observe".into()) {
+                                if let Ok(observe_fn) = observe_fn.dyn_into::<js_sys::Function>() {
+                                    let _ = observe_fn.call1(&observer, &canvas);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ro_cb.forget();
+        }
+
         // One-shot delayed tick covers late layout / CSS settling.
         let cb2 = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
             tick.update(|t| *t = t.wrapping_add(1));

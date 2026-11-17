@@ -220,6 +220,36 @@ code,
   overflow: hidden;
 }
 
+.monitor-workspace {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.monitor-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.monitor-center,
+.monitor-right {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 /* Global command bar */
 .app-header {
   position: relative;
@@ -1304,6 +1334,7 @@ code,
 
 .resize-handle:hover::before,
 .resize-handle:focus-visible::before,
+.resize-handle--active::before,
 .resize-handle[data-separator='active']::before {
   background: var(--accent-primary);
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent-primary) 55%, transparent);
@@ -3553,4 +3584,127 @@ code,
   padding: 0 10px;
   color: var(--accent-warning);
   font-size: 9px;
+}
+
+/* Modal overlay and card for keyboard shortcuts / dialogs */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  animation: overlay-fade-in 0.15s ease-out;
+}
+
+.modal {
+  width: 90%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-elevated);
+  padding: 20px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.modal h2 {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.modal td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+}
+
+.modal td:first-child {
+  width: 140px;
+}
+
+.modal kbd {
+  padding: 2px 7px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-panel-muted);
+  color: var(--accent-primary-strong);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.modal button.modal-close-btn {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-raised);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+
+.modal button.modal-close-btn:hover {
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 15%, var(--bg-panel-raised));
+}
+
+/* Mobile gate responsive fallback */
+.mobile-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  text-align: center;
+}
+
+.mobile-gate h1 {
+  margin: 0 0 12px 0;
+  font-family: var(--font-mono);
+  font-size: 20px;
+  color: var(--accent-primary);
+}
+
+.mobile-gate p {
+  max-width: 440px;
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.app-hidden {
+  display: none !important;
+}
+
+.app-visible {
+  display: contents;
 }

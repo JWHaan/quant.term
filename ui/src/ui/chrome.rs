@@ -287,6 +287,7 @@ pub fn ResizeHandle(
             } else {
                 "resize-handle"
             }
+            attr:data-separator=move || if drag.get().is_some() { "active" } else { "idle" }
             role="separator"
             aria-orientation=orientation
             tabindex="0"
