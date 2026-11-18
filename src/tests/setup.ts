@@ -1,4 +1,6 @@
 import { vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     fetch as platformFetch,
     Headers as PlatformHeaders,
@@ -88,27 +90,48 @@ if (typeof window !== 'undefined') {
             typeof input === 'string' || input instanceof URL
                 ? new URL(String(input), window.location.href).href
                 : input;
-        const response = await undiciFetch(target, init);
-        // Vite's wasm helper streams .wasm via WebAssembly.instantiateStreaming,
-        // which requires Node's internal Response class — unreachable once
-        // happy-dom has replaced the globals. Serving the bytes under a
-        // non-wasm content type makes the helper fall back to
-        // arrayBuffer() + WebAssembly.instantiate instead.
+
         const urlString =
             typeof target === 'string'
                 ? target
                 : target instanceof URL
                   ? target.href
                   : (target as Request).url;
+
+        // Vite's wasm helper loads .wasm via fetch(). Serve wasm files directly
+        // from disk so tests never depend on a local dev server running on port 3000.
+        // Serving the bytes under application/octet-stream also makes the helper fall
+        // back to arrayBuffer() + WebAssembly.instantiate, avoiding instantiateStreaming
+        // incompatibilities with happy-dom globals.
         if (urlString.includes('.wasm')) {
-            const headers = new PlatformHeaders(response.headers);
-            headers.set('Content-Type', 'application/octet-stream');
-            return new PlatformResponse(response.body, {
-                status: response.status,
-                statusText: response.statusText,
-                headers,
-            });
+            let filename = '';
+            try {
+                const u = new URL(urlString, window.location.href);
+                filename = path.basename(u.pathname);
+            } catch {
+                filename = path.basename(urlString);
+            }
+
+            let wasmPath = '';
+            if (filename.includes('quant_core')) {
+                wasmPath = path.resolve(process.cwd(), 'src/wasm/quant-core/quant_core_bg.wasm');
+            } else if (filename.includes('quant_ui')) {
+                wasmPath = path.resolve(process.cwd(), 'src/wasm/quant-ui/quant_ui_bg.wasm');
+            }
+
+            if (wasmPath && fs.existsSync(wasmPath)) {
+                const buffer = fs.readFileSync(wasmPath);
+                const headers = new PlatformHeaders();
+                headers.set('Content-Type', 'application/octet-stream');
+                return new PlatformResponse(buffer, {
+                    status: 200,
+                    statusText: 'OK',
+                    headers,
+                });
+            }
         }
+
+        const response = await undiciFetch(target, init);
         return response;
     }) as unknown as typeof fetch;
     globalThis.fetch = resolvedFetch;
