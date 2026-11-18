@@ -53,20 +53,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  engine:
-    name: Native engine
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Configure engine
-        run: cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build engine
-        run: cmake --build engine/build --config Release
-
-      - name: Test engine
-        run: ctest --test-dir engine/build --output-on-failure -C Release
+  # Native engine job removed 2026-11-17: the C++ engine was removed in the
+  # Rust/WASM rewrite (commit 9bd0252). engine/ now contains only a stale
+  # build/ directory, no CMakeLists.txt or sources, so `cmake -S engine`
+  # fails instantly on a fresh checkout. The Rust engine is covered by
+  # scripts/check-wasm.sh locally; add a Rust CI job if/when that is
+  # wanted, rather than reviving the C++ job.

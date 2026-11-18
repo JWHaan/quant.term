@@ -112,7 +112,7 @@ pub fn NewsTicker() -> impl IntoView {
             <div class="news-ticker__brand">
                 <span class="cursor-blink news-ticker__dot">"●"</span>
                 <span class="news-ticker__label">"NEWSWIRE"</span>
-                <span class="news-ticker__bracket">"&gt;&gt;"</span>
+                <span class="news-ticker__bracket">">>"</span>
             </div>
 
             <div class=move || {

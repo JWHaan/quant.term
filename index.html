@@ -62,10 +62,9 @@
 
   <style>
     /* Critical inline CSS to avoid blank flash before main bundle loads */
-    html, body, #root { height: 100%; margin: 0; padding: 0; background: #07090c; }
+    html, body { height: 100%; margin: 0; padding: 0; background: #07090c; }
     [data-theme="light"] html,
-    [data-theme="light"] body,
-    [data-theme="light"] #root { background: #ffffff; }
+    [data-theme="light"] body { background: #ffffff; }
     #initial-loader {
       position: fixed; inset: 0;
       display: flex; align-items: center; justify-content: center;
@@ -94,13 +93,11 @@
 </head>
 
 <body>
-  <div id="root">
-    <div id="initial-loader">
-      <div class="qt-logo">
-        <div class="spinner"></div>
-        <h1>quant.term</h1>
-        <div class="sub">Initializing Terminal</div>
-      </div>
+  <div id="initial-loader">
+    <div class="qt-logo">
+      <div class="spinner"></div>
+      <h1>quant.term</h1>
+      <div class="sub">Initializing Terminal</div>
     </div>
   </div>
   <script type="module" src="/src/rust-main.ts"></script>

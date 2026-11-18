@@ -4,6 +4,6 @@
 import './styles/global.css';
 import './wasm/quant-ui/quant_ui.js';
 
-// Remove the static loader once the WASM app has mounted.
-const loader = document.getElementById('initial-loader');
-if (loader) loader.remove();
+// Remove the static loader and any legacy root container once the WASM app has mounted.
+document.getElementById('initial-loader')?.remove();
+document.getElementById('root')?.remove();

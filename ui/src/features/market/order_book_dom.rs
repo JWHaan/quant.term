@@ -302,7 +302,7 @@ pub fn OrderBookDOM(symbol: Option<Memo<String>>) -> impl IntoView {
         <div class="dom-ladder">
             <div class="dom-ladder__head">
                 <div class="dom-ladder__controls">
-                    <span class="dom-ladder__title">"&gt; DOM_LADDER"</span>
+                    <span class="dom-ladder__title">"> DOM_LADDER"</span>
                     <div class="dom-ladder__seg">
                         <For
                             each=depth_levels
