@@ -13,11 +13,22 @@
 [![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
 
-**[Open the live terminal](https://quant-term.vercel.app)**
+**[Open the live terminal](https://quant-term.vercel.app)** · [Architecture](ARCHITECTURE.md) · [Indicators](docs/INDICATORS.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
-![quant.term market-intelligence preview](public/og.png)
+![quant.term Monitor workspace — live Binance candles, order-book heatmap, depth ladder, and order-flow research panels](.github/assets/hero-monitor.png)
+
+<table>
+  <tr>
+    <td><img src=".github/assets/strategy-lab.png" alt="Strategy Lab showing a completed deterministic SMA replay with equity curve, metrics, and closed-trade ledger" /></td>
+    <td><img src=".github/assets/command-palette.png" alt="Command palette open over the terminal, listing workspace and panel navigation commands" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Strategy Lab</b> — deterministic replay, explicit costs, inspectable trade ledger</sub></td>
+    <td align="center"><sub><b>Command palette</b> — ⌘K across workspaces, symbols, and panels</sub></td>
+  </tr>
+</table>
 
 ## Overview
 
@@ -29,21 +40,27 @@ The `quant-core` engine and a kept TypeScript reference implementation share the
 
 ## Highlights
 
+**Market monitor**
+
 - Live Binance Spot watchlist, candles, aggregate trades, and top-20 depth
-- Custom Canvas2D candlestick chart with volume, EMA overlays, and native RSI/MACD panes
-- Synced order-book depth heatmap strip that tracks chart pan and zoom
+- Custom Canvas2D candlestick chart — volume, EMA overlays, native RSI/MACD panes
+- Order-book depth heatmap strip synced to chart pan and zoom
 - Binance USDⓈ-M funding, mark/index price, open interest, positioning, and liquidations
-- CoinDesk and Cointelegraph news through a cached same-origin edge route
-- Bitcoin block, mempool, fee, and Fear & Greed snapshots
-- Local price alerts with optional browser notifications
-- Margin-aware simulated long/short positions with unrealized and realized P&L
-- Deterministic Strategy Lab with explicit dataset and engine provenance
-- Bundled synthetic fixture or live Binance Spot klines, with FNV-1a dataset checksums and gap reporting
-- Long/flat SMA replay with next-candle-open fills, fees, and adverse slippage
-- Shared Rust/WASM replay core with a versioned JSON contract and TS parity suite
-- Equity curve, drawdown, exposure, Sharpe, fee totals, and closed-trade inspection
 - OFI, volume delta/CVD, VPIN, Hurst, ADX, ATR, RSI, MACD, OBV, and VWAP research panels
+- CoinDesk/Cointelegraph news, Bitcoin network and Fear & Greed snapshots, local price alerts
+
+**Strategy Lab**
+
+- Deterministic SMA replay — closed-candle signals, next-open fills, explicit fees and slippage
+- Bundled synthetic fixture or live Binance klines, with FNV-1a checksums and gap reporting
+- Equity curve, drawdown, exposure, Sharpe, fee totals, and a closed-trade ledger
+- Shared Rust/WASM engine behind a versioned `backtest-v1` contract and TS parity suite
+
+**Terminal**
+
 - Resizable desktop workspace, command palette, keyboard shortcuts, and themes
+- Margin-aware simulated long/short positions with realized and unrealized P&L
+- Runs entirely in the browser as WebAssembly — no accounts, no keys, no real orders
 
 ## Quick start
 
