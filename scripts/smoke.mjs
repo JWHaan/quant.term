@@ -5,8 +5,9 @@
  * Drives headless Chromium against a running app (dev server or `vite
  * preview`), exercises the shell contract — mount, command line, symbol
  * switching, theme persistence, tab keyboard navigation, command palette —
- * plus a degraded-provider scenario that aborts every Binance REST/WS call
- * and asserts the terminal degrades visibly while staying interactive.
+ * plus a degraded-provider scenario that blackholes all Binance traffic at
+ * DNS level and asserts the terminal degrades visibly while staying
+ * interactive.
  *
  * Usage:
  *   node scripts/smoke.mjs [base-url]
@@ -34,6 +35,16 @@ const FEED_OBSERVE_MS = 6_000; // let live feeds settle before sampling status
 
 /** Binance spot + USDⓈ-M hosts used by the app (ui/src/stores/mod.rs). */
 const BINANCE_HOST = /(^|\.)binance\.(com|vision)$/i;
+
+/** DNS-level blocklist for the degraded scenario: forces every Binance
+ * lookup to fail inside the browser network stack — including native
+ * WebSocket handshakes, which page.route() cannot intercept. */
+const RESOLVER_RULES = [
+  'MAP binance.com ~NOTFOUND',
+  'MAP *.binance.com ~NOTFOUND',
+  'MAP binance.vision ~NOTFOUND',
+  'MAP *.binance.vision ~NOTFOUND',
+].join(', ');
 
 function assert(cond, message) {
   if (!cond) throw new Error(`assert: ${message}`);
@@ -229,10 +240,10 @@ async function main() {
     const state = await page.locator('.connection-status').getAttribute('data-state');
     const label = await text(page, '.connection-status');
     const chartFeed = await text(page, '.chart-feed-state');
-    const body = await page.locator('body').innerText();
+    const instrument = await text(page, '.app-footer .status-item--symbol .value');
     assert(['connected', 'connecting', 'offline'].includes(state ?? ''), `unexpected feed state "${state}"`);
-    assert(body.includes('BTC'), 'default instrument missing from the shell');
-    return { state, label, chartFeed };
+    assert(instrument === 'ETHUSDT', `selected instrument should be ETHUSDT after the symbol switch, got "${instrument}"`);
+    return { state, label, chartFeed, instrument };
   });
 
   await scenario('no-page-errors', async () => {
@@ -243,11 +254,18 @@ async function main() {
   await shot(page, 'smoke-healthy');
 
   // ─── degraded provider ───────────────────────────────────────────────────
-  // Fresh context so route interception never touches the healthy page.
-  // page.route() intercepts the WebSocket handshake as well as REST calls —
-  // aborting it surfaces onerror/onclose in the app and drives the real
-  // reconnect/backoff path (no mocks, no routeWebSocket open-then-close).
-  const degradedCtx = await browser.newContext({ viewport: VIEWPORT });
+  // page.route() only intercepts HTTP(S) requests — native WebSocket
+  // handshakes (wss://) bypass it, so URL routing alone can leave a real
+  // Binance feed connected. A second Chromium instance blackholes Binance at
+  // DNS level instead: REST and WSS both fail inside the browser network
+  // stack and drive the real reconnect/backoff path. page.route() stays for
+  // deterministic REST aborts and the `blocked` counter — proof the
+  // simulation actually fired.
+  const dbrowser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-gpu', `--host-resolver-rules=${RESOLVER_RULES}`],
+  });
+  const degradedCtx = await dbrowser.newContext({ viewport: VIEWPORT });
   degradedCtx.setDefaultNavigationTimeout(NAV_TIMEOUT);
   degradedCtx.setDefaultTimeout(UI_TIMEOUT);
   const dpage = await degradedCtx.newPage();
@@ -298,6 +316,7 @@ async function main() {
   });
 
   await degradedCtx.close();
+  await dbrowser.close();
   await browser.close();
 
   const passed = results.filter((r) => r.ok).length;
