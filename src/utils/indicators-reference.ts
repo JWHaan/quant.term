@@ -322,25 +322,23 @@ export function calculateMACD(
     const validMacd = macdLine.filter((v): v is number => v !== null);
     const signalLine = calculateEMAValues(validMacd, signalPeriod);
 
-    // Combine results
+    // Combine results — ADR-0001: the signal EMA is seeded at the first valid
+    // MACD value and emitted on the same candle index as the MACD line, so the
+    // signal begins where the MACD line becomes valid (index `slowPeriod - 1`).
     const macdData: MACDValue[] = [];
-    let signalIndex = 0;
 
     for (let i = 0; i < data.length; i++) {
-        if (i >= slowPeriod - 1 + signalPeriod - 1 && signalIndex < signalLine.length) {
-            const macd = macdLine[i];
-            const signal = signalLine[signalIndex];
+        const macd = macdLine[i];
+        const signal = signalLine[i - (slowPeriod - 1)];
 
-            // Type guard: ensure both macd and signal are defined numbers
-            if (macd !== null && macd !== undefined && signal !== undefined) {
-                macdData.push({
-                    time: data[i]!.time,
-                    macd: macd,
-                    signal: signal,
-                    histogram: macd - signal
-                });
-                signalIndex++;
-            }
+        // Type guard: ensure both macd and signal are defined numbers
+        if (macd !== null && macd !== undefined && signal !== undefined) {
+            macdData.push({
+                time: data[i]!.time,
+                macd: macd,
+                signal: signal,
+                histogram: macd - signal
+            });
         }
     }
 

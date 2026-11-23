@@ -274,20 +274,19 @@ pub fn calculate_macd(
     }
     let valid_macd: Vec<f64> = macd_line.iter().flatten().copied().collect();
     let signal_line = ema_values(&valid_macd, signal);
+    // ADR-0001: the signal EMA is seeded at the first valid MACD value and
+    // emitted on the same candle index as the MACD line, so the signal begins
+    // where the MACD line becomes valid (index `slow - 1`).
     let mut result = Vec::new();
-    let mut signal_index = 0usize;
     for i in 0..data.len() {
-        if i >= slow - 1 + signal - 1 && signal_index < signal_line.len() {
-            if let Some(macd) = macd_line[i] {
-                let sig = signal_line[signal_index];
-                result.push(MacdValue {
-                    time: data[i].time,
-                    macd,
-                    signal: sig,
-                    histogram: macd - sig,
-                });
-                signal_index += 1;
-            }
+        if let Some(macd) = macd_line[i] {
+            let sig = signal_line[i + 1 - slow];
+            result.push(MacdValue {
+                time: data[i].time,
+                macd,
+                signal: sig,
+                histogram: macd - sig,
+            });
         }
     }
     out(result)
