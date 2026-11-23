@@ -9,6 +9,7 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Leptos 0.8 WASM frontend (`quant-ui`) rendering the complete terminal: Monitor workspace, Strategy Lab, command palette, and chrome
 - Rust/WASM `quant-core` engine for indicators, order-flow calculations, and deterministic SMA replay, shared by the UI crate and TypeScript adapters
 - Custom Canvas2D candlestick chart with volume, EMA overlays, and native RSI/MACD panes
+- Chart navigation: drag panning with pointer capture, cursor-anchored wheel zoom, zoom buttons, and double-click reset with live-edge follow
 - wasm↔TypeScript parity suite for indicators and replay against kept reference implementations
 - Committed wasm-bindgen bundles under `src/wasm` so installs and deployments need no Rust toolchain
 - Live Binance Spot market watch, chart history, trades, and depth feeds

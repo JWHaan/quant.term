@@ -58,6 +58,46 @@ struct Hover {
     y: f64,
 }
 
+/// Fractional candle window: `start` is the first visible candle index,
+/// `visible` the number of bars on screen. Fractional values give smooth
+/// pan/zoom; both are clamped to the dataset on every change.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct View {
+    start: f64,
+    visible: f64,
+}
+
+/// Drag-pan state captured on pointerdown.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct DragState {
+    start_x: f64,
+    view_start: f64,
+}
+
+/// Deepest zoom-in: at least this many bars on screen.
+const MIN_VISIBLE_BARS: f64 = 10.0;
+/// Panning past the edge keeps this many bars on screen.
+const OVERLAP_BARS: f64 = 2.0;
+/// Multiplicative zoom step for buttons and a unit of wheel delta.
+const ZOOM_STEP: f64 = 1.25;
+/// Bars shown on first load and after a reset.
+const DEFAULT_VISIBLE_BARS: f64 = 120.0;
+
+/// Clamp a requested window to the dataset: zoom can't go below
+/// MIN_VISIBLE_BARS or past the full series; panning keeps OVERLAP_BARS
+/// of data inside the viewport.
+fn clamp_view(v: View, n: usize) -> View {
+    let nf = n.max(1) as f64;
+    let visible = v.visible.clamp(MIN_VISIBLE_BARS.min(nf), nf);
+    let overlap = OVERLAP_BARS.min(visible).min(nf);
+    let lo = -(visible - overlap);
+    let hi = (nf - overlap).max(lo);
+    View {
+        start: v.start.clamp(lo, hi),
+        visible,
+    }
+}
+
 // ─── Indicator math (ports of quant-core algorithms used by the TS app) ──────
 
 fn calc_ema(candles: &[Ohlcv], period: usize) -> Vec<IndicatorPoint> {
@@ -418,6 +458,7 @@ fn draw_chart(
     css_w: f64,
     css_h: f64,
     interval: &str,
+    view: View,
 ) {
     let ctx = match canvas_2d(canvas) {
         Some(c) => c,
@@ -449,15 +490,27 @@ fn draw_chart(
     let rsi_top = price_h;
     let macd_top = price_h + rsi_h;
 
-    // ── Price scale (candles + EMA overlays) ──────────────────────────────
+    // ── Price scale (visible candle window + EMA overlays) ───────────────
     let n = candles.len();
-    let slot = if n > 0 { plot_w / n as f64 } else { plot_w };
-    let x_of = |i: usize| -> f64 { i as f64 * slot + slot / 2.0 };
+    let view = clamp_view(view, n);
+    let slot = plot_w / view.visible.max(1.0);
+    let x_of = |i: usize| -> f64 { (i as f64 - view.start) * slot + slot / 2.0 };
+
+    // Scales fit the visible window only — panning re-fits, zooming stretches.
+    let i0 = view.start.floor().max(0.0) as usize;
+    let i1 = ((view.start + view.visible).ceil() as usize)
+        .min(n)
+        .max(i0);
+    let window = &candles[i0..i1];
+    let (t0, t1) = match (window.first(), window.last()) {
+        (Some(f), Some(l)) => (f.time, l.time),
+        _ => (f64::NEG_INFINITY, f64::INFINITY),
+    };
 
     let mut p_min = f64::INFINITY;
     let mut p_max = f64::NEG_INFINITY;
     let mut v_max = 0.0f64;
-    for c in candles {
+    for c in window {
         if c.low.is_finite() {
             p_min = p_min.min(c.low);
         }
@@ -470,7 +523,7 @@ fn draw_chart(
     }
     if toggles.ema9 {
         for p in &indicators.ema9 {
-            if p.value.is_finite() {
+            if p.value.is_finite() && p.time >= t0 && p.time <= t1 {
                 p_min = p_min.min(p.value);
                 p_max = p_max.max(p.value);
             }
@@ -478,7 +531,7 @@ fn draw_chart(
     }
     if toggles.ema21 {
         for p in &indicators.ema21 {
-            if p.value.is_finite() {
+            if p.value.is_finite() && p.time >= t0 && p.time <= t1 {
                 p_min = p_min.min(p.value);
                 p_max = p_max.max(p.value);
             }
@@ -522,6 +575,13 @@ fn draw_chart(
             break;
         }
     }
+
+    // Clip price-pane drawing to the plot rect — panned content must not
+    // paint over the axes or sibling panes.
+    ctx.save();
+    ctx.begin_path();
+    ctx.rect(0.0, 0.0, plot_w, price_h);
+    ctx.clip();
 
     // ── Volume (bottom VOLUME_FRACTION of the price pane) ────────────────
     let vol_top = price_h * (1.0 - VOLUME_FRACTION);
@@ -614,6 +674,7 @@ fn draw_chart(
     if toggles.ema21 {
         draw_line_series(&indicators.ema21, &theme.ema21);
     }
+    ctx.restore();
 
     // ── Pane separators (top edge of each enabled indicator pane) ────────
     ctx.set_stroke_style_str(&theme.border_color);
@@ -647,7 +708,7 @@ fn draw_chart(
         let mut lo = f64::INFINITY;
         let mut hi = f64::NEG_INFINITY;
         for p in &indicators.rsi {
-            if p.value.is_finite() {
+            if p.value.is_finite() && p.time >= t0 && p.time <= t1 {
                 lo = lo.min(p.value);
                 hi = hi.max(p.value);
             }
@@ -660,6 +721,10 @@ fn draw_chart(
                 hi = lo + 1.0;
             }
             let ry = |v: f64| r_top + r_h - ((v - lo) / (hi - lo)) * r_h;
+            ctx.save();
+            ctx.begin_path();
+            ctx.rect(0.0, r_top, plot_w, r_h);
+            ctx.clip();
             // 30 / 70 dashed guides.
             ctx.set_stroke_style_str(&theme.crosshair_color);
             ctx.set_line_width(1.0);
@@ -688,6 +753,7 @@ fn draw_chart(
                 .collect();
             ctx.set_stroke_style_str(&theme.rsi);
             stroke_polyline(&ctx, &coords);
+            ctx.restore();
         }
     }
 
@@ -697,6 +763,9 @@ fn draw_chart(
         let m_h = macd_h;
         let mut max_abs = 0.0f64;
         for p in &indicators.macd {
+            if p.time < t0 || p.time > t1 {
+                continue;
+            }
             if p.histogram.is_finite() {
                 max_abs = max_abs.max(p.histogram.abs());
             }
@@ -713,6 +782,10 @@ fn draw_chart(
         max_abs *= 1.1;
         let zero_y = m_top + m_h / 2.0;
         let my = |v: f64| zero_y - (v / max_abs) * (m_h / 2.0);
+        ctx.save();
+        ctx.begin_path();
+        ctx.rect(0.0, m_top, plot_w, m_h);
+        ctx.clip();
         // Zero line.
         ctx.set_stroke_style_str(&theme.border_color);
         ctx.begin_path();
@@ -770,6 +843,7 @@ fn draw_chart(
         };
         line_coords(|p| p.macd, &theme.macd);
         line_coords(|p| p.signal, &theme.signal);
+        ctx.restore();
     }
 
     // ── Time axis ─────────────────────────────────────────────────────────
@@ -780,9 +854,11 @@ fn draw_chart(
         ctx.set_text_align("center");
         ctx.set_text_baseline("middle");
         let label_count = 6usize;
+        let span = (i1 - i0).max(1);
         for k in 0..label_count {
-            let idx = ((k as f64 + 0.5) / label_count as f64 * n as f64) as usize;
-            let idx = idx.min(n - 1);
+            let idx = (i0 + ((k as f64 + 0.5) / label_count as f64 * span as f64) as usize)
+                .min(i1 - 1)
+                .min(n - 1);
             let x = x_of(idx).min(plot_w - 8.0);
             let _ = ctx.fill_text(&format_time_label(candles[idx].time, interval), x, axis_y);
         }
@@ -930,11 +1006,77 @@ pub fn TerminalChart(
         }
     });
 
-    // Emit the visible range (all candles — there is no pan/zoom yet).
+    // Viewport: `start` = left-edge candle index (fractional for smooth
+    // pan/zoom), `visible` = bars on screen. `follow` pins the right edge to
+    // live candles until the user navigates away; reset restores it.
+    let view = RwSignal::new(View {
+        start: 0.0,
+        visible: DEFAULT_VISIBLE_BARS,
+    });
+    let follow = RwSignal::new(true);
+    let drag = RwSignal::new(None::<DragState>);
+
+    // Zoom around the plot center (the +/- buttons).
+    let zoom_at_center = move |factor: f64| {
+        let n = sorted.with(|c| c.len());
+        if n == 0 {
+            return;
+        }
+        let v0 = view.get_untracked();
+        let anchor = v0.start + v0.visible * 0.5;
+        let visible = v0.visible * factor;
+        view.set(clamp_view(
+            View {
+                start: anchor - visible * 0.5,
+                visible,
+            },
+            n,
+        ));
+        follow.set(false);
+    };
+
+    // Back to the live edge at the default zoom.
+    let reset_view = move || {
+        let n = sorted.with(|c| c.len());
+        follow.set(true);
+        let v = clamp_view(
+            View {
+                start: 0.0,
+                visible: DEFAULT_VISIBLE_BARS,
+            },
+            n,
+        );
+        view.set(View {
+            start: (n as f64 - v.visible).max(0.0),
+            ..v
+        });
+    };
+
+    // Clamp the window whenever the series changes; while `follow` is on,
+    // keep the right edge pinned to the newest candle.
+    Effect::new(move |_| {
+        let n = sorted.with(|c| c.len());
+        let pinned = follow.get_untracked();
+        view.update(|v| {
+            let mut next = clamp_view(*v, n);
+            if pinned {
+                next.start = (n as f64 - next.visible).max(0.0);
+            }
+            if next != *v {
+                *v = next;
+            }
+        });
+    });
+
+    // Emit the actually-visible candle window — drives the HeatmapStrip
+    // range sync.
     Effect::new(move |_| {
         let c = sorted.get();
-        match (c.first(), c.last()) {
-            (Some(first), Some(last)) => on_visible_range_change(Some(TimeRange {
+        let v = clamp_view(view.get(), c.len());
+        let i0 = v.start.floor().max(0.0) as usize;
+        let i1 = ((v.start + v.visible).ceil() as usize).min(c.len());
+        match (i0 < i1, c.get(i0), c.get(i1.saturating_sub(1))) {
+            (true, Some(first), Some(last)) => on_visible_range_change(Some(TimeRange {
                 from_time: first.time,
                 to_time: last.time,
             })),
@@ -1004,6 +1146,7 @@ pub fn TerminalChart(
         let ind = indicators.get();
         let t = indicator_toggles.get();
         let h = hover.get();
+        let v = view.get();
         let intv = interval.get();
         let theme = resolve_chart_theme();
         let Some(canvas) = canvas_ref.get() else {
@@ -1011,7 +1154,7 @@ pub fn TerminalChart(
         };
         let w = canvas.client_width() as f64;
         let h_px = canvas.client_height() as f64;
-        draw_chart(&canvas, &c, &ind, t, &theme, h, w, h_px, &intv);
+        draw_chart(&canvas, &c, &ind, t, &theme, h, w, h_px, &intv, v);
     });
 
     view! {
@@ -1019,35 +1162,145 @@ pub fn TerminalChart(
             <canvas
                 node_ref=canvas_ref
                 class="terminal-chart-canvas"
-                style="display: block; width: 100%; height: 100%; cursor: crosshair"
+                style=move || {
+                    let cursor = if drag.get().is_some() { "grabbing" } else { "crosshair" };
+                    format!("display: block; width: 100%; height: 100%; touch-action: none; cursor: {cursor}")
+                }
                 role="img"
                 aria-label=move || {
                     let c = sorted.with(|s| s.len());
                     format!("{} {} candlestick chart with {c} candles", symbol.get().to_uppercase(), interval.get())
                 }
                 tabindex="0"
-                on:mousemove=move |ev| {
+                on:pointerdown=move |ev| {
+                    if ev.button() != 0 {
+                        return;
+                    }
+                    let Some(canvas) = canvas_ref.get() else { return };
+                    let v0 = view.get_untracked();
+                    drag.set(Some(DragState {
+                        start_x: ev.client_x() as f64,
+                        view_start: v0.start,
+                    }));
+                    let _ = canvas.set_pointer_capture(ev.pointer_id());
+                }
+                on:pointermove=move |ev| {
                     let Some(canvas) = canvas_ref.get() else { return };
                     let rect = canvas.get_bounding_client_rect();
                     let x = ev.client_x() as f64 - rect.left();
                     let y = ev.client_y() as f64 - rect.top();
                     let c = sorted.get_untracked();
                     let w = canvas.client_width() as f64;
-                    if c.is_empty() || w <= AXIS_W {
+                    if w <= AXIS_W {
                         hover.set(None);
                         return;
                     }
                     let plot_w = w - AXIS_W;
-                    let slot = plot_w / c.len() as f64;
-                    let idx = ((x / slot).floor() as isize).clamp(0, c.len() as isize - 1) as usize;
+                    if let Some(d) = drag.get_untracked() {
+                        // Pixels → candle indices: dragging left moves forward
+                        // in time (the chart pans under a stationary cursor).
+                        let v0 = view.get_untracked();
+                        let slot = plot_w / v0.visible.max(1.0);
+                        if slot.is_finite() && slot > 0.0 {
+                            view.set(clamp_view(
+                                View {
+                                    start: d.view_start
+                                        + (d.start_x - ev.client_x() as f64) / slot,
+                                    ..v0
+                                },
+                                c.len(),
+                            ));
+                            follow.set(false);
+                        }
+                    }
+                    if c.is_empty() {
+                        hover.set(None);
+                        return;
+                    }
+                    let v = view.get_untracked();
+                    let idx = (v.start + x / plot_w * v.visible)
+                        .floor()
+                        .clamp(0.0, c.len() as f64 - 1.0) as usize;
                     if x >= 0.0 && x <= plot_w && y >= 0.0 {
                         hover.set(Some(Hover { index: idx, y }));
                     } else {
                         hover.set(None);
                     }
                 }
-                on:mouseleave=move |_| hover.set(None)
+                on:pointerup=move |ev| {
+                    drag.set(None);
+                    if let Some(canvas) = canvas_ref.get() {
+                        let _ = canvas.release_pointer_capture(ev.pointer_id());
+                    }
+                }
+                on:pointercancel=move |_| drag.set(None)
+                on:pointerleave=move |_| hover.set(None)
+                on:wheel=move |ev| {
+                    let Some(canvas) = canvas_ref.get() else { return };
+                    ev.prevent_default();
+                    let n = sorted.with(|c| c.len());
+                    if n == 0 {
+                        return;
+                    }
+                    let rect = canvas.get_bounding_client_rect();
+                    let x = ev.client_x() as f64 - rect.left();
+                    let plot_w = (canvas.client_width() as f64 - AXIS_W).max(1.0);
+                    // Keep the candle under the cursor anchored while zooming.
+                    let frac = (x / plot_w).clamp(0.0, 1.0);
+                    let v0 = view.get_untracked();
+                    let anchor = v0.start + frac * v0.visible;
+                    let dy = match ev.delta_mode() {
+                        1 => ev.delta_y() * 16.0,
+                        2 => ev.delta_y() * 400.0,
+                        _ => ev.delta_y(),
+                    };
+                    let mag = (dy.abs() / 100.0).clamp(0.5, 3.0);
+                    let factor = ZOOM_STEP.powf(if dy < 0.0 { -mag } else { mag });
+                    let visible = v0.visible * factor;
+                    view.set(clamp_view(
+                        View {
+                            start: anchor - frac * visible,
+                            visible,
+                        },
+                        n,
+                    ));
+                    follow.set(false);
+                }
+                on:dblclick=move |ev| {
+                    ev.prevent_default();
+                    reset_view();
+                }
             ></canvas>
+
+            <div style="position: absolute; top: 8px; right: 72px; display: flex; gap: 4px; z-index: 2; font-family: var(--font-mono)">
+                <button
+                    type="button"
+                    title="Zoom out"
+                    aria-label="Zoom out"
+                    style="width: 22px; height: 22px; padding: 0; border: 1px solid var(--border-color, #334155); background: var(--bg-elevated, #1e293b); color: var(--text-secondary, #94a3b8); font-size: 13px; line-height: 1; cursor: pointer; border-radius: 2px"
+                    on:click=move |_| zoom_at_center(ZOOM_STEP)
+                >
+                    "−"
+                </button>
+                <button
+                    type="button"
+                    title="Zoom in"
+                    aria-label="Zoom in"
+                    style="width: 22px; height: 22px; padding: 0; border: 1px solid var(--border-color, #334155); background: var(--bg-elevated, #1e293b); color: var(--text-secondary, #94a3b8); font-size: 13px; line-height: 1; cursor: pointer; border-radius: 2px"
+                    on:click=move |_| zoom_at_center(1.0 / ZOOM_STEP)
+                >
+                    "+"
+                </button>
+                <button
+                    type="button"
+                    title="Reset view to the live edge"
+                    aria-label="Reset view to the live edge"
+                    style="height: 22px; padding: 0 6px; border: 1px solid var(--border-color, #334155); background: var(--bg-elevated, #1e293b); color: var(--text-secondary, #94a3b8); font-size: 9px; letter-spacing: 0.5px; cursor: pointer; border-radius: 2px"
+                    on:click=move |_| reset_view()
+                >
+                    {move || if follow.get() { "LIVE" } else { "RESET" }}
+                </button>
+            </div>
 
             {move || sorted.with(|c| c.is_empty()).then(|| {
                 let err = error.get();
