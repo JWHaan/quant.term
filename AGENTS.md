@@ -123,7 +123,7 @@ Never: force-push, rewrite history, edit `src/wasm/**` or `dist/` directly, remo
 
 ## Generated artifacts
 
-`src/wasm/{quant-core,quant-ui}/` and `dist/` are build output. Source of truth: `rust/`, `ui/src/`, `src/` (non-wasm), `build/`, `scripts/`. Regenerate via `npm run wasm:build` / `./scripts/build-ui-wasm.sh` / `npm run build`. Stage regenerated bundles in the same change as the source edit that produced them.
+`src/wasm/{quant-core,quant-ui}/` and `dist/` are build output. Source of truth: `rust/`, `ui/src/`, `src/` (non-wasm), `build/`, `scripts/`. Regenerate via `npm run wasm:build` / `npm run wasm:build:ui` / `npm run build`. Stage regenerated bundles in the same change as the source edit that produced them — CI replaces them with canonical linux-x86_64 bytes on the PR.
 
 ## Global Conventions
 
@@ -136,6 +136,7 @@ Never: force-push, rewrite history, edit `src/wasm/**` or `dist/` directly, remo
 ## Architecture decisions
 
 - **Why committed wasm bundles**: deploys and JS-only contributors need no Rust toolchain; bundle drift is a real bug vector — always regenerate after Rust edits.
+- **Why bundles are linux-x86_64 canonical**: rustc wasm codegen is deterministic per host but NOT cross-host (darwin-arm64, linux-arm64 and linux-x86_64 all emit different bytes for identical sources). Committed `src/wasm/` bytes are CI-owned canonical linux output — the `wasm` CI job rebuilds and pushes them to the PR branch. Local rebuilds still matter for dev iteration but will byte-differ; commit them anyway and let CI normalize.
 - **Why TS reference engines remain**: they are the deterministic ground truth the wasm↔TS parity tests assert against; they are not dead code.
 - **Why Leptos signals, not a TS store lib**: state lives in `AppStores` inside the WASM app; `localStorage` persistence keeps Zustand-compatible keys for migrated users — do not rename persisted keys casually.
 - **Why `build-ui-wasm.sh` is a raw script**: invoked via `npm run wasm:build:ui` and enforced by the `wasm` CI job; call it directly when iterating.

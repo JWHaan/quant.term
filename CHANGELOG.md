@@ -30,6 +30,7 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 
 ### Changed
 
+- `wasm` CI job now owns committed-bundle regeneration instead of only diff-gating: it rebuilds both bundles on linux-x86_64 and pushes the canonical bytes back to the PR branch (byte-diff gating proved impossible across host platforms — rustc wasm codegen differs between darwin-arm64, linux-arm64, and linux-x86_64 for identical sources)
 - Rewrote the browser application in Rust/WASM: the `quant-ui` Leptos crate replaced the React/Zustand frontend, with signal-based stores, `binance_feed` WebSocket orchestration, and typed service clients
 - Moved indicator and replay calculations into the shared `quant-core` engine; TypeScript remains as entry point, adapters, tests, and edge code
 - Converted the remaining JavaScript order-book hook to strict TypeScript
