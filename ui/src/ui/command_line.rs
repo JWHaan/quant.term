@@ -4,51 +4,11 @@
 
 use leptos::prelude::*;
 
-use crate::features::command_palette::{normalize_symbol_arg, Command};
-
-/// Mirrors `ResolvedCommandInput` in the TSX.
-#[derive(Clone)]
-pub enum ResolvedCommandInput {
-    Exact(Command),
-    Filtered(Vec<Command>),
-}
-
-/// `resolveCommandInput` — exact mnemonics win ("top <arg>" routes to the
-/// first TOP command); anything else falls back to a case-insensitive
-/// substring filter over mnemonic/label/description in registry order.
-pub fn resolve_command_input(query: &str, commands: &[Command]) -> ResolvedCommandInput {
-    let trimmed = query.trim();
-    let lower = trimmed.to_lowercase();
-
-    if lower.starts_with("top ") || lower == "top" {
-        if let Some(top) = commands
-            .iter()
-            .find(|c| c.mnemonic.is_some_and(|m| m.eq_ignore_ascii_case("TOP")))
-        {
-            return ResolvedCommandInput::Exact(top.clone());
-        }
-    }
-
-    if let Some(exact) = commands
-        .iter()
-        .find(|c| c.mnemonic.is_some_and(|m| m.to_lowercase() == lower))
-    {
-        return ResolvedCommandInput::Exact(exact.clone());
-    }
-
-    let items = commands
-        .iter()
-        .filter(|c| {
-            c.label.to_lowercase().contains(&lower)
-                || c.description.to_lowercase().contains(&lower)
-                || c
-                    .mnemonic
-                    .is_some_and(|m| m.to_lowercase().contains(&lower))
-        })
-        .cloned()
-        .collect();
-    ResolvedCommandInput::Filtered(items)
-}
+// Resolution grammar is shared with the command palette — the definitions
+// live in `crate::features::command_palette` (extracted verbatim from here).
+use crate::features::command_palette::{
+    normalize_symbol_arg, resolve_command_input, Command, ResolvedCommandInput,
+};
 
 const MAX_RESULTS: usize = 7;
 
@@ -119,7 +79,6 @@ pub fn CommandLine(
                 }
                 None => {
                     no_match.set(Some(trimmed_query));
-                    query.set("Bad symbol".to_string());
                 }
             }
             return;
@@ -181,7 +140,7 @@ pub fn CommandLine(
                     .enumerate()
                     .map(|(index, item)| {
                         let mnemonic = item.mnemonic;
-                        let label = item.label;
+                        let label = item.label.to_string();
                         let command = item.clone();
                         let active = index == safe;
                         view! {
@@ -258,6 +217,7 @@ pub fn CommandLine(
                     no_match.set(None);
                 }
                 on:keydown=on_keydown
+                aria-invalid=move || no_match.get().is_some().to_string()
                 aria-expanded=move || show_results().to_string()
                 aria-controls=move || show_results().then_some("command-line-results")
                 aria-autocomplete="list"

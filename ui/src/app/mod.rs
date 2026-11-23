@@ -136,10 +136,27 @@ pub fn App() -> impl IntoView {
     #[cfg(target_arch = "wasm32")]
     let _shortcuts = use_keyboard_shortcuts(Vec::new(), true, stores.show_help);
 
-    let is_global_connected = move || {
+    // Tri-state for display surfaces: a feed that is mid-connect (first mount,
+    // symbol swap, reconnect backoff) reads "connecting", not "offline" — so
+    // chips stop flashing OFFLINE during routine reconnects.
+    let global_feed_state = move || {
         let c = stores.connections.get();
-        c.get("binance") == Some(&ConnectionStatus::Connected)
-            && c.get("marketData") == Some(&ConnectionStatus::Connected)
+        let primary = ["binance", "marketData"];
+        if primary
+            .iter()
+            .all(|k| c.get(*k) == Some(&ConnectionStatus::Connected))
+        {
+            "connected"
+        } else if primary.iter().any(|k| {
+            matches!(
+                c.get(*k),
+                Some(&ConnectionStatus::Connecting | &ConnectionStatus::Reconnecting)
+            )
+        }) {
+            "connecting"
+        } else {
+            "offline"
+        }
     };
 
     let toggle_fullscreen = move |_| {
@@ -230,7 +247,7 @@ pub fn App() -> impl IntoView {
             <div class="app-container">
                 <a class="skip-link" href=move || skip_target()>{move || skip_label()}</a>
                 <AppHeader
-                    is_global_connected=is_global_connected
+                    feed_state=global_feed_state
                     is_fullscreen=move || stores.is_fullscreen.get()
                     workspace=workspace
                     on_workspace_change=open_workspace
@@ -242,13 +259,13 @@ pub fn App() -> impl IntoView {
                     on_toggle_theme=toggle_theme
                 />
                 {move || match workspace.get() {
-                    WorkspaceMode::Monitor => view! { <MonitorWorkspace selected_symbol=move || stores.selected_symbol.get() is_global_connected=is_global_connected on_select_symbol=move |sym| stores.set_symbol(&sym) /> }.into_any(),
+                    WorkspaceMode::Monitor => view! { <MonitorWorkspace selected_symbol=move || stores.selected_symbol.get() is_global_connected=move || global_feed_state() != "offline" on_select_symbol=move |sym| stores.set_symbol(&sym) /> }.into_any(),
                     WorkspaceMode::StrategyLab => view! { <StrategyLab /> }.into_any(),
                 }}
                 {move || match workspace.get() {
                     WorkspaceMode::Monitor => view! {
                         <AppFooter
-                            is_global_connected=is_global_connected
+                            feed_state=global_feed_state
                             selected_symbol=move || stores.selected_symbol.get()
                         />
                     }.into_any(),

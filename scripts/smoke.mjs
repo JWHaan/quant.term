@@ -36,12 +36,13 @@ if (await input.count()) {
   await page.waitForTimeout(500);
   results.afterTop = (await page.locator('body').innerText()).match(/ETH[A-Z]*/)?.[0] || 'not-found';
 
-  // 4. Bad symbol
+  // 4. Bad symbol — error surfaces in the status region; typed query is kept.
   await input.fill('top notarealsymbol');
   await page.waitForTimeout(300);
   await input.press('Enter');
   await page.waitForTimeout(400);
-  results.badSymbolShown = await page.locator('text=Bad symbol').count();
+  results.badSymbolNoMatch = await page.locator('.command-line__no-match').count();
+  results.badSymbolQueryKept = await input.inputValue();
   await page.screenshot({ path: '/tmp/smoke-badsymbol.png' });
 }
 

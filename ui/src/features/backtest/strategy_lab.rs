@@ -326,7 +326,7 @@ pub fn StrategyLab(
                 <aside class="backtest-setup" aria-labelledby="backtest-setup-title">
                     <div class="panel-title-row">
                         <h3 id="backtest-setup-title">"Backtest setup"</h3>
-                        <span>"CONTRACT V1"</span>
+                        <span title="Replay result contract: backtest-v1">"SCHEMA V1"</span>
                     </div>
 
                     <fieldset>

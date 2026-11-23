@@ -114,6 +114,31 @@ fn master_signal(score: f64) -> MasterSignal {
     }
 }
 
+/// Signed per-component contributions for the MODEL SCORE tooltip —
+/// display only; mirrors the `analyze_market` scoring rules.
+fn score_breakdown(sig: &QuantSignal) -> (f64, f64, f64) {
+    let rsi = if sig.rsi < 30.0 {
+        30.0
+    } else if sig.rsi > 70.0 {
+        -30.0
+    } else {
+        0.0
+    };
+    let bb = if sig.bb_position < 0.1 {
+        20.0
+    } else if sig.bb_position > 0.9 {
+        -20.0
+    } else {
+        0.0
+    };
+    let macd = match sig.macd_signal {
+        MacdSignal::Bullish => 20.0,
+        MacdSignal::Bearish => -20.0,
+        MacdSignal::Neutral => 0.0,
+    };
+    (rsi, bb, macd)
+}
+
 async fn analyze_market(symbol: &str) -> Result<QuantSignal, String> {
     let candles = klines::fetch_klines_latest(symbol, ANALYSIS_INTERVAL, ANALYSIS_LIMIT)
         .await
@@ -296,6 +321,10 @@ pub fn QuantSignalEngine() -> impl IntoView {
                     "var(--text-secondary)"
                 };
                 let bb_marker = (sig.bb_position * 100.0).clamp(0.0, 100.0);
+                let (rsi_pts, bb_pts, macd_pts) = score_breakdown(&sig);
+                let score_tooltip = format!(
+                    "Score breakdown — RSI {rsi_pts:+.0} · BB {bb_pts:+.0} · MACD {macd_pts:+.0} · signed scale ±70"
+                );
                 view! {
                     <div
                         class="panel-scroll"
@@ -333,8 +362,12 @@ pub fn QuantSignalEngine() -> impl IntoView {
                                 <div class="stat-card__label" style="color:var(--text-secondary)">
                                     "MODEL SCORE"
                                 </div>
-                                <div class="tnum" style="font-size:18px;color:var(--text-primary)">
-                                    {format!("{:.0}%", sig.score.abs())}
+                                <div
+                                    class="tnum"
+                                    style="font-size:18px;color:var(--text-primary)"
+                                    title=score_tooltip
+                                >
+                                    {format!("{:+.0} / ±70", sig.score)}
                                 </div>
                             </div>
                         </div>

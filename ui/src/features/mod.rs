@@ -47,7 +47,7 @@ pub fn MonitorWorkspace(
         },
         TabDef {
             id: "factors",
-            label: "Factors".to_string(),
+            label: "Flow Factors".to_string(),
             content: view! { <analytics::alpha_panel::AlphaPanel symbol=Some(symbol_memo) interval=None /> }.into_any(),
         },
     ];

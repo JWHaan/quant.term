@@ -348,8 +348,10 @@ impl Shared {
         self.on_error = None;
         self.on_close = None;
 
+        // Teardown (symbol/interval swap or unmount) is not a feed failure —
+        // reset so a remounted feed reads CONNECTING until its first tick.
         with_provenance_engine(&self.normalized_symbol, |engine| {
-            engine.mark_disconnected();
+            engine.reset();
         });
         release_live_connection(&self.stores, self.owner_id);
     }

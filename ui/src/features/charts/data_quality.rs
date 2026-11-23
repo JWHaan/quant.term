@@ -19,6 +19,7 @@ fn empty_distribution() -> LatencyDistribution {
 fn latency_color(status: FeedStatus, latency: f64) -> &'static str {
     match status {
         FeedStatus::Disconnected => "var(--text-muted)",
+        FeedStatus::Connecting => "var(--accent-warning)",
         FeedStatus::Stale => "var(--accent-danger)",
         _ if latency < 100.0 => "var(--accent-success)",
         _ if latency < 500.0 => "var(--accent-warning)",
@@ -29,6 +30,7 @@ fn latency_color(status: FeedStatus, latency: f64) -> &'static str {
 fn quality_label(status: FeedStatus, latency: f64) -> &'static str {
     match status {
         FeedStatus::Disconnected => "OFFLINE",
+        FeedStatus::Connecting => "CONNECTING",
         FeedStatus::Stale => "STALE",
         FeedStatus::Replay => "REPLAY",
         _ if latency < 100.0 => "EXCELLENT",
@@ -41,7 +43,7 @@ fn quality_label(status: FeedStatus, latency: f64) -> &'static str {
 fn status_icon(status: FeedStatus) -> AnyView {
     // Lucide icons at size 10, stroke=currentColor.
     let inner = match status {
-        FeedStatus::Stale => view! {
+        FeedStatus::Stale | FeedStatus::Connecting => view! {
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
         }
         .into_any(),
@@ -167,7 +169,7 @@ pub fn DataQualityBadge(
 ) -> impl IntoView {
     // (p50 latency, feed status, full distribution) — refreshed every second,
     // mirroring the TS provenance polling effect in ChartContainer.
-    let snap = RwSignal::new((0.0f64, FeedStatus::Disconnected, empty_distribution()));
+    let snap = RwSignal::new((0.0f64, FeedStatus::Connecting, empty_distribution()));
     let refresh = move || {
         let sym = symbol.get().to_uppercase();
         let next = with_provenance_engine(&sym, |engine| {
