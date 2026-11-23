@@ -677,7 +677,7 @@ pub fn StrategyLab(
                                                 <dl>
                                                     <div><dt>"Contract"</dt><dd>{contract_version.clone()}</dd></div>
                                                     <div><dt>"Runtime"</dt><dd>{engine_label.clone()}</dd></div>
-                                                    <div><dt>"Native core"</dt><dd>"C++20 correctness target"</dd></div>
+                                                    <div><dt>"Reference"</dt><dd>"TypeScript reference engine"</dd></div>
                                                     <div><dt>"Execution"</dt><dd>"Signal close → next bar open"</dd></div>
                                                     <div><dt>"Fill model"</dt><dd>"Market price with adverse bps costs"</dd></div>
                                                     <div><dt>"Dataset checksum"</dt><dd>{dataset.checksum.clone()}</dd></div>

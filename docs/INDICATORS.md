@@ -17,7 +17,7 @@
 | ADX | 14 periods | Directional-trend strength |
 | Hurst exponent | Full input window | Rescaled-range persistence estimate |
 
-Implementations live in `src/utils/indicators.ts`. Inputs use the shared `OHLCV` contract and invalid/insufficient series return bounded empty or neutral outputs rather than fabricated values.
+Implementations live in `rust/` (`quant-core`) and are reached by the Leptos UI directly and by TypeScript through the wasm adapter `src/utils/indicators-wasm.ts`. The kept TypeScript reference lives in `src/utils/indicators-reference.ts` and is exercised by the parity suite. Inputs use the shared `OHLCV` contract and invalid/insufficient series return bounded empty or neutral outputs rather than fabricated values.
 
 ## Order-flow calculations
 

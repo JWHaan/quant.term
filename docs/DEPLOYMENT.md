@@ -20,9 +20,10 @@ dist/
 
 No production environment variables are required. Do not add secrets to `VITE_*` values because they are exposed to the browser.
 
-The deployed Strategy Lab runs the TypeScript reference replay against its
-bundled deterministic fixture. The native C++20 engine is built and tested by
-the quality gate but is not packaged into the static deployment.
+The deployed Strategy Lab runs the shared Rust/WASM `quant-core` replay engine
+against its bundled deterministic fixture or browser-fetched Binance klines.
+The generated wasm-bindgen bundles are committed under `src/wasm`, so
+deployments do not need a Rust toolchain.
 
 ## OpenAI Sites / Cloudflare
 

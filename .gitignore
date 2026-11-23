@@ -19,7 +19,6 @@ coverage
 .wrangler
 .dev.vars*
 .vercel
-engine/build
 
 # Editor directories and files
 .vscode/*

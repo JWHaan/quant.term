@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ~~~
 
-Node.js 22.12 or newer within the 22.x LTS line is required. The complete quality gate also requires CMake 3.20+ and a C++20 compiler. The active dashboard needs no environment variables.
+Node.js 24.15 or newer within the 24.x LTS line is required. The generated wasm-bindgen bundles under `src/wasm` are committed, so `npm ci` and `npm run dev` work without a Rust toolchain. Editing the Rust crates (`rust/` or `ui/`) additionally requires a stable Rust toolchain with the `wasm32-unknown-unknown` target and the `wasm-bindgen` CLI. The dashboard needs no environment variables.
 
 ## Development workflow
 
@@ -23,6 +23,14 @@ Node.js 22.12 or newer within the 22.x LTS line is required. The complete qualit
 npm run check
 ~~~
 
+   When changing `rust/` or `ui/`, also rebuild the committed bundles and run the Rust gate:
+
+~~~bash
+npm run wasm:build              # quant-core
+./scripts/build-ui-wasm.sh      # quant-ui (Leptos frontend)
+npm run wasm:check              # cargo fmt --check + clippy -D warnings
+~~~
+
 4. Open a pull request using the repository template.
 
 Use Conventional Commit-style subjects where practical, for example `fix: recover stale candle stream` or `docs: clarify news provider behavior`.
@@ -31,11 +39,11 @@ Use Conventional Commit-style subjects where practical, for example `fix: recove
 
 - Keep TypeScript strict and do not add `@ts-nocheck`.
 - Treat external JSON as `unknown` and validate it at the integration boundary.
-- Keep provider-specific parsing under `src/integrations`.
+- Keep provider-specific parsing under `ui/src/services` and `ui/src/stores`.
 - Keep calculations pure when possible and cover financial math with deterministic fixtures.
-- Keep the browser and native backtest implementations aligned through shared golden fixtures.
+- Keep the Rust/WASM engine and the TypeScript reference implementations aligned through the parity suite in `src/tests`.
 - Treat synthetic replay output as correctness evidence, never as historical performance.
-- Clean up WebSockets, intervals, abort controllers, and subscriptions on unmount.
+- Clean up WebSockets, intervals, abort controllers, and subscriptions when components drop.
 - Do not fabricate fallback prices, volume, P&L, risk metrics, or news.
 - Never put secrets in `VITE_*` variables; Vite values are shipped to the browser.
 - Update README, architecture, deployment, or indicator docs when their contracts change.
@@ -50,7 +58,7 @@ A ready pull request should:
 - link the relevant issue when one exists
 - include screenshots for visible UI changes
 - identify data-provider or deployment impact
-- pass lint, type-check, tests, coverage, and build
+- pass lint, type-check, tests, coverage, and build (plus `wasm:check` for Rust changes)
 - avoid unrelated formatting or dependency churn
 
 ## Security

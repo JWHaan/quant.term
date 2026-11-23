@@ -1,7 +1,7 @@
 /**
  * Backtest engine backed by the Rust/WASM core (rust/quant-core).
  * Mirrors the reference implementation in ./engine-reference.ts; the
- * `backtest-v1` contract is shared with the C++20 engine under engine/.
+ * `backtest-v1` contract is shared with the TypeScript reference engine.
  */
 import {
     run_sma_cross_backtest,

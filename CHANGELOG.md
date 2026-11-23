@@ -6,6 +6,11 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 
 ### Added
 
+- Leptos 0.8 WASM frontend (`quant-ui`) rendering the complete terminal: Monitor workspace, Strategy Lab, command palette, and chrome
+- Rust/WASM `quant-core` engine for indicators, order-flow calculations, and deterministic SMA replay, shared by the UI crate and TypeScript adapters
+- Custom Canvas2D candlestick chart with volume, EMA overlays, and native RSI/MACD panes
+- wasm↔TypeScript parity suite for indicators and replay against kept reference implementations
+- Committed wasm-bindgen bundles under `src/wasm` so installs and deployments need no Rust toolchain
 - Live Binance Spot market watch, chart history, trades, and depth feeds
 - Binance USDⓈ-M derivatives and liquidation panels
 - Same-origin CoinDesk and Cointelegraph news aggregation
@@ -21,6 +26,8 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 
 ### Changed
 
+- Rewrote the browser application in Rust/WASM: the `quant-ui` Leptos crate replaced the React/Zustand frontend, with signal-based stores, `binance_feed` WebSocket orchestration, and typed service clients
+- Moved indicator and replay calculations into the shared `quant-core` engine; TypeScript remains as entry point, adapters, tests, and edge code
 - Organized application composition under `src/app` and provider code under `src/integrations`
 - Converted the remaining JavaScript order-book hook to strict TypeScript
 - Expanded type checking to the Worker, Vercel adapter, build helpers, and config
@@ -48,6 +55,8 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 
 ### Removed
 
+- React/Zustand frontend tree and the `lightweight-charts` dependency
+- C++20 engine under `engine/` and its native CI quality gate
 - Unreachable research prototypes, fabricated demo metrics, and their unused dependencies
 - Duplicate market-store candle and trade buffers
 - Obsolete cleanup scripts, starter assets, and one-time implementation reports

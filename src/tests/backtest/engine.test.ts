@@ -50,7 +50,7 @@ describe('deterministic SMA crossover backtester', () => {
         expect(first.metrics.totalTrades).toBeGreaterThan(0);
         expect(first.equityCurve).toHaveLength(fixture.candles.length);
         expect(first.dataset.checksum).toMatch(/^fnv1a-[0-9a-f]{8}$/);
-        // Golden values are shared with the native C++20 correctness test.
+        // Golden values are shared with the Rust/WASM core correctness test.
         expect(first.metrics.finalEquity).toBeCloseTo(10_692.208640, 6);
         expect(first.metrics.totalReturnPct).toBeCloseTo(6.922086, 6);
         expect(first.metrics.maxDrawdownPct).toBeCloseTo(0.917863, 6);

@@ -34,7 +34,7 @@ export const validateBacktestInput = (
 ): void => {
     assertFinitePositive(config.initialCapital, 'Initial capital');
 
-    // Parity with the C++20 core: a non-positive or non-finite bar length would
+    // Parity with the Rust/WASM core: a non-positive or non-finite bar length would
     // otherwise poison the Sharpe annualization (barsPerYear = year / interval).
     if (!Number.isFinite(dataset.intervalSeconds) || dataset.intervalSeconds <= 0) {
         throw new Error('Interval seconds must be finite and positive');

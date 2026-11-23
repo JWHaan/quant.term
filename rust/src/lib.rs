@@ -2069,8 +2069,8 @@ pub fn extract_ticker_values(payload: JsValue) -> Result<JsValue, JsValue> {
 }
 
 // ===================== Backtest engine (backtest-v1) =====================
-// Mirrors src/backtest/engine.ts. Golden values are shared with the C++20
-// core under engine/ via schemas/backtest-v1.schema.json.
+// Mirrors src/backtest/engine-reference.ts. Golden values are shared with the
+// TypeScript reference engine via schemas/backtest-v1.schema.json.
 
 const BPS_DIVISOR: f64 = 10_000.0;
 const SECONDS_PER_YEAR: f64 = 31_536_000.0;
@@ -2701,8 +2701,8 @@ pub mod typed {
         period: u32,
         std_dev: f64,
     ) -> Result<Vec<BollingerBandsValue>, String> {
-        let out =
-            calculate_bollinger_bands(candles_js(data)?, period, std_dev).map_err(jserr_to_string)?;
+        let out = calculate_bollinger_bands(candles_js(data)?, period, std_dev)
+            .map_err(jserr_to_string)?;
         from_js(out)
     }
 
@@ -3104,9 +3104,15 @@ pub mod typed {
         let interval_seconds = interval_seconds(interval)?;
         let checksum = checksum_candles(candles);
         let js = candles_js(candles).ok()?;
-        let out =
-            super::build_dataset_meta(js, symbol, interval, interval_seconds, fetched_at, &checksum)
-                .ok()?;
+        let out = super::build_dataset_meta(
+            js,
+            symbol,
+            interval,
+            interval_seconds,
+            fetched_at,
+            &checksum,
+        )
+        .ok()?;
         from_js(out).ok()
     }
 
@@ -3474,12 +3480,12 @@ pub mod typed {
         #[cfg(target_arch = "wasm32")]
         {
             let d = js_sys::Date::new(&JsValue::from_f64(unix_ms));
-            return format!(
+            format!(
                 "{}:{}:{}",
-                p2(d.get_hours() as u32),
-                p2(d.get_minutes() as u32),
-                p2(d.get_seconds() as u32)
-            );
+                p2(d.get_hours()),
+                p2(d.get_minutes()),
+                p2(d.get_seconds())
+            )
         }
         #[cfg(not(target_arch = "wasm32"))]
         {

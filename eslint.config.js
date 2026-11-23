@@ -7,7 +7,6 @@ export default defineConfig([
     'dist',
     'coverage',
     '.next',
-    'engine/build',
     'src/wasm',
   ]),
   ...tseslint.configs.recommended,

@@ -54,8 +54,7 @@ jobs:
           retention-days: 7
 
   # Native engine job removed 2026-11-17: the C++ engine was removed in the
-  # Rust/WASM rewrite (commit 9bd0252). engine/ now contains only a stale
-  # build/ directory, no CMakeLists.txt or sources, so `cmake -S engine`
-  # fails instantly on a fresh checkout. The Rust engine is covered by
-  # scripts/check-wasm.sh locally; add a Rust CI job if/when that is
-  # wanted, rather than reviving the C++ job.
+  # Rust/WASM rewrite (commit 9bd0252) and the stale engine/ build output
+  # was deleted. The Rust engine is covered by scripts/check-wasm.sh
+  # locally; add a Rust CI job if/when that is wanted, rather than
+  # reviving the C++ job.

@@ -6,8 +6,9 @@
 
 **A crypto research terminal for live market intelligence and deterministic strategy replay.**
 
+[![Rust](https://img.shields.io/badge/Rust-WASM-b7410e?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Leptos](https://img.shields.io/badge/Leptos-0.8-EF3939?logo=leptos&logoColor=white)](https://leptos.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
 [![CI](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml/badge.svg)](https://github.com/JWHaan/quant.term/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e)](LICENSE)
@@ -20,14 +21,16 @@
 
 ## Overview
 
-`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The Monitor workspace renders live Binance Spot candles, trades, and depth through TradingView Lightweight Charts v5. The Strategy Lab replays a bounded SMA crossover with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger. Datasets come from either the bundled BTC/USDT validation fixture or Binance Spot klines fetched live from `data-api.binance.vision` for a user-selected symbol, interval, and lookback; every run records dataset provenance and reports candle gaps rather than filling them.
+`quant.term` combines a live, read-only crypto-market monitor with a deterministic Strategy Lab. The whole browser application is written in Rust and shipped to the browser as WebAssembly: the `quant-ui` Leptos crate renders the terminal, and the `quant-core` crate provides indicators, order-flow calculations, and the backtest engine used by both the UI and the TypeScript parity harness.
 
-The browser reference engine and native C++20 core share a versioned `backtest-v1` contract and golden correctness values. Synthetic results validate execution and accounting; they are not evidence of historical or future performance. No exchange credentials are accepted and no real orders are sent.
+The Monitor workspace renders live Binance Spot candles, trades, and depth through a custom Canvas2D chart. The Strategy Lab replays a bounded SMA crossover with explicit fees, slippage, next-bar execution, equity, drawdown, and an inspectable trade ledger. Datasets come from either the bundled BTC/USDT validation fixture or Binance Spot klines fetched live from `data-api.binance.vision` for a user-selected symbol, interval, and lookback; every run records dataset provenance and reports candle gaps rather than filling them.
+
+The `quant-core` engine and a kept TypeScript reference implementation share the versioned `backtest-v1` contract and golden correctness values, verified by the parity suite under `src/tests`. Synthetic results validate execution and accounting; they are not evidence of historical or future performance. No exchange credentials are accepted and no real orders are sent.
 
 ## Highlights
 
 - Live Binance Spot watchlist, candles, aggregate trades, and top-20 depth
-- Lightweight Charts v5 candlesticks and volume with EMA overlays and native RSI/MACD panes
+- Custom Canvas2D candlestick chart with volume, EMA overlays, and native RSI/MACD panes
 - Synced order-book depth heatmap strip that tracks chart pan and zoom
 - Binance USDⓈ-M funding, mark/index price, open interest, positioning, and liquidations
 - CoinDesk and Cointelegraph news through a cached same-origin edge route
@@ -37,7 +40,7 @@ The browser reference engine and native C++20 core share a versioned `backtest-v
 - Deterministic Strategy Lab with explicit dataset and engine provenance
 - Bundled synthetic fixture or live Binance Spot klines, with FNV-1a dataset checksums and gap reporting
 - Long/flat SMA replay with next-candle-open fills, fees, and adverse slippage
-- Native C++20 replay core, CTest correctness gate, and a versioned JSON contract
+- Shared Rust/WASM replay core with a versioned JSON contract and TS parity suite
 - Equity curve, drawdown, exposure, Sharpe, fee totals, and closed-trade inspection
 - OFI, volume delta/CVD, VPIN, Hurst, ADX, ATR, RSI, MACD, OBV, and VWAP research panels
 - Resizable desktop workspace, command palette, keyboard shortcuts, and themes
@@ -49,7 +52,9 @@ The browser reference engine and native C++20 core share a versioned `backtest-v
 - Node.js 24.x LTS (24.15 or newer)
 - npm 11 or newer
 - A current desktop browser
-- CMake 3.20+ and a C++20 compiler for the complete native quality gate
+- For Rust changes only: a stable Rust toolchain with the `wasm32-unknown-unknown` target and the `wasm-bindgen` CLI
+
+The generated wasm-bindgen bundles under `src/wasm` are committed, so `npm ci` and `npm run dev` work without a Rust toolchain.
 
 ~~~bash
 git clone https://github.com/JWHaan/quant.term.git
@@ -70,11 +75,13 @@ npm run check
 |---|---|
 | `npm run dev` | Start the local Vite/Worker development server |
 | `npm run lint` | Run ESLint with zero warnings allowed |
-| `npm run type-check` | Type-check the browser, Worker, Vercel adapter, and build config |
+| `npm run type-check` | Type-check the browser shell, Worker, Vercel adapter, and build config |
 | `npm test` | Run the Vitest suite once |
 | `npm run test:watch` | Run Vitest in watch mode |
 | `npm run test:coverage` | Run tests and enforce the configured full-tree baseline |
-| `npm run engine:check` | Build and test the deterministic C++20 replay core |
+| `npm run wasm:build` | Rebuild the `quant-core` wasm bundle under `src/wasm` |
+| `npm run wasm:check` | Run `cargo fmt --check` and `cargo clippy -D warnings` on `quant-core` |
+| `./scripts/build-ui-wasm.sh` | Rebuild the `quant-ui` (Leptos) wasm bundle under `src/wasm` |
 | `npm run build` | Build and verify the Sites artifact |
 | `npm run preview` | Preview the production client |
 | `npm run check` | Run lint, type-check, tests, and build |
@@ -82,34 +89,35 @@ npm run check
 ## Repository layout
 
 ~~~text
-api/                         # Vercel Function adapters
-build/                       # Build-time Sites integration
-engine/                      # Native C++20 deterministic replay core and tests
-schemas/                     # Versioned browser/native backtest contract
+ui/                          # quant-ui — Leptos 0.8 WASM frontend (the whole app)
+├── src/app/                 # Root component, workspace mode, theme, shortcuts
+├── src/features/            # Monitor panels, Strategy Lab, command palette
+├── src/services/            # Feeds, REST, news, telemetry, provenance
+├── src/stores/              # Signal-based global stores (Zustand equivalent)
+└── src/ui/                  # Terminal chrome: panels, header/footer, command line
+rust/                        # quant-core — Rust/WASM indicators, order flow, SMA replay
 src/
-├── app/                     # Application shell
-├── backtest/                # Browser reference engine and deterministic fixture
-├── features/                # Market, analytics, news, alert, and trading panels
-├── hooks/                   # Live subscriptions and React orchestration
-├── integrations/
-│   ├── binance/             # Provider contracts, REST parsers, and liquidation feed
-│   └── news/                # Browser news client
-├── services/                # Shared telemetry and provenance services
-├── stores/                  # Zustand application state
-├── ui/                      # Reusable terminal UI
-├── utils/                   # Indicators and market-microstructure calculations
-└── tests/                   # Unit and regression tests
+├── rust-main.ts             # Browser entry point (loads the quant-ui bundle)
+├── wasm/                    # Committed wasm-bindgen bundles for both crates
+├── styles/                  # Global terminal stylesheet
+├── backtest/                # Wasm adapter + TS reference replay for parity tests
+├── utils/                   # Wasm indicator adapter + TS reference implementations
+└── tests/                   # Parity, schema, adapter, and utility tests
 worker/                      # Sites/Cloudflare Worker and shared news handler
+api/                         # Vercel Function adapter for /api/news
+schemas/                     # Versioned browser/native backtest contract
+scripts/                     # Wasm build/check, dist clean/verify, driver, smoke
+build/                       # Build-time Sites integration (Vite plugin)
 ~~~
 
-The browser talks directly to public market endpoints. The edge layer only normalizes public RSS news behind `/api/news`. Strategy Lab runs locally against the bundled synthetic validation fixture or Binance Spot public klines read directly by the browser; it does not send data or jobs to a remote service. See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and persistence details.
+The browser talks directly to public market endpoints. The edge layer only normalizes public RSS news behind `/api/news`. Strategy Lab runs locally in the same `quant-core` engine the UI links against — against the bundled synthetic validation fixture or Binance Spot public klines read directly by the browser; it does not send data or jobs to a remote service. See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow and persistence details.
 
 ## Data and privacy
 
 The terminal persists only browser-local preferences and simulations:
 
 - selected symbol, watchlist, and theme
-- alert definitions
+- workspace selection and alert definitions
 - paper balance, open positions, realized P&L, and bounded trade history
 
 Live market buffers, news, network snapshots, connection telemetry, and alert history stay in memory. Clearing site storage removes persisted preferences and paper state.
@@ -135,7 +143,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for exact build, deploy, and smoke-
 
 ## Scope
 
-The current project does not provide live execution, exchange accounts, wallets, custody, authenticated on-chain analytics, options analytics, portfolio VaR/Greeks, production ML forecasts, native remote backtest jobs, historical-performance claims, or guaranteed uptime and latency. Panels show unavailable states when upstream data fails; they do not manufacture replacement market values.
+The current project does not provide live execution, exchange accounts, wallets, custody, authenticated on-chain analytics, options analytics, portfolio VaR/Greeks, production ML forecasts, remote backtest jobs, historical-performance claims, or guaranteed uptime and latency. Panels show unavailable states when upstream data fails; they do not manufacture replacement market values.
 
 ## License
 
