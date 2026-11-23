@@ -17,11 +17,12 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Bitcoin network and Fear & Greed panels
 - Browser-local alerts and paper trading
 - Vercel `/api/news` Function adapter alongside the Sites/Cloudflare Worker
-- GitHub issue, pull-request, ownership, and dependency-maintenance metadata
+- GitHub issue, pull-request, and code-ownership metadata
 - Separate Monitor and Strategy Lab workspaces
 - Deterministic BTC/USDT SMA replay with next-bar fills, fees, slippage, and trade inspection
-- Native C++20 replay core, CTest suite, and `backtest-v1` contract schema
-- Golden browser/native result checks for the bundled synthetic fixture
+- Versioned `backtest-v1` result contract shared by the engine, UI, and parity harness
+- Golden wasm↔TS result checks for the bundled synthetic fixture
+- Domain glossary (`CONTEXT.md`) and architecture decision records under `docs/adr/` covering MACD semantics and the accounts boundary
 - Header command line with mnemonics, a chart-docked microstructure ribbon, a collapsible TICK watchlist, and an amber terminal theme
 - `wasm` CI job enforcing Rust fmt/clippy and committed-bundle drift verification, Cargo Dependabot coverage for both crates, and a pinned `rust-toolchain.toml`
 - `AGENTS.md` and `.agents/rules/` contributor guidance for coding agents
@@ -31,20 +32,16 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 
 - Rewrote the browser application in Rust/WASM: the `quant-ui` Leptos crate replaced the React/Zustand frontend, with signal-based stores, `binance_feed` WebSocket orchestration, and typed service clients
 - Moved indicator and replay calculations into the shared `quant-core` engine; TypeScript remains as entry point, adapters, tests, and edge code
-- Organized application composition under `src/app` and provider code under `src/integrations`
 - Converted the remaining JavaScript order-book hook to strict TypeScript
 - Expanded type checking to the Worker, Vercel adapter, build helpers, and config
 - Made zero lint warnings a required quality gate
 - Refreshed build and test dependencies to patched releases with a clean npm audit
-- Migrated the Monitor workspace to react-resizable-panels v4 (`Group`/`Separator`, percentage string sizes)
 - Refreshed dependencies again to clear the high-severity npm advisories (Vite, undici, zod, happy-dom, brace-expansion, Vitest)
 - Corrected deployment output and documentation to match the generated artifacts
+- Reordered the roadmap around an explicit v1.0.0 release gate: textbook MACD semantics, an asserting smoke gate in CI, and dependency review before the first tag
 - Replaced historical project claims with an evidence-based capability and roadmap description
 - Made the application header, footer, skip link, shortcuts, and command palette workspace-aware
-- Refreshed browser and tooling dependencies to current released versions, including React 19.3, Vite 8.3, lightweight-charts 5.3, ESLint 10, and Vitest 5
 - Moved the runtime to Node 24 LTS and aligned the type definitions, engines field, and package manager pin
-- Migrated the workspace layout to react-resizable-panels v4 (`Group`/`Panel`/`Separator`) with explicit per-handle orientation modifiers
-- Enforced the native C++20 CTest suite in CI so the documented quality gate matches the pipeline
 - Restyled the terminal chrome on a tokenised type, radius, and motion scale: sharper neutral surfaces, hairline panel dividers, overlay scrollbars, amber focus rings, and theme-aware chart grid, frame, and crosshair colours
 
 ### Fixed
@@ -68,3 +65,4 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Duplicate market-store candle and trade buffers
 - Obsolete cleanup scripts, starter assets, and one-time implementation reports
 - Broken Docker deployment files
+- Historical `docs/superpowers/` plan and spec documents for the removed React implementation

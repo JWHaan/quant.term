@@ -117,7 +117,7 @@ No pre-commit hooks exist — CI runs `lint`, `type-check`, `test`, `build`. Run
 
 ## Boundaries
 
-Ask first: changing parity test expectations, bumping deps, touching CI branch protection, pushing to `main` (protection prefers PRs), pruning `docs/superpowers/*` (historical artifacts, kept intentionally).
+Ask first: changing parity test expectations, bumping deps, touching CI branch protection, pushing to `main` (protection prefers PRs).
 
 Never: force-push, rewrite history, edit `src/wasm/**` or `dist/` directly, remove the TS reference engines.
 
