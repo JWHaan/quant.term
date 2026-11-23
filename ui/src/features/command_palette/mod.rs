@@ -1,6 +1,10 @@
 mod commands;
+mod resolve;
 
-pub use commands::{build_commands, normalize_symbol_arg, Command, CommandsConfig};
+pub use commands::{
+    analyze_command_for, build_commands, normalize_symbol_arg, Command, CommandsConfig,
+};
+pub use resolve::{resolve_command_input, resolve_palette_query, ResolvedCommandInput};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -31,18 +35,12 @@ pub fn CommandPalette(
     let prev_focus = Rc::new(RefCell::new(None::<web_sys::Element>));
     let prev_focus_effect = Rc::clone(&prev_focus);
 
-    // Filtered commands — label + description, case-insensitive substring.
+    // Resolved results — shares the command-line grammar (mnemonics, TOP
+    // routing, substring filter) and adds dynamic symbol results, so an empty
+    // query still lists every command.
     let filtered = Memo::new(move |_| {
-        let q = query.get().to_lowercase();
-        commands
-            .get()
-            .into_iter()
-            .filter(|c| {
-                q.is_empty()
-                    || c.label.to_lowercase().contains(&q)
-                    || c.description.to_lowercase().contains(&q)
-            })
-            .collect::<Vec<_>>()
+        let cmds = commands.get();
+        resolve_palette_query(&query.get(), &cmds)
     });
 
     // Reset selection whenever the query changes.

@@ -12,6 +12,7 @@ pub enum FeedStatus {
     Stale,
     Replay,
     Disconnected,
+    Connecting,
 }
 
 impl FeedStatus {
@@ -21,6 +22,7 @@ impl FeedStatus {
             FeedStatus::Stale => "STALE",
             FeedStatus::Replay => "REPLAY",
             FeedStatus::Disconnected => "DISCONNECTED",
+            FeedStatus::Connecting => "CONNECTING",
         }
     }
 }
@@ -141,6 +143,11 @@ impl ProvenanceEngine {
     }
 
     pub fn get_feed_status(&mut self) -> FeedStatus {
+        // No tick ever received: the stored Disconnected placeholder is a
+        // first-connect/socket-swap — report CONNECTING, not OFFLINE.
+        if self.last_received_timestamp == 0.0 && self.feed_status == FeedStatus::Disconnected {
+            return FeedStatus::Connecting;
+        }
         let now = now_ms();
         let time_since_last_tick = now - self.last_received_timestamp;
         if self.last_received_timestamp > 0.0 && time_since_last_tick > self.stale_threshold_ms {
@@ -197,7 +204,7 @@ impl ProvenanceEngine {
 
     pub fn get_quality_score(&mut self) -> u8 {
         match self.get_feed_status() {
-            FeedStatus::Disconnected => 0,
+            FeedStatus::Disconnected | FeedStatus::Connecting => 0,
             FeedStatus::Stale => 25,
             FeedStatus::Replay => 75,
             FeedStatus::Live => {

@@ -684,7 +684,7 @@ pub fn MarketGrid(
                                 <th scope="col">"Symbol"</th>
                                 <th scope="col">"Mark"</th>
                                 <th scope="col">"Funding"</th>
-                                <th scope="col">"Next"</th>
+                                <th scope="col">"Funding In"</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -791,11 +791,11 @@ pub fn MarketGrid(
                     on_toggle=handle_toggle
                     body=move || view! {
                         <div class="tickboard__group">
-                            <span class="tickboard__group-label">"TOP ↑"</span>
+                            <span class="tickboard__group-label">"▲ GAINERS"</span>
                             <QuoteTable rows=movers_up_rows rows_map=rows_map on_select=select_symbol aria_label="Top gaining assets"/>
                         </div>
                         <div class="tickboard__group">
-                            <span class="tickboard__group-label">"TOP ↓"</span>
+                            <span class="tickboard__group-label">"▼ LOSERS"</span>
                             <QuoteTable rows=movers_down_rows rows_map=rows_map on_select=select_symbol aria_label="Top losing assets"/>
                         </div>
                     }.into_any()

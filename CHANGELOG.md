@@ -43,6 +43,10 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Made the application header, footer, skip link, shortcuts, and command palette workspace-aware
 - Moved the runtime to Node 24 LTS and aligned the type definitions, engines field, and package manager pin
 - Restyled the terminal chrome on a tokenised type, radius, and motion scale: sharper neutral surfaces, hairline panel dividers, overlay scrollbars, amber focus rings, and theme-aware chart grid, frame, and crosshair colours
+- DOM ladder header: the static title dropped its misleading ">" affordance, aggregation pills gained a `BUCKET` prefix and per-bucket tooltips, and the feed badge now reads `[WS OK]`/`[WS DOWN]`
+- Clarified chrome labels: PERPS "Next" column reads "Funding In", movers groups read "▲ GAINERS"/"▼ LOSERS", the Research "Factors" tab is "Flow Factors", and internal contract IDs (`backtest-v1`) moved into tooltips
+- Resize handles gained a permanent centered grip dot affordance so draggable seams read as interactive before hover
+- Shortcuts modal lists the header command-line mnemonics (`TOP <SYM>`, `MON`, `LAB`, `MW`, `CHART`, `ALPHA`, `NEWS`, `KEYS`)
 
 ### Fixed
 
@@ -56,6 +60,13 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Boolean ARIA attributes rendering empty, missing dialog semantics and focus traps, and dead keyboard-shortcut wiring
 - WebSocket and timer callbacks panicking after owner teardown, leaked resize listeners, and unbounded historical-candle fetches
 - Security headers not applied on the Workers deployment and the vulnerable `url` crate (updated to 2.5.9)
+- Unified the command surfaces: the ⌘K palette now shares the header command line's grammar (`resolve_command_input` — exact mnemonics, `TOP <sym>` routing, mnemonic-aware substring filter) instead of a label-only filter
+- Command palette covers every Market Watch instrument: `Analyze` commands are generated for all 40 `TOP_CRYPTOS` assets, and symbol-like queries (`bnb`, `/sol`, `top xrp`) resolve through `normalize_symbol_arg` to the same `set_symbol` dispatch
+- Renamed focus commands to their rendered panel titles ("Focus Research Monitor", "Focus Market Intelligence")
+- MODEL SCORE renders the signed heuristic score on its real ±70 scale with a component-breakdown tooltip instead of `abs()` + "%" — SELL −20 and BUY +20 no longer both read "20%"
+- Data-quality badge no longer flashes OFFLINE on symbol swaps: a provenance engine that has never received a tick reports CONNECTING (amber) and OFFLINE is reserved for true drops after data flowed
+- Header and footer feed chips no longer flash OFFLINE during symbol swaps: connecting/reconnecting telemetry renders as amber CONNECTING while OFFLINE is reserved for disconnected or errored feeds
+- Bad `TOP` arguments no longer overwrite the typed command-line query; the error surfaces only in the status region and the input exposes `aria-invalid`
 
 ### Removed
 

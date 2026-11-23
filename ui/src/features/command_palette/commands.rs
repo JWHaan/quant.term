@@ -1,19 +1,26 @@
 //! Command definitions — port of `src/features/command-palette/commands.ts`.
 
+use std::borrow::Cow;
 use std::sync::Arc;
+
+use crate::data::crypto_assets::TOP_CRYPTOS;
 
 /// A palette command. `action` runs when the command is executed.
 #[derive(Clone)]
 pub struct Command {
-    pub id: &'static str,
-    pub label: &'static str,
-    pub description: &'static str,
+    pub id: Cow<'static, str>,
+    pub label: Cow<'static, str>,
+    pub description: Cow<'static, str>,
     /// Text glyph standing in for the lucide icon (TODO: real icon set).
     pub icon: &'static str,
     pub action: Arc<dyn Fn() + Send + Sync>,
     pub category: &'static str,
     /// Bloomberg-style short code shown in the command line.
     pub mnemonic: Option<&'static str>,
+    /// For `Analyze …` commands: the normalized spot symbol the action selects.
+    /// Lets the palette resolve a free-text symbol query to the same command
+    /// (and the same `set_symbol` dispatch) instead of re-implementing it.
+    pub symbol: Option<&'static str>,
 }
 
 impl PartialEq for Command {
@@ -78,6 +85,16 @@ fn is_valid_symbol(candidate: &str) -> bool {
     false
 }
 
+/// Look up the `Analyze` command bound to a normalized spot symbol (e.g.
+/// `"BNBUSDT"`). Generated commands carry `symbol: Some(asset.symbol)` for
+/// every `TOP_CRYPTOS` instrument, so this returns `None` for anything the
+/// watchlist doesn't track — the palette's dynamic symbol results therefore
+/// stay restricted to real instruments and dispatch through the exact same
+/// `set_symbol` action as a static command row.
+pub fn analyze_command_for<'a>(symbol: &str, commands: &'a [Command]) -> Option<&'a Command> {
+    commands.iter().find(|c| c.symbol == Some(symbol))
+}
+
 /// Build the static command list — mirrors `buildCommands`.
 pub fn build_commands(cfg: CommandsConfig) -> Vec<Command> {
     let CommandsConfig {
@@ -92,105 +109,96 @@ pub fn build_commands(cfg: CommandsConfig) -> Vec<Command> {
     } = cfg;
 
     let act = |f: Arc<dyn Fn() + Send + Sync>| f;
-    vec![
+    let mut commands = vec![
         Command {
-            id: "open-monitor",
-            label: "Open Market Monitor",
-            description: "Switch to live market monitoring",
+            id: "open-monitor".into(),
+            label: "Open Market Monitor".into(),
+            description: "Switch to live market monitoring".into(),
             icon: "▣",
             action: act(open_monitor),
             category: "Workspaces",
             mnemonic: Some("MON"),
+            symbol: None,
         },
         Command {
-            id: "open-strategy-lab",
-            label: "Open Strategy Lab",
-            description: "Configure and run a deterministic candle replay",
+            id: "open-strategy-lab".into(),
+            label: "Open Strategy Lab".into(),
+            description: "Configure and run a deterministic candle replay".into(),
             icon: "◬",
             action: act(open_strategy_lab),
             category: "Workspaces",
             mnemonic: Some("LAB"),
+            symbol: None,
         },
         Command {
-            id: "focus-market",
-            label: "Focus Market Watch",
-            description: "Navigate to the market watch panel",
+            id: "focus-market".into(),
+            label: "Focus Market Watch".into(),
+            description: "Navigate to the market watch panel".into(),
             icon: "◉",
             action: act(scroll_to_market),
             category: "Navigation",
             mnemonic: Some("MW"),
+            symbol: None,
         },
         Command {
-            id: "focus-chart",
-            label: "Focus Chart",
-            description: "Navigate to the main chart",
+            id: "focus-chart".into(),
+            label: "Focus Chart".into(),
+            description: "Navigate to the main chart".into(),
             icon: "▥",
             action: act(scroll_to_chart),
             category: "Navigation",
             mnemonic: Some("CHART"),
+            symbol: None,
         },
         Command {
-            id: "focus-alpha",
-            label: "Focus Alpha Panel",
-            description: "Navigate to alpha factors",
+            id: "focus-alpha".into(),
+            label: "Focus Research Monitor".into(),
+            description: "Navigate to the Research Monitor panel".into(),
             icon: "▲",
             action: act(scroll_to_alpha),
             category: "Navigation",
             mnemonic: Some("ALPHA"),
+            symbol: None,
         },
         Command {
-            id: "focus-news",
-            label: "Focus News",
-            description: "Navigate to news feed",
+            id: "focus-news".into(),
+            label: "Focus Market Intelligence".into(),
+            description: "Navigate to the Market Intelligence panel".into(),
             icon: "≡",
             action: act(scroll_to_news),
             category: "Navigation",
             mnemonic: Some("NEWS"),
+            symbol: None,
         },
         Command {
-            id: "toggle-help",
-            label: "Show Keyboard Shortcuts",
-            description: "View all available keyboard shortcuts",
+            id: "toggle-help".into(),
+            label: "Show Keyboard Shortcuts".into(),
+            description: "View all available keyboard shortcuts".into(),
             icon: "?",
             action: Arc::new(move || set_show_help(true)),
             category: "Help",
             mnemonic: Some("KEYS"),
+            symbol: None,
         },
-        Command {
-            id: "analyze-btc",
-            label: "Analyze BTCUSDT",
-            description: "Switch symbol to Bitcoin",
+    ];
+
+    // One Analyze command per Market Watch instrument (TOP_CRYPTOS) — the
+    // palette surfaces these for symbol-like queries; all share the TOP
+    // mnemonic and the same set_symbol dispatch.
+    for asset in TOP_CRYPTOS {
+        let symbol = asset.symbol;
+        let set_symbol = Arc::clone(&set_symbol);
+        commands.push(Command {
+            id: format!("analyze-{}", symbol.to_lowercase()).into(),
+            label: format!("Analyze {symbol}").into(),
+            description: format!("Switch symbol to {}", asset.name).into(),
             icon: "◉",
-            action: {
-                let set_symbol = Arc::clone(&set_symbol);
-                Arc::new(move || set_symbol("BTCUSDT".to_string()))
-            },
+            action: Arc::new(move || set_symbol(symbol.to_string())),
             category: "Actions",
             mnemonic: Some("TOP"),
-        },
-        Command {
-            id: "analyze-eth",
-            label: "Analyze ETHUSDT",
-            description: "Switch symbol to Ethereum",
-            icon: "◉",
-            action: {
-                let set_symbol = Arc::clone(&set_symbol);
-                Arc::new(move || set_symbol("ETHUSDT".to_string()))
-            },
-            category: "Actions",
-            mnemonic: Some("TOP"),
-        },
-        Command {
-            id: "analyze-sol",
-            label: "Analyze SOLUSDT",
-            description: "Switch symbol to Solana",
-            icon: "◉",
-            action: {
-                let set_symbol = Arc::clone(&set_symbol);
-                Arc::new(move || set_symbol("SOLUSDT".to_string()))
-            },
-            category: "Actions",
-            mnemonic: Some("TOP"),
-        },
-    ]
+            symbol: Some(symbol),
+        });
+    }
+
+    commands
 }

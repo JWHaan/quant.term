@@ -302,8 +302,9 @@ pub fn OrderBookDOM(symbol: Option<Memo<String>>) -> impl IntoView {
         <div class="dom-ladder">
             <div class="dom-ladder__head">
                 <div class="dom-ladder__controls">
-                    <span class="dom-ladder__title">"> DOM_LADDER"</span>
+                    <span class="dom-ladder__title">"DOM_LADDER"</span>
                     <div class="dom-ladder__seg">
+                        <span class="dom-ladder__seg-label">"BUCKET:"</span>
                         <For
                             each=depth_levels
                             key=|level| *level
@@ -317,10 +318,16 @@ pub fn OrderBookDOM(symbol: Option<Memo<String>>) -> impl IntoView {
                                     None => "RAW".to_string(),
                                     Some(s) => format_aggregation_step(s),
                                 };
+                                let tip = if step.is_none() {
+                                    "Raw price levels (no aggregation)".to_string()
+                                } else {
+                                    format!("Aggregate price levels into {label} buckets")
+                                };
                                 let sym = symbol_memo.get();
                                 view! {
                                     <button
                                         class=move || if aggregation_level.get() == level { "is-active" } else { "" }
+                                        title=tip
                                         on:click=move |_| agg_state.set((sym.clone(), level))
                                     >
                                         {label}
@@ -344,7 +351,7 @@ pub fn OrderBookDOM(symbol: Option<Memo<String>>) -> impl IntoView {
                         class=move || if is_connected.get() { "text-glow" } else { "" }
                         style:color=move || if is_connected.get() { "var(--accent-success)" } else { "var(--accent-danger)" }
                     >
-                        {move || if is_connected.get() { "[LINK_OK]" } else { "[NO_LINK]" }}
+                        {move || if is_connected.get() { "[WS OK]" } else { "[WS DOWN]" }}
                     </span>
                 </div>
             </div>

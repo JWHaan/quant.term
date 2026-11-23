@@ -138,7 +138,7 @@ Never: force-push, rewrite history, edit `src/wasm/**` or `dist/` directly, remo
 - **Why committed wasm bundles**: deploys and JS-only contributors need no Rust toolchain; bundle drift is a real bug vector — always regenerate after Rust edits.
 - **Why TS reference engines remain**: they are the deterministic ground truth the wasm↔TS parity tests assert against; they are not dead code.
 - **Why Leptos signals, not a TS store lib**: state lives in `AppStores` inside the WASM app; `localStorage` persistence keeps Zustand-compatible keys for migrated users — do not rename persisted keys casually.
-- **Why `build-ui-wasm.sh` is a raw script**: not yet wired into npm scripts or CI (open roadmap item); call it directly.
+- **Why `build-ui-wasm.sh` is a raw script**: invoked via `npm run wasm:build:ui` and enforced by the `wasm` CI job; call it directly when iterating.
 
 ## Documentation checklist
 

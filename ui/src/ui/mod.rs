@@ -12,7 +12,7 @@ use wasm_bindgen::JsCast;
 
 #[component]
 pub fn AppHeader(
-    is_global_connected: impl Fn() -> bool + Copy + Send + Sync + 'static,
+    feed_state: impl Fn() -> &'static str + Copy + Send + Sync + 'static,
     is_fullscreen: impl Fn() -> bool + Copy + Send + Sync + 'static,
     workspace: RwSignal<WorkspaceMode>,
     on_workspace_change: impl Fn(WorkspaceMode) + Copy + Send + Sync + 'static,
@@ -25,31 +25,27 @@ pub fn AppHeader(
 ) -> impl IntoView {
     let stores = use_stores();
     let is_strategy_lab = move || workspace.get() == WorkspaceMode::StrategyLab;
-    let connection_state = move || {
-        if is_strategy_lab() {
-            "replay"
-        } else if is_global_connected() {
-            "connected"
-        } else {
-            "offline"
-        }
-    };
+    let connection_state = move || if is_strategy_lab() { "replay" } else { feed_state() };
     let status_label = move || {
         if is_strategy_lab() {
             "LAB"
-        } else if is_global_connected() {
-            "LIVE"
         } else {
-            "OFFLINE"
+            match feed_state() {
+                "connected" => "LIVE",
+                "connecting" => "CONNECTING",
+                _ => "OFFLINE",
+            }
         }
     };
     let status_description = move || {
         if is_strategy_lab() {
             "Deterministic research workspace is active"
-        } else if is_global_connected() {
-            "Primary market data feeds are live"
         } else {
-            "A primary market data feed is unavailable"
+            match feed_state() {
+                "connected" => "Primary market data feeds are live",
+                "connecting" => "Market data feeds are connecting or reconnecting",
+                _ => "A primary market data feed is unavailable",
+            }
         }
     };
 
@@ -185,7 +181,7 @@ pub fn AppHeader(
 
 #[component]
 pub fn AppFooter(
-    is_global_connected: impl Fn() -> bool + Copy + Send + Sync + 'static,
+    feed_state: impl Fn() -> &'static str + Copy + Send + Sync + 'static,
     selected_symbol: impl Fn() -> String + Copy + Send + Sync + 'static,
 ) -> impl IntoView {
     let utc_time = RwSignal::new(String::new());
@@ -215,13 +211,17 @@ pub fn AppFooter(
         <footer class="app-footer" aria-label="Market data status">
             <div
                 class="status-item status-item--connection"
-                data-state=move || if is_global_connected() { "connected" } else { "offline" }
+                data-state=move || feed_state()
                 role="status"
                 aria-live="polite"
             >
                 <span class="status-dot" aria-hidden="true" />
                 <span class="label">"FEED"</span>
-                <span class="value">{move || if is_global_connected() { "CONNECTED" } else { "OFFLINE" }}</span>
+                <span class="value">{move || match feed_state() {
+                    "connected" => "CONNECTED",
+                    "connecting" => "CONNECTING",
+                    _ => "OFFLINE",
+                }}</span>
             </div>
 
             <div class="status-item status-item--exchange">
@@ -262,8 +262,8 @@ pub fn StrategyFooter() -> impl IntoView {
                 <span class="value">"DETERMINISTIC RUST CORE"</span>
             </div>
             <div class="status-item">
-                <span class="label">"CONTRACT"</span>
-                <span class="value">"BACKTEST-V1"</span>
+                <span class="label">"SCHEMA"</span>
+                <span class="value" title="Replay result contract: backtest-v1">"V1"</span>
             </div>
             <div class="status-item status-item--symbol">
                 <span class="label">"INSTRUMENT"</span>
@@ -402,6 +402,19 @@ pub fn KeyboardShortcutsModal(
                             <tr><td><kbd>"?"</kbd></td><td>"Toggle keyboard shortcuts help"</td></tr>
                             <tr><td><kbd>"Esc"</kbd></td><td>"Close open dialogs and menus"</td></tr>
                             <tr><td><kbd>"Arrow keys"</kbd></td><td>"Navigate tabs and command items"</td></tr>
+                        </tbody>
+                    </table>
+                    <h3>"Command line"</h3>
+                    <table>
+                        <tbody>
+                            <tr><td><kbd>"TOP <SYM>"</kbd></td><td>"Switch instrument (e.g. TOP ETH)"</td></tr>
+                            <tr><td><kbd>"MON"</kbd></td><td>"Open Market Monitor"</td></tr>
+                            <tr><td><kbd>"LAB"</kbd></td><td>"Open Strategy Lab"</td></tr>
+                            <tr><td><kbd>"MW"</kbd></td><td>"Focus Market Watch"</td></tr>
+                            <tr><td><kbd>"CHART"</kbd></td><td>"Focus Chart"</td></tr>
+                            <tr><td><kbd>"ALPHA"</kbd></td><td>"Focus Research Monitor"</td></tr>
+                            <tr><td><kbd>"NEWS"</kbd></td><td>"Focus Market Intelligence"</td></tr>
+                            <tr><td><kbd>"KEYS"</kbd></td><td>"Show Keyboard Shortcuts"</td></tr>
                         </tbody>
                     </table>
                     <button node_ref=close_ref type="button" class="modal-close-btn" on:click=move |_| on_close(())>"Close (Esc)"</button>
