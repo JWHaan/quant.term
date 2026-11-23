@@ -53,6 +53,52 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  smoke:
+    name: Smoke gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production artifacts
+        run: npm run build
+
+      - name: Serve the build and run the smoke gate
+        run: |
+          npx vite preview --port 3000 --strictPort &
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null http://localhost:3000 2>/dev/null && break
+            if [ "$i" -eq 30 ]; then
+              echo "vite preview did not come up on :3000"
+              exit 1
+            fi
+            sleep 1
+          done
+          SMOKE_URL=http://localhost:3000 SMOKE_SHOT_DIR=smoke-artifacts node scripts/smoke.mjs
+
+      - name: Upload smoke screenshots
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-artifacts
+          path: smoke-artifacts
+          if-no-files-found: ignore
+          retention-days: 7
+
   wasm:
     name: WASM bundles
     runs-on: ubuntu-latest
@@ -118,6 +164,10 @@ jobs:
       - name: Fail on bundle drift (protected branches)
         if: github.event_name != 'pull_request'
         run: git diff --exit-code src/wasm
+
+  # Dependency review job intentionally deferred: actions/dependency-review-action
+  # requires the repository Dependency graph, which is disabled. Re-add once it is
+  # enabled in repo settings (Settings → Code security and analysis).
 
   # Native engine job removed 2026-11-17: the C++ engine was removed in the
   # Rust/WASM rewrite (commit 9bd0252) and the stale engine/ build output
