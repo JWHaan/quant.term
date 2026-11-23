@@ -6,6 +6,7 @@
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
   "trailingSlash": false,
+  "github": { "silent": true },
   "functions": {
     "api/vercel-news.ts": {
       "maxDuration": 15
