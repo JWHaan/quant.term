@@ -166,18 +166,9 @@ jobs:
         if: github.event_name != 'pull_request'
         run: git diff --exit-code src/wasm
 
-  dependency-review:
-    name: Dependency review
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    timeout-minutes: 5
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@v4
+  # Dependency review job intentionally deferred: actions/dependency-review-action
+  # requires the repository Dependency graph, which is disabled. Re-add once it is
+  # enabled in repo settings (Settings → Code security and analysis).
 
   # Native engine job removed 2026-11-17: the C++ engine was removed in the
   # Rust/WASM rewrite (commit 9bd0252) and the stale engine/ build output
