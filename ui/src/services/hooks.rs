@@ -205,31 +205,34 @@ fn is_editable_target(e: &KeyboardEvent) -> bool {
 
 /// Global keyboard shortcuts — mirrors `useKeyboardShortcuts`:
 /// `?` opens help, `Escape` closes it, editable fields swallow bare keys,
-/// and modifier combos still fire while typing.
+/// and modifier combos still fire while typing. `show_help` is owned by
+/// the caller (the app store) so the modal, header button and palette
+/// command share one state.
 pub fn use_keyboard_shortcuts(
     shortcuts: Vec<KeyboardShortcut>,
     enabled: bool,
+    show_help: RwSignal<bool>,
 ) -> KeyboardShortcuts {
-    let show_help = RwSignal::new(false);
     let shortcuts = Arc::new(shortcuts);
 
     if enabled {
-        let show_help_sig = show_help;
         let shortcuts = Arc::clone(&shortcuts);
         let cb = Closure::<dyn FnMut(KeyboardEvent)>::new(move |e: KeyboardEvent| {
             let key = e.key().to_lowercase();
 
-            if key == "?" && !e.ctrl_key() && !e.alt_key() && !e.shift_key() {
-                e.prevent_default();
-                show_help_sig.set(true);
-                return;
-            }
             if key == "escape" {
-                show_help_sig.set(false);
+                show_help.set(false);
                 return;
             }
 
             if !(e.ctrl_key() || e.meta_key() || e.alt_key()) && is_editable_target(&e) {
+                return;
+            }
+
+            // `?` needs Shift on most layouts — don't exclude it here.
+            if key == "?" && !e.ctrl_key() && !e.alt_key() && !e.meta_key() {
+                e.prevent_default();
+                show_help.set(true);
                 return;
             }
 

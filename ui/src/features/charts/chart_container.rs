@@ -4,7 +4,6 @@
 
 use leptos::prelude::*;
 use serde_json::Value;
-use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
 
 use crate::stores::{now_ms, use_stores, AppStores, Ohlcv, OrderBookSnapshot, BINANCE_REST_URL};
@@ -16,6 +15,7 @@ use super::TimeRange;
 
 const INTERVALS: [&str; 6] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 const MAX_BINANCE_KLINES: u32 = 1_000;
+const HISTORICAL_FETCH_TIMEOUT_MS: f64 = 8_000.0;
 
 const INDICATOR_BUTTONS: [(&str, &str); 4] = [
     ("ema9", "EMA9"),
@@ -67,22 +67,19 @@ async fn fetch_historical_candles(
     interval: &str,
     limit: u32,
 ) -> Result<Vec<Ohlcv>, String> {
+    use crate::services::rest::{fetch_response, RestError};
     let url = format!(
         "{BINANCE_REST_URL}/api/v3/klines?symbol={}&interval={}&limit={limit}",
         js_sys::encode_uri_component(symbol),
         js_sys::encode_uri_component(interval),
     );
-    let window = web_sys::window().ok_or("no window")?;
-    let promise = window.fetch_with_str(&url);
-    let resp_val = JsFuture::from(promise)
+    let resp = fetch_response(&url, HISTORICAL_FETCH_TIMEOUT_MS)
         .await
-        .map_err(|_| "Historical candle request timed out".to_string())?;
-    let resp: web_sys::Response = resp_val
-        .dyn_into()
-        .map_err(|_| "bad response".to_string())?;
-    if !resp.ok() {
-        return Err(format!("Failed to fetch candles ({})", resp.status()));
-    }
+        .map_err(|e| match e {
+            RestError::Timeout => "Historical candle request timed out".to_string(),
+            RestError::Http(s) => format!("Failed to fetch candles ({s})"),
+            _ => "Failed to fetch historical candles".to_string(),
+        })?;
     let text_promise = resp.text().map_err(|_| "bad response".to_string())?;
     let text_val = JsFuture::from(text_promise)
         .await
@@ -233,8 +230,6 @@ pub fn ChartContainer(symbol: Memo<String>) -> impl IntoView {
         let stores2 = stores;
         let live = std::rc::Rc::clone(&latest_live);
         wasm_bindgen_futures::spawn_local(async move {
-            // NOTE: the TS version aborts after 8s; here a hung fetch is
-            // simply superseded by the next request_id bump.
             let result = fetch_historical_candles(&sym, &intv, MAX_BINANCE_KLINES).await;
 
             if request_id.get_untracked() != my_id {

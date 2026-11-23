@@ -33,7 +33,8 @@ coverage
 
 # Agent/temporary files
 .agent/
-.agents/
+.agents/*
+!.agents/rules/
 .hermes/
 
 # TypeScript incremental build artifact

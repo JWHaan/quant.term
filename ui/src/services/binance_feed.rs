@@ -116,14 +116,14 @@ impl Shared {
             }
         };
 
-        let rc = self.this.upgrade().expect("feed shared ref");
+        let Some(rc) = self.this.upgrade() else { return };
 
         let on_open = Closure::wrap(Box::new(move |_: Event| {
             rc.borrow_mut().handle_open();
         }) as Box<dyn FnMut(Event)>);
         ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("feed shared ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_message = Closure::wrap(Box::new(move |event: MessageEvent| {
             if let Some(text) = event.data().as_string() {
                 rc.borrow_mut().handle_message(&text);
@@ -131,13 +131,13 @@ impl Shared {
         }) as Box<dyn FnMut(MessageEvent)>);
         ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("feed shared ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_error = Closure::wrap(Box::new(move |_: Event| {
             rc.borrow_mut().handle_error();
         }) as Box<dyn FnMut(Event)>);
         ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("feed shared ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_close = Closure::wrap(Box::new(move |_: Event| {
             rc.borrow_mut().handle_close();
         }) as Box<dyn FnMut(Event)>);
@@ -276,7 +276,7 @@ impl Shared {
         self.reconnect_attempts += 1;
         self.report_all(ConnectionStatus::Reconnecting);
 
-        let rc = self.this.upgrade().expect("feed shared ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let cb = Closure::wrap(Box::new(move |_: Event| {
             let mut shared = rc.borrow_mut();
             shared.reconnect_timer = None;

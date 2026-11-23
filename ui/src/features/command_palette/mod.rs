@@ -27,6 +27,9 @@ pub fn CommandPalette(
     // Holds the focus timeout so it can be cleaned up on close/dispose.
     let focus_guard = Rc::new(RefCell::new(None::<TimeoutGuard>));
     let focus_guard_effect = Rc::clone(&focus_guard);
+    // Element that held focus when the palette opened — restored on close.
+    let prev_focus = Rc::new(RefCell::new(None::<web_sys::Element>));
+    let prev_focus_effect = Rc::clone(&prev_focus);
 
     // Filtered commands — label + description, case-insensitive substring.
     let filtered = Memo::new(move |_| {
@@ -48,9 +51,13 @@ pub fn CommandPalette(
         selected_index.set(0);
     });
 
-    // Open: focus the input after a tick. Close: reset the query.
+    // Open: capture the invoking element, focus the input after a tick.
+    // Close: reset the query and hand focus back to the invoking element.
     Effect::new(move |_| {
         if is_open() {
+            *prev_focus_effect.borrow_mut() = window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.active_element());
             let guard_slot = Rc::clone(&focus_guard_effect);
             let input_ref = input_ref;
             *guard_slot.borrow_mut() = Some(TimeoutGuard::start(50.0, move |_: web_sys::Event| {
@@ -61,6 +68,11 @@ pub fn CommandPalette(
         } else {
             *focus_guard_effect.borrow_mut() = None;
             query.set(String::new());
+            if let Some(el) = prev_focus_effect.borrow_mut().take() {
+                if let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
+                    let _ = h.focus();
+                }
+            }
         }
     });
 
@@ -109,6 +121,14 @@ pub fn CommandPalette(
                         ev.prevent_default();
                         on_close(());
                     }
+                    "Tab" => {
+                        if let Some(dialog) = window()
+                            .and_then(|w| w.document())
+                            .and_then(|d| d.query_selector(".command-dialog").ok().flatten())
+                        {
+                            crate::ui::chrome::trap_focus(&ev, &dialog);
+                        }
+                    }
                     _ => {}
                 }
             });
@@ -146,19 +166,30 @@ pub fn CommandPalette(
             let items = filtered.get();
             view! {
                 <div class="command-overlay" on:click=move |_| on_close(())>
-                    <div class="command-dialog" on:click=|ev| ev.stop_propagation()>
+                    <div class="command-dialog" role="dialog" aria-modal="true" aria-label="Command palette" on:click=|ev| ev.stop_propagation()>
                         <div class="command-search">
                             <span>"⌕"</span>
                             <input
                                 node_ref=input_ref
                                 type="text"
+                                role="combobox"
+                                aria-label="Search commands"
+                                aria-expanded="true"
+                                aria-controls="command-list"
+                                aria-activedescendant=move || {
+                                    filtered
+                                        .get()
+                                        .get(selected_index.get())
+                                        .map(|cmd| format!("cmd-option-{}", cmd.id))
+                                }
+                                aria-autocomplete="list"
                                 prop:value=move || query.get()
                                 on:input=move |ev| query.set(event_target_value(&ev))
                                 placeholder="Type a command or search..."
                             />
                             <div class="command-kbd">"ESC"</div>
                         </div>
-                        <div class="command-list" role="listbox">
+                        <div id="command-list" class="command-list" role="listbox" aria-label="Commands">
                             {if items.is_empty() {
                                 let q = query.get();
                                 view! {
@@ -181,6 +212,8 @@ pub fn CommandPalette(
                                         view! {
                                             <div
                                                 id=format!("cmd-option-{}", id)
+                                                role="option"
+                                                aria-selected=move || is_selected().to_string()
                                                 class=move || {
                                                     if is_selected() {
                                                         "command-option is-selected"

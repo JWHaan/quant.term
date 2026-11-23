@@ -840,6 +840,42 @@ fn with_alpha(color: &str, alpha: f64) -> String {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+/// Owns the window `resize` listener, `ResizeObserver` and settle-tick timer
+/// the redraw effect registers; dropping removes/disconnects them so they
+/// cannot fire on disposed signals after the chart unmounts.
+#[cfg(target_arch = "wasm32")]
+struct ChartListeners {
+    resize_cb: wasm_bindgen::closure::Closure<dyn FnMut()>,
+    observer: Option<(
+        wasm_bindgen::JsValue,
+        wasm_bindgen::closure::Closure<dyn FnMut(js_sys::Array)>,
+    )>,
+    settle_timer: i32,
+    _settle_cb: wasm_bindgen::closure::Closure<dyn FnMut()>,
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Drop for ChartListeners {
+    fn drop(&mut self) {
+        if let Some(w) = window() {
+            let _ = w.remove_event_listener_with_callback(
+                "resize",
+                self.resize_cb.as_ref().unchecked_ref(),
+            );
+            if self.settle_timer != 0 {
+                w.clear_timeout_with_handle(self.settle_timer);
+            }
+        }
+        if let Some((observer, _)) = &self.observer {
+            if let Ok(disconnect) = js_sys::Reflect::get(observer, &"disconnect".into()) {
+                if let Ok(disconnect) = disconnect.dyn_into::<js_sys::Function>() {
+                    let _ = disconnect.call0(observer);
+                }
+            }
+        }
+    }
+}
+
 /// Port of `TerminalChart`. All heavy lifting happens in `draw_chart`, which
 /// re-runs whenever candles, toggles, size or hover change.
 #[component]
@@ -908,6 +944,8 @@ pub fn TerminalChart(
 
     // Window + panel ResizeObserver → redraw tick.
     #[cfg(target_arch = "wasm32")]
+    let listeners_slot = std::rc::Rc::new(std::cell::RefCell::new(None::<ChartListeners>));
+    #[cfg(target_arch = "wasm32")]
     Effect::new(move |_| {
         let cb = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
             tick.update(|t| *t = t.wrapping_add(1));
@@ -915,8 +953,8 @@ pub fn TerminalChart(
         if let Some(w) = window() {
             let _ = w.add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref());
         }
-        cb.forget();
 
+        let mut observer = None;
         if let Some(canvas) = canvas_ref.get() {
             let ro_cb = wasm_bindgen::closure::Closure::<dyn FnMut(js_sys::Array)>::new(move |_entries: js_sys::Array| {
                 tick.update(|t| *t = t.wrapping_add(1));
@@ -924,30 +962,39 @@ pub fn TerminalChart(
             if let Some(w) = window() {
                 if let Ok(ro_val) = js_sys::Reflect::get(&w, &"ResizeObserver".into()) {
                     if let Ok(ro_ctor) = ro_val.dyn_into::<js_sys::Function>() {
-                        if let Ok(observer) = js_sys::Reflect::construct(&ro_ctor, &js_sys::Array::of1(ro_cb.as_ref())) {
-                            if let Ok(observe_fn) = js_sys::Reflect::get(&observer, &"observe".into()) {
+                        if let Ok(ob) = js_sys::Reflect::construct(&ro_ctor, &js_sys::Array::of1(ro_cb.as_ref())) {
+                            if let Ok(observe_fn) = js_sys::Reflect::get(&ob, &"observe".into()) {
                                 if let Ok(observe_fn) = observe_fn.dyn_into::<js_sys::Function>() {
-                                    let _ = observe_fn.call1(&observer, &canvas);
+                                    let _ = observe_fn.call1(&ob, &canvas);
                                 }
                             }
+                            observer = Some((ob, ro_cb));
                         }
                     }
                 }
             }
-            ro_cb.forget();
         }
 
         // One-shot delayed tick covers late layout / CSS settling.
         let cb2 = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
             tick.update(|t| *t = t.wrapping_add(1));
         });
-        if let Some(w) = window() {
-            let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(
-                cb2.as_ref().unchecked_ref(),
-                50,
-            );
-        }
-        cb2.forget();
+        let settle_timer = window()
+            .and_then(|w| {
+                w.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    cb2.as_ref().unchecked_ref(),
+                    50,
+                )
+                .ok()
+            })
+            .unwrap_or(0);
+
+        *listeners_slot.borrow_mut() = Some(ChartListeners {
+            resize_cb: cb,
+            observer,
+            settle_timer,
+            _settle_cb: cb2,
+        });
     });
 
     // Redraw on any input change.

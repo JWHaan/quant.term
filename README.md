@@ -50,7 +50,7 @@ The `quant-core` engine and a kept TypeScript reference implementation share the
 ### Requirements
 
 - Node.js 24.x LTS (24.15 or newer)
-- npm 11 or newer
+- npm 12 or newer
 - A current desktop browser
 - For Rust changes only: a stable Rust toolchain with the `wasm32-unknown-unknown` target and the `wasm-bindgen` CLI
 

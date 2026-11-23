@@ -9,7 +9,7 @@ const pageErrors = [];
 page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
 page.on('pageerror', (err) => pageErrors.push(String(err)));
 
-await page.goto('http://localhost:3001', { waitUntil: 'domcontentloaded', timeout: 30000 });
+await page.goto(process.env.SMOKE_URL || 'http://localhost:4173', { waitUntil: 'domcontentloaded', timeout: 30000 });
 await page.waitForTimeout(4000);
 
 const results = { consoleErrors, pageErrors };
