@@ -57,10 +57,17 @@ jobs:
     name: WASM bundles
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write # push regenerated bundles back to the PR branch
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          # Check out the PR head branch (not the merge commit) so the sync
+          # commit can be pushed back to it. On pushes this resolves to main.
+          ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -89,7 +96,28 @@ jobs:
           ./scripts/build-wasm.sh
           ./scripts/build-ui-wasm.sh
 
-      - name: Fail on committed bundle drift
+      # rustc wasm codegen is deterministic per host but NOT cross-host:
+      # darwin-arm64, linux-arm64 and linux-x86_64 all produce different
+      # binaries for identical sources. Committed bundles are therefore
+      # linux-x86_64 canonical — CI owns regeneration. On PRs we push the
+      # canonical output back to the branch; on main a diff means someone
+      # bypassed the PR flow, so fail loudly.
+      - name: Sync canonical bundles to the PR branch
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --quiet src/wasm; then
+            echo "Committed bundles are already canonical."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/wasm
+          git commit -m "chore(wasm): regenerate committed bundles (CI canonical)"
+          git pull --rebase origin "${{ github.head_ref }}"
+          git push origin "HEAD:${{ github.head_ref }}"
+
+      - name: Fail on bundle drift (protected branches)
+        if: github.event_name != 'pull_request'
         run: git diff --exit-code src/wasm
 
   # Native engine job removed 2026-11-17: the C++ engine was removed in the

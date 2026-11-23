@@ -27,9 +27,11 @@ npm run check
 
 ~~~bash
 npm run wasm:build              # quant-core
-./scripts/build-ui-wasm.sh      # quant-ui (Leptos frontend)
+npm run wasm:build:ui           # quant-ui (Leptos frontend)
 npm run wasm:check              # cargo fmt --check + clippy -D warnings
 ~~~
+
+   Rebuild locally so the dev server reflects your changes and commit the result. rustc wasm output is platform-dependent, so the `wasm` CI job re-generates `src/wasm/` on linux-x86_64 and pushes the canonical bytes back to the PR branch — don't be surprised by that extra bot commit.
 
 4. Open a pull request using the repository template.
 
