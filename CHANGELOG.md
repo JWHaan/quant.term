@@ -27,6 +27,7 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - `wasm` CI job enforcing Rust fmt/clippy and committed-bundle drift verification, Cargo Dependabot coverage for both crates, and a pinned `rust-toolchain.toml`
 - `AGENTS.md` and `.agents/rules/` contributor guidance for coding agents
 - Retina README screenshots of the live terminal under `.github/assets`, regenerable via `scripts/screenshots.mjs`
+- Playwright smoke gate (assertions + degraded-provider scenario) and dependency-review job in CI
 
 ### Changed
 
