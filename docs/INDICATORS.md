@@ -30,6 +30,7 @@ The OFI and DOM panels currently own separate partial-depth subscriptions. Conso
 
 ## Calculation conventions
 
+- MACD signal-line semantics follow [ADR-0001](adr/0001-macd-standard-signal-semantics.md): the signal line is a `signal_period` EMA of the MACD line, seeded at the first valid MACD value and emitted on the same candle index as the MACD line. The signal therefore begins where the MACD line becomes valid (index `slow − 1`), and the histogram is `MACD − signal` on every emitted row.
 - Timestamps come from exchange payloads where available.
 - No forward-looking candle is introduced into historical indicator windows.
 - Numeric parsers reject non-finite provider values.
