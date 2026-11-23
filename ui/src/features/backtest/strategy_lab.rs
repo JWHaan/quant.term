@@ -615,7 +615,7 @@ pub fn StrategyLab(
                                             <button
                                                 type="button"
                                                 role="tab"
-                                                aria-selected=move || active_tab.get() == "trades"
+                                                aria-selected=move || (active_tab.get() == "trades").to_string()
                                                 class=move || if active_tab.get() == "trades" { "tab-button active" } else { "tab-button" }
                                                 on:click=move |_| active_tab.set("trades")
                                             >
@@ -624,7 +624,7 @@ pub fn StrategyLab(
                                             <button
                                                 type="button"
                                                 role="tab"
-                                                aria-selected=move || active_tab.get() == "diagnostics"
+                                                aria-selected=move || (active_tab.get() == "diagnostics").to_string()
                                                 class=move || if active_tab.get() == "diagnostics" { "tab-button active" } else { "tab-button" }
                                                 on:click=move |_| active_tab.set("diagnostics")
                                             >

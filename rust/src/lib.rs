@@ -62,9 +62,20 @@ fn validate(data: &[Candle], min_length: usize) -> Result<(), JsValue> {
             data.len()
         )));
     }
-    let first = &data[0];
+    let Some(first) = data.first() else {
+        return Err(js_err("Insufficient data: no candles provided"));
+    };
     if !first.close.is_finite() {
         return Err(js_err("Invalid close price in data"));
+    }
+    if data.iter().any(|c| {
+        !(c.open.is_finite()
+            && c.high.is_finite()
+            && c.low.is_finite()
+            && c.close.is_finite()
+            && c.volume.is_finite())
+    }) {
+        return Err(js_err("Non-finite value in candle data"));
     }
     Ok(())
 }
@@ -117,10 +128,10 @@ pub fn calculate_vwap(data: JsValue) -> Result<JsValue, JsValue> {
 pub fn calculate_sma(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
     let data = candles_from(data)?;
     let period = period as usize;
-    validate(&data, period)?;
     if period == 0 {
-        return out(Vec::<IndicatorValue>::new());
+        return Err(js_err("Period must be greater than zero"));
     }
+    validate(&data, period)?;
     let mut result = Vec::new();
     for i in period - 1..data.len() {
         let sum: f64 = data[i + 1 - period..=i].iter().map(|c| c.close).sum();
@@ -136,10 +147,10 @@ pub fn calculate_sma(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
 pub fn calculate_ema(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
     let data = candles_from(data)?;
     let period = period as usize;
-    validate(&data, period)?;
     if period == 0 {
-        return out(Vec::<IndicatorValue>::new());
+        return Err(js_err("Period must be greater than zero"));
     }
+    validate(&data, period)?;
     let k = 2.0 / (period as f64 + 1.0);
     let mut ema: f64 = data[..period].iter().map(|c| c.close).sum::<f64>() / period as f64;
     let mut result = vec![IndicatorValue {
@@ -160,7 +171,10 @@ pub fn calculate_ema(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
 pub fn calculate_rsi(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
     let data = candles_from(data)?;
     let period = period as usize;
-    validate(&data, period + 1)?;
+    if period == 0 {
+        return Err(js_err("Period must be greater than zero"));
+    }
+    validate(&data, period.saturating_add(1))?;
     let mut gains = 0.0f64;
     let mut losses = 0.0f64;
     for i in 1..=period {
@@ -209,10 +223,10 @@ pub fn calculate_bollinger_bands(
 ) -> Result<JsValue, JsValue> {
     let data = candles_from(data)?;
     let period = period as usize;
-    validate(&data, period)?;
     if period == 0 {
-        return out(Vec::<BollingerBandsValue>::new());
+        return Err(js_err("Period must be greater than zero"));
     }
+    validate(&data, period)?;
     let mut result = Vec::new();
     for i in period - 1..data.len() {
         let slice = &data[i + 1 - period..=i];
@@ -243,10 +257,10 @@ pub fn calculate_macd(
         slow_period as usize,
         signal_period as usize,
     );
-    validate(&data, slow + signal)?;
     if fast == 0 || slow == 0 || signal == 0 {
-        return out(Vec::<MacdValue>::new());
+        return Err(js_err("MACD periods must be greater than zero"));
     }
+    validate(&data, slow.saturating_add(signal))?;
     let closes: Vec<f64> = data.iter().map(|c| c.close).collect();
     let fast_ema = ema_values(&closes, fast);
     let slow_ema = ema_values(&closes, slow);
@@ -283,7 +297,10 @@ pub fn calculate_macd(
 pub fn calculate_atr(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
     let data = candles_from(data)?;
     let period = period as usize;
-    validate(&data, period + 1)?;
+    if period == 0 {
+        return Err(js_err("Period must be greater than zero"));
+    }
+    validate(&data, period.saturating_add(1))?;
     let mut tr_values = Vec::with_capacity(data.len() - 1);
     for i in 1..data.len() {
         let high = data[i].high;
@@ -328,7 +345,7 @@ pub fn calculate_ofi(data: JsValue) -> Result<JsValue, JsValue> {
     for trade in &trades {
         let qty = match &trade.quantity {
             serde_json::Value::Number(n) => n.as_f64().unwrap_or(f64::NAN),
-            serde_json::Value::String(s) => s.parse::<f64>().unwrap_or(f64::NAN),
+            serde_json::Value::String(s) => s.trim().parse::<f64>().unwrap_or(f64::NAN),
             _ => f64::NAN,
         };
         if !qty.is_finite() {
@@ -385,7 +402,10 @@ pub fn calculate_obv(data: JsValue) -> Result<JsValue, JsValue> {
 pub fn calculate_adx(data: JsValue, period: u32) -> Result<JsValue, JsValue> {
     let data = candles_from(data)?;
     let period = period as usize;
-    validate(&data, period * 2)?;
+    if period == 0 {
+        return Err(js_err("Period must be greater than zero"));
+    }
+    validate(&data, period.saturating_mul(2))?;
     let mut tr_values = Vec::with_capacity(data.len() - 1);
     let mut dm_plus_values = Vec::with_capacity(data.len() - 1);
     let mut dm_minus_values = Vec::with_capacity(data.len() - 1);

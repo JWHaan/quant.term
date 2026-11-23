@@ -6,7 +6,6 @@ export default defineConfig([
   globalIgnores([
     'dist',
     'coverage',
-    '.next',
     'src/wasm',
   ]),
   ...tseslint.configs.recommended,
@@ -23,7 +22,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['build/**/*.{ts,js}', 'scripts/**/*.{ts,js}', 'vite.config.ts', 'vitest.config.ts'],
+    files: ['build/**/*.{ts,js}', 'scripts/**/*.{ts,js,mjs}', 'vite.config.ts', 'vitest.config.ts'],
     languageOptions: {
       globals: globals.node,
     },

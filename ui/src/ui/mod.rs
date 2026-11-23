@@ -4,7 +4,10 @@ mod command_line;
 use crate::features::command_palette::Command;
 use crate::stores::{use_stores, WorkspaceMode};
 use self::command_line::CommandLine;
+use leptos::html::Button;
 use leptos::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 #[component]
@@ -325,11 +328,71 @@ pub fn KeyboardShortcutsModal(
     is_open: impl Fn() -> bool + Copy + Send + Sync + 'static,
     on_close: impl Fn(()) + Copy + Send + Sync + 'static,
 ) -> impl IntoView {
+    let close_ref: NodeRef<Button> = NodeRef::new();
+    // Element that held focus when the modal opened — restored on close.
+    let prev_focus = Rc::new(RefCell::new(None::<web_sys::Element>));
+
+    // Open: capture the invoking element, focus the close control once the
+    // modal is in the DOM. Close: hand focus back to the invoking element.
+    Effect::new(move |_| {
+        if is_open() {
+            *prev_focus.borrow_mut() = web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.active_element());
+            if let Some(w) = web_sys::window() {
+                let cb = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || {
+                    if let Some(btn) = close_ref.get() {
+                        let _ = btn.focus();
+                    }
+                });
+                let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(
+                    cb.as_ref().unchecked_ref(),
+                    0,
+                );
+                cb.forget();
+            }
+        } else if let Some(el) = prev_focus.borrow_mut().take() {
+            if let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
+                let _ = h.focus();
+            }
+        }
+    });
+
+    // Keep Tab focus inside the open modal — Escape is handled globally by
+    // `use_keyboard_shortcuts`.
+    Effect::new(move |_| {
+        let cb = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(
+            move |ev: web_sys::KeyboardEvent| {
+                if !is_open() || ev.key() != "Tab" {
+                    return;
+                }
+                if let Some(dialog) = web_sys::window()
+                    .and_then(|w| w.document())
+                    .and_then(|d| d.query_selector(".modal").ok().flatten())
+                {
+                    chrome::trap_focus(&ev, &dialog);
+                }
+            },
+        );
+        if let Some(w) = web_sys::window() {
+            let _ = w.add_event_listener_with_callback("keydown", cb.as_ref().unchecked_ref());
+        }
+        let cb_cleanup = crate::SendWrap(cb);
+        on_cleanup(move || {
+            let _ = web_sys::window()
+                .expect("window")
+                .remove_event_listener_with_callback(
+                    "keydown",
+                    cb_cleanup.as_ref().unchecked_ref(),
+                );
+        });
+    });
+
     view! {
         <Show when=move || is_open()>
             <div class="modal-overlay" on:click=move |_| on_close(())>
-                <div class="modal" on:click=|e| e.stop_propagation()>
-                    <h2>
+                <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title" on:click=|e| e.stop_propagation()>
+                    <h2 id="shortcuts-modal-title">
                         <span>"Keyboard Shortcuts"</span>
                         <span style="font-size: 11px; font-weight: normal; color: var(--text-muted)">"ESC to close"</span>
                     </h2>
@@ -341,7 +404,7 @@ pub fn KeyboardShortcutsModal(
                             <tr><td><kbd>"Arrow keys"</kbd></td><td>"Navigate tabs and command items"</td></tr>
                         </tbody>
                     </table>
-                    <button type="button" class="modal-close-btn" on:click=move |_| on_close(())>"Close (Esc)"</button>
+                    <button node_ref=close_ref type="button" class="modal-close-btn" on:click=move |_| on_close(())>"Close (Esc)"</button>
                 </div>
             </div>
         </Show>

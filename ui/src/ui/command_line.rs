@@ -259,7 +259,7 @@ pub fn CommandLine(
                 }
                 on:keydown=on_keydown
                 aria-expanded=move || show_results().to_string()
-                aria-controls=move || if show_results() { "command-line-results" } else { "" }
+                aria-controls=move || show_results().then_some("command-line-results")
                 aria-autocomplete="list"
                 {::leptos::attr::custom::custom_attribute("spellcheck", "false")}
             />

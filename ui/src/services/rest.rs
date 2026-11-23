@@ -1,6 +1,6 @@
 //! Binance REST orchestration — port of `src/integrations/binance/*`
-//! (klines, watchlist, derivatives, liquidations, contracts) plus the
-//! REST-driven hooks `useDerivativesSnapshot` and `useChartDataFeed`.
+//! (klines, watchlist, liquidations) plus the REST-driven `useChartDataFeed`.
+//! (`useDerivativesSnapshot` is a feature-local hook — see `features::market`.)
 //!
 //! Payload *parsing* lives in `quant-core` (called here through its
 //! `JsValue` API); this module owns URLs, fetch, timeouts and signals.
@@ -24,9 +24,8 @@ use crate::services::telemetry::{
     next_owner_id, record_live_market_event, release_live_connection, report_live_connection,
 };
 use crate::stores::{
-    now_ms, to_binance_futures_symbol, use_stores, AppStores, MarketData, MarketDataUpdate,
-    Ohlcv, OrderBookSnapshot, BINANCE_FUTURES_REST_URL, BINANCE_FUTURES_WS_URL,
-    BINANCE_REST_URL,
+    now_ms, use_stores, AppStores, MarketData, MarketDataUpdate, Ohlcv, OrderBookSnapshot,
+    BINANCE_FUTURES_WS_URL, BINANCE_REST_URL,
 };
 
 // ─── Browser timer guards (RAII, mirror setTimeout/setInterval cleanup) ──────
@@ -531,244 +530,6 @@ pub fn extract_ticker_values(payload: &JsValue) -> Vec<serde_json::Value> {
         .unwrap_or_default()
 }
 
-// ─── contracts (src/integrations/binance/contracts.ts) ──────────────────────
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct BinanceFuturesContract {
-    pub spot_symbol: String,
-    pub futures_symbol: String,
-    pub multiplier: f64,
-}
-
-/// Resolve a spot instrument to its USDⓈ-M contract and unit multiplier.
-pub fn get_binance_futures_contract(symbol: &str) -> BinanceFuturesContract {
-    let fallback = || BinanceFuturesContract {
-        spot_symbol: symbol.to_uppercase(),
-        futures_symbol: to_binance_futures_symbol(symbol),
-        multiplier: 1.0,
-    };
-    let Ok(js) = quant_core::futures_contract(symbol) else {
-        return fallback();
-    };
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct ContractJson {
-        spot_symbol: String,
-        futures_symbol: String,
-        multiplier: f64,
-    }
-    js_to_json(&js)
-        .ok()
-        .and_then(|v| serde_json::from_value::<ContractJson>(v).ok())
-        .map(|c| BinanceFuturesContract {
-            spot_symbol: c.spot_symbol,
-            futures_symbol: c.futures_symbol,
-            multiplier: if c.multiplier.is_finite() && c.multiplier > 0.0 {
-                c.multiplier
-            } else {
-                1.0
-            },
-        })
-        .unwrap_or_else(fallback)
-}
-
-pub fn normalize_binance_futures_price(price: f64, multiplier: f64) -> f64 {
-    quant_core::normalize_futures_price(price, multiplier)
-}
-
-pub fn normalize_binance_futures_quantity(quantity: f64, multiplier: f64) -> f64 {
-    quant_core::normalize_futures_quantity(quantity, multiplier)
-}
-
-// ─── derivatives (src/integrations/binance/derivatives.ts + useDerivativesSnapshot)
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DerivativesSnapshot {
-    pub mark_price: f64,
-    pub index_price: f64,
-    pub funding_rate: f64,
-    pub next_funding_time: f64,
-    pub open_interest: f64,
-    pub long_account: f64,
-    pub short_account: f64,
-    pub updated_at: f64,
-}
-
-/// Parse and validate the three Binance Futures REST payloads.
-pub fn parse_derivatives_snapshot(
-    premium_payload: &JsValue,
-    interest_payload: &JsValue,
-    ratios_payload: &JsValue,
-    expected_futures_symbol: &str,
-    contract_multiplier: f64,
-    received_at: f64,
-) -> Result<DerivativesSnapshot, RestError> {
-    let out = quant_core::parse_derivatives_snapshot(
-        premium_payload.clone(),
-        interest_payload.clone(),
-        ratios_payload.clone(),
-        expected_futures_symbol,
-        contract_multiplier,
-        Some(received_at),
-    )
-    .map_err(|e| RestError::Parse(js_err_string(&e)))?;
-    let value = js_to_json(&out)?;
-    serde_json::from_value(value).map_err(|e| RestError::Parse(e.to_string()))
-}
-
-const DERIVATIVES_REFRESH_MS: f64 = 30_000.0;
-const DERIVATIVES_FETCH_TIMEOUT_MS: f64 = 8_000.0;
-
-/// Reactive state returned by `use_derivatives_snapshot`.
-pub struct DerivativesSnapshotState {
-    pub snapshot: Memo<Option<DerivativesSnapshot>>,
-    pub error: Memo<Option<String>>,
-    pub is_loading: RwSignal<bool>,
-    refresh_count: RwSignal<u64>,
-}
-
-impl DerivativesSnapshotState {
-    pub fn refresh(&self) {
-        self.refresh_count.update(|v| *v += 1);
-    }
-}
-
-/// Polls Binance USDⓈ-M derivatives metrics for a spot symbol.
-/// Mirrors `useDerivativesSnapshot`: independent per-instance fetch cycle,
-/// 30s refresh interval, 8s per-request timeout.
-pub fn use_derivatives_snapshot(symbol: Memo<String>) -> DerivativesSnapshotState {
-    // snapshot keyed by the spot symbol that produced it (TS snapshotState).
-    let snapshot_state = RwSignal::new(None::<(String, DerivativesSnapshot)>);
-    let error_map = RwSignal::new(HashMap::<String, String>::new());
-    let is_loading = RwSignal::new(true);
-    let refresh_count = RwSignal::new(0u64);
-    let generation = Rc::new(Cell::new(0u64));
-
-    let snapshot = Memo::new(move |_| {
-        let sym = symbol.get();
-        snapshot_state.with(|s| {
-            s.as_ref()
-                .and_then(|(k, v)| (k == &sym).then(|| v.clone()))
-        })
-    });
-    let error = Memo::new(move |_| {
-        let sym = symbol.get();
-        error_map.with(|m| m.get(&sym).cloned())
-    });
-
-    // 30s auto-refresh.
-    let guard_slot = Rc::new(RefCell::new(None::<IntervalGuard>));
-    {
-        let guard_slot = Rc::clone(&guard_slot);
-        let refresh_count = refresh_count;
-        Effect::new(move |_| {
-            *guard_slot.borrow_mut() = Some(IntervalGuard::start(
-                DERIVATIVES_REFRESH_MS,
-                move |_| {
-                    refresh_count.update(|v| *v += 1);
-                },
-            ));
-        });
-    }
-
-    {
-        let generation = Rc::clone(&generation);
-        Effect::new(move |_| {
-            let spot = symbol.get();
-            let contract = get_binance_futures_contract(&spot);
-            let _ = refresh_count.get();
-
-            let gen = generation.get() + 1;
-            generation.set(gen);
-            is_loading.set(true);
-
-            let futures_symbol = contract.futures_symbol.clone();
-            let multiplier = contract.multiplier;
-            let spot_symbol = contract.spot_symbol.clone();
-            let urls = vec![
-                format!("{BINANCE_FUTURES_REST_URL}/fapi/v1/premiumIndex?symbol={futures_symbol}"),
-                format!("{BINANCE_FUTURES_REST_URL}/fapi/v1/openInterest?symbol={futures_symbol}"),
-                format!("{BINANCE_FUTURES_REST_URL}/futures/data/globalLongShortAccountRatio?symbol={futures_symbol}&period=5m&limit=1"),
-            ];
-            let generation = Rc::clone(&generation);
-            let snapshot_state = snapshot_state;
-            let error_map = error_map;
-            let is_loading = is_loading;
-            fetch_json_all(urls, DERIVATIVES_FETCH_TIMEOUT_MS, move |results| {
-                if generation.get() != gen {
-                    return;
-                }
-                is_loading.set(false);
-
-                // Promise.all rejects on the first failure; surface that error.
-                let mut first_err: Option<RestError> = None;
-                let mut values: Vec<Option<serde_json::Value>> = Vec::with_capacity(3);
-                for r in results {
-                    match r {
-                        Ok(v) => values.push(Some(v)),
-                        Err(e) => {
-                            if first_err.is_none() {
-                                first_err = Some(e);
-                            }
-                            values.push(None);
-                        }
-                    }
-                }
-                if let Some(e) = first_err {
-                    // Mirrors the TS catch: timeout/http get fixed strings,
-                    // everything else surfaces the parser/transport message.
-                    let msg = match &e {
-                        RestError::Timeout => "Binance Futures request timed out".to_string(),
-                        RestError::Http(s) => format!("Binance Futures returned {s}"),
-                        other => other.message(),
-                    };
-                    error_map.update(|m| {
-                        m.insert(spot_symbol.clone(), msg);
-                    });
-                    return;
-                }
-
-                let to_js = |v: Option<serde_json::Value>| {
-                    serde_wasm_bindgen::to_value(&v.unwrap_or(serde_json::Value::Null))
-                        .unwrap_or(JsValue::NULL)
-                };
-                let premium = to_js(values.get(0).cloned().flatten());
-                let interest = to_js(values.get(1).cloned().flatten());
-                let ratios = to_js(values.get(2).cloned().flatten());
-
-                match parse_derivatives_snapshot(
-                    &premium,
-                    &interest,
-                    &ratios,
-                    &futures_symbol,
-                    multiplier,
-                    now_ms(),
-                ) {
-                    Ok(snap) => {
-                        snapshot_state.set(Some((spot_symbol.clone(), snap)));
-                        error_map.update(|m| {
-                            m.remove(&spot_symbol);
-                        });
-                    }
-                    Err(e) => {
-                        error_map.update(|m| {
-                            m.insert(spot_symbol.clone(), e.message());
-                        });
-                    }
-                }
-            });
-        });
-    }
-
-    DerivativesSnapshotState {
-        snapshot,
-        error,
-        is_loading,
-        refresh_count,
-    }
-}
-
 // ─── liquidations (src/integrations/binance/liquidations.ts) ────────────────
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -866,13 +627,13 @@ impl LiquidationInner {
             return;
         };
 
-        let rc = self.this.upgrade().expect("liquidation inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_open = Closure::wrap(Box::new(move |_: Event| {
             rc.borrow_mut().handle_open();
         }) as Box<dyn FnMut(Event)>);
         ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("liquidation inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_message = Closure::wrap(Box::new(move |event: web_sys::MessageEvent| {
             if let Some(text) = event.data().as_string() {
                 rc.borrow_mut().handle_message(&text);
@@ -880,7 +641,7 @@ impl LiquidationInner {
         }) as Box<dyn FnMut(web_sys::MessageEvent)>);
         ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("liquidation inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_error = Closure::wrap(Box::new(move |_: Event| {
             if let Some(ws) = rc.borrow().ws.as_ref() {
                 let _ = ws.close();
@@ -888,7 +649,7 @@ impl LiquidationInner {
         }) as Box<dyn FnMut(Event)>);
         ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("liquidation inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_close = Closure::wrap(Box::new(move |_: Event| {
             rc.borrow_mut().handle_close();
         }) as Box<dyn FnMut(Event)>);
@@ -939,7 +700,7 @@ impl LiquidationInner {
             as f64
             + (js_sys::Math::random() * 500.0).floor();
         self.retry_count += 1;
-        let rc = self.this.upgrade().expect("liquidation inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         self.retry_timer = Some(TimeoutGuard::start(delay, move |_: Event| {
             rc.borrow_mut().connect();
         }));
@@ -953,7 +714,7 @@ impl LiquidationInner {
             as f64
             + (js_sys::Math::random() * 500.0).floor();
         self.retry_count += 1;
-        let rc = self.this.upgrade().expect("liquidation inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         self.retry_timer = Some(TimeoutGuard::start(delay, move |_: Event| {
             rc.borrow_mut().connect();
         }));
@@ -1428,7 +1189,7 @@ impl WatchlistInner {
             return;
         };
 
-        let rc = self.this.upgrade().expect("watchlist inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_open = Closure::wrap(Box::new(move |_: Event| {
             let mut inner = rc.borrow_mut();
             if inner.disposed {
@@ -1438,7 +1199,7 @@ impl WatchlistInner {
         }) as Box<dyn FnMut(Event)>);
         ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("watchlist inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_message = Closure::wrap(Box::new(move |event: web_sys::MessageEvent| {
             let mut inner = rc.borrow_mut();
             if inner.disposed {
@@ -1478,7 +1239,7 @@ impl WatchlistInner {
         }) as Box<dyn FnMut(web_sys::MessageEvent)>);
         ws.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("watchlist inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_error = Closure::wrap(Box::new(move |_: Event| {
             let inner = rc.borrow_mut();
             if inner.disposed {
@@ -1496,7 +1257,7 @@ impl WatchlistInner {
         }) as Box<dyn FnMut(Event)>);
         ws.set_onerror(Some(on_error.as_ref().unchecked_ref()));
 
-        let rc = self.this.upgrade().expect("watchlist inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let on_close = Closure::wrap(Box::new(move |_: Event| {
             rc.borrow_mut().handle_close();
         }) as Box<dyn FnMut(Event)>);
@@ -1535,7 +1296,7 @@ impl WatchlistInner {
             Some(crate::stores::ConnectionStatus::Reconnecting),
         );
         self.error.set(Some("Live watchlist feed reconnecting".to_string()));
-        let rc = self.this.upgrade().expect("watchlist inner ref");
+        let Some(rc) = self.this.upgrade() else { return };
         self.reconnect_timer = Some(TimeoutGuard::start(delay, move |_: Event| {
             rc.borrow_mut().reconnect_timer = None;
             rc.borrow_mut().connect();

@@ -789,7 +789,9 @@ impl WsShared {
 
         macro_rules! hook {
             ($field:ident, $event:ty, $method:ident, $handler:ident) => {{
-                let rc = self.this.upgrade().expect("ws shared ref");
+                let Some(rc) = self.this.upgrade() else {
+                    return;
+                };
                 let cb = Closure::wrap(Box::new(move |ev: $event| {
                     rc.borrow_mut().$handler(ev);
                 }) as Box<dyn FnMut($event)>);
@@ -857,7 +859,7 @@ impl WsShared {
         }
         self.call_reconnect();
 
-        let rc = self.this.upgrade().expect("ws shared ref");
+        let Some(rc) = self.this.upgrade() else { return };
         let cb = Closure::wrap(Box::new(move |_: Event| {
             let mut shared = rc.borrow_mut();
             shared.reconnect_timer = None;

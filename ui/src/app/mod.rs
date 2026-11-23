@@ -2,6 +2,8 @@ use crate::features::command_palette::{
     build_commands, CommandPalette, CommandsConfig,
 };
 use crate::features::{MonitorWorkspace, StrategyLab};
+#[cfg(target_arch = "wasm32")]
+use crate::services::hooks::use_keyboard_shortcuts;
 use crate::stores::{provide_stores, ConnectionStatus, WorkspaceMode};
 use crate::ui::{
     AppFooter, AppHeader, KeyboardShortcutsModal, MobileGate, StrategyFooter,
@@ -128,6 +130,11 @@ pub fn App() -> impl IntoView {
             }
         }
     });
+
+    // `?` opens the shortcuts help, Escape closes it — the hook drives
+    // `stores.show_help` so the modal and header button share one state.
+    #[cfg(target_arch = "wasm32")]
+    let _shortcuts = use_keyboard_shortcuts(Vec::new(), true, stores.show_help);
 
     let is_global_connected = move || {
         let c = stores.connections.get();

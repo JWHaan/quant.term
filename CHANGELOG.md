@@ -23,6 +23,8 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Native C++20 replay core, CTest suite, and `backtest-v1` contract schema
 - Golden browser/native result checks for the bundled synthetic fixture
 - Header command line with mnemonics, a chart-docked microstructure ribbon, a collapsible TICK watchlist, and an amber terminal theme
+- `wasm` CI job enforcing Rust fmt/clippy and committed-bundle drift verification, Cargo Dependabot coverage for both crates, and a pinned `rust-toolchain.toml`
+- `AGENTS.md` and `.agents/rules/` contributor guidance for coding agents
 
 ### Changed
 
@@ -52,6 +54,10 @@ Notable project changes are recorded here. The format follows [Keep a Changelog]
 - Corrected indicator-alert condition evaluation
 - Made paper leverage reserve initial margin and reject positions beyond free simulated equity
 - Restored deterministic `localStorage` and `sessionStorage` in the happy-dom test environment
+- Rust/WASM indicator panics on empty input and zero periods; invalid input now returns validation errors
+- Boolean ARIA attributes rendering empty, missing dialog semantics and focus traps, and dead keyboard-shortcut wiring
+- WebSocket and timer callbacks panicking after owner teardown, leaked resize listeners, and unbounded historical-candle fetches
+- Security headers not applied on the Workers deployment and the vulnerable `url` crate (updated to 2.5.9)
 
 ### Removed
 

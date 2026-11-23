@@ -30,7 +30,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "wasm:build": "./scripts/build-wasm.sh",
+    "wasm:build:ui": "./scripts/build-ui-wasm.sh",
     "wasm:check": "./scripts/check-wasm.sh",
+    "smoke": "node scripts/smoke.mjs",
     "check": "npm run lint && npm run type-check && npm run test:coverage && npm run build"
   },
   "dependencies": {
@@ -46,13 +48,13 @@
     "playwright": "^1.65.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.2",
+    "undici": "^7.30.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.0",
     "wrangler": "^4.160.0"
   },
   "overrides": {
     "brace-expansion": "^5.0.12",
-    "minimatch": "^11.0.7",
-    "zod": "^4.6.7"
+    "minimatch": "^11.0.9"
   }
 }

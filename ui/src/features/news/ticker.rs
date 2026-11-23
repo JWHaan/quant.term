@@ -106,8 +106,12 @@ pub fn NewsTicker() -> impl IntoView {
     view! {
         <div
             class="news-ticker"
+            role="region"
+            aria-label="Live news wire"
             on:mouseenter=move |_| is_paused.set(true)
             on:mouseleave=move |_| is_paused.set(false)
+            on:focusin=move |_| is_paused.set(true)
+            on:focusout=move |_| is_paused.set(false)
         >
             <div class="news-ticker__brand">
                 <span class="cursor-blink news-ticker__dot">"●"</span>
@@ -138,7 +142,9 @@ pub fn NewsTicker() -> impl IntoView {
                         }
                         .into_any();
                     }
-                    // Duplicate news for a seamless loop.
+                    // Duplicate news for a seamless loop; the second copy is
+                    // decorative — hidden from AT and removed from tab order.
+                    let count = items.len();
                     let doubled: Vec<NewsTickerItem> = items
                         .iter()
                         .cloned()
@@ -146,7 +152,9 @@ pub fn NewsTicker() -> impl IntoView {
                         .collect();
                     doubled
                         .into_iter()
-                        .map(|item| {
+                        .enumerate()
+                        .map(|(index, item)| {
+                            let is_clone = index >= count;
                             let color = sentiment_color(item.sentiment);
                             let icon = sentiment_icon(item.sentiment);
                             let source = item.source.to_uppercase();
@@ -160,6 +168,8 @@ pub fn NewsTicker() -> impl IntoView {
                                     class="news-ticker__item"
                                     style=format!("color: {color}")
                                     title="Click to read full article"
+                                    aria-hidden=is_clone.then_some("true")
+                                    tabindex=is_clone.then_some("-1")
                                 >
                                     <span class="news-ticker__bracket">"["</span>
                                     {icon}

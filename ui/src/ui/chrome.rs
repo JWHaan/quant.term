@@ -48,6 +48,65 @@ fn focus_tab_button(uid: usize, tab_id: &str) {
     let _ = (uid, tab_id);
 }
 
+/// Focusability check used by dialog focus traps (`querySelectorAll` isn't
+/// enabled in this build, so the tree is walked manually).
+fn is_focusable(el: &web_sys::Element) -> bool {
+    if let Some(tab) = el.get_attribute("tabindex") {
+        return tab.trim() != "-1";
+    }
+    match el.tag_name().to_lowercase().as_str() {
+        "input" | "select" | "textarea" | "button" => !el.has_attribute("disabled"),
+        "a" | "area" => el.has_attribute("href"),
+        _ => false,
+    }
+}
+
+/// Focusable descendants of `root` in document order.
+pub(crate) fn focusable_descendants(root: &web_sys::Element) -> Vec<web_sys::Element> {
+    let mut out = Vec::new();
+    let mut stack = vec![root.clone()];
+    while let Some(el) = stack.pop() {
+        if el != *root && is_focusable(&el) {
+            out.push(el.clone());
+        }
+        let mut kids = Vec::new();
+        let mut next = el.first_element_child();
+        while let Some(child) = next {
+            next = child.next_element_sibling();
+            kids.push(child);
+        }
+        stack.extend(kids.into_iter().rev());
+    }
+    out
+}
+
+/// Keep Tab/Shift+Tab focus inside `root` — cycles first↔last focusable
+/// descendants and pulls focus back in if it has escaped the dialog.
+pub(crate) fn trap_focus(ev: &web_sys::KeyboardEvent, root: &web_sys::Element) {
+    let focusables = focusable_descendants(root);
+    let Some(first) = focusables.first() else {
+        ev.prevent_default();
+        return;
+    };
+    let last = focusables.last().expect("focusables is non-empty");
+    let active = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.active_element());
+    let inside = active.as_ref().is_some_and(|a| {
+        root.unchecked_ref::<web_sys::Node>()
+            .contains(Some(a.unchecked_ref::<web_sys::Node>()))
+    });
+    let at_first = active.as_ref().is_some_and(|a| a == first);
+    let at_last = active.as_ref().is_some_and(|a| a == last);
+    if ev.shift_key() && (!inside || at_first) || !ev.shift_key() && (!inside || at_last) {
+        ev.prevent_default();
+        let target = if ev.shift_key() { last } else { first };
+        if let Some(h) = target.dyn_ref::<web_sys::HtmlElement>() {
+            let _ = h.focus();
+        }
+    }
+}
+
 #[component]
 pub fn TabPanel(
     tabs: Vec<TabDef>,
@@ -76,7 +135,7 @@ pub fn TabPanel(
                     type="button"
                     class="tab-panel__tab"
                     role="tab"
-                    aria-selected=move || active.get() == id
+                    aria-selected=move || (active.get() == id).to_string()
                     aria-controls=format!("{uid}-panel-{id}")
                     tabindex=move || if active.get() == id { "0" } else { "-1" }
                     on:click=move |_| active.set(id)
@@ -118,7 +177,7 @@ pub fn TabPanel(
                     aria-labelledby=format!("{uid}-tab-{id}")
                     tabindex="0"
                     hidden=move || active.get() != id
-                    aria-hidden=move || active.get() != id
+                    aria-hidden=move || (active.get() != id).to_string()
                 >
                     {tab.content}
                 </div>
@@ -290,6 +349,10 @@ pub fn ResizeHandle(
             attr:data-separator=move || if drag.get().is_some() { "active" } else { "idle" }
             role="separator"
             aria-orientation=orientation
+            aria-label=format!("Resize panels, {} split", orientation)
+            aria-valuenow=move || format!("{:.0}", a.value.get())
+            aria-valuemin=format!("{:.0}", a.min)
+            aria-valuemax=format!("{:.0}", a.max)
             tabindex="0"
             on:mousedown=on_down
             on:keydown=on_key

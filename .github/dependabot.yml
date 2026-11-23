@@ -29,3 +29,43 @@ updates:
       actions:
         patterns:
           - "*"
+
+  - package-ecosystem: cargo
+    directory: /rust
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 5
+    groups:
+      production-minor-and-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: cargo
+    directory: /ui
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Singapore
+    open-pull-requests-limit: 5
+    groups:
+      production-minor-and-patch:
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      development-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
